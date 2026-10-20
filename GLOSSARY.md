@@ -71,3 +71,18 @@ _Avoid_: Untouched worktree, pristine worktree
 The state of a worker whose pane is confirmed gone. A close request that
 WezTerm accepted is not enough.
 _Avoid_: Killed, terminated, closed
+
+**Launch**:
+A spawn or a resume that reached a pane. A launch that fails before the pane
+exists does not count.
+_Avoid_: Start, run, attempt
+
+**Request**:
+The span of work from one user prompt to the next. The limit on launches
+applies to one request.
+_Avoid_: Session, conversation, turn
+
+**Usage**:
+The tokens a worker used, summed from its transcript. A missing value is
+`unknown`, never an estimate.
+_Avoid_: Consumption, cost, billing

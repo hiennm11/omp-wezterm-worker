@@ -34,6 +34,8 @@ export interface EventCtx {
 /** The context a tool receives. */
 export interface ToolCtx {
 	cwd: string;
+	/** Read-only view of the calling session. */
+	sessionManager?: { getSessionFile?: () => string | null | undefined };
 }
 
 export interface ExtensionAPI {

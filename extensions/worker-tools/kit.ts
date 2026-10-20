@@ -4,6 +4,7 @@
 
 import type { ExtensionAPI } from "../lib/host.ts";
 import type { Job } from "../lib/job.ts";
+import type { Refusal } from "../lib/limits.ts";
 import type { WorkerRuntime } from "../lib/runtime.ts";
 
 export interface ToolDeps {
@@ -24,6 +25,11 @@ export function reply(text: string, details: Record<string, unknown>, isError?: 
 	const result: ToolResult = { content: [{ type: "text", text }], details };
 	if (isError !== undefined) result.isError = isError;
 	return result;
+}
+
+/** The refusal reply for a launch that a limit blocks. */
+export function refusalReply(refusal: Refusal): ToolResult {
+	return reply(refusal.message, { refused: refusal.rule }, true);
 }
 
 /** The worker with this id, or the error reply that names the known ids. */

@@ -27,6 +27,10 @@ export interface WorkerConfig {
 	isolated: boolean;
 	/** Close the worker pane when the worker finishes. */
 	closePaneOnFinish: boolean;
+	/** Refuse a launch when this many workers are active. 0 means no limit. */
+	maxActiveWorkers: number;
+	/** Refuse a launch after this many launches since the last user prompt. 0 means no limit. */
+	maxLaunchesPerRequest: number;
 }
 
 export const DEFAULT_CONFIG: WorkerConfig = {
@@ -42,11 +46,19 @@ export const DEFAULT_CONFIG: WorkerConfig = {
 	idleTimeoutMs: 0,
 	isolated: false,
 	closePaneOnFinish: true,
+	maxActiveWorkers: 1,
+	maxLaunchesPerRequest: 3,
 };
 
 /** Static string-keyed table: config key -> the config field it overrides. */
 const CONFIG_STRING_KEYS = ["ompBin", "weztermBin", "stateDir", "defaultCwd"] as const;
-const CONFIG_NUMBER_KEYS = ["pollMs", "timeoutMs", "idleTimeoutMs"] as const;
+const CONFIG_NUMBER_KEYS = [
+	"pollMs",
+	"timeoutMs",
+	"idleTimeoutMs",
+	"maxActiveWorkers",
+	"maxLaunchesPerRequest",
+] as const;
 const CONFIG_BOOLEAN_KEYS = ["isolated", "closePaneOnFinish"] as const;
 
 export function defaultConfigFile(): string {

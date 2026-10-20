@@ -19,6 +19,8 @@ import { listSessionFiles, summarizeSession } from "./transcript.ts";
 import { createWorktree } from "./worktree.ts";
 
 export interface SpawnParams {
+	/** Id reserved by `admitLaunch`. */
+	jobId: string;
 	task: string;
 	cwd?: string;
 	label?: string;
@@ -49,7 +51,7 @@ function ompArgv(job: Job, resumeFile: string | null, trailing: string | undefin
 
 export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promise<Job> {
 	const { config } = rt;
-	const jobId = rt.nextJobId();
+	const { jobId } = params;
 	const job: Job = {
 		id: jobId,
 		label: params.label || jobId,
@@ -132,13 +134,14 @@ export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promi
 export async function resumeWorker(
 	rt: WorkerRuntime,
 	source: Job,
-	params: { message?: string; placement?: Placement },
+	params: { jobId: string; message?: string; placement?: Placement },
 ): Promise<Job> {
-	const jobId = rt.nextJobId();
+	const { jobId } = params;
 	const sessionFile = source.sessionFile;
 	if (!sessionFile || !existsSync(sessionFile)) {
 		const failed: Job = {
 			...source,
+			...freshRunState(Date.now()),
 			id: jobId,
 			status: "failed",
 			error: `The worker has no transcript to resume: ${source.sessionFile ?? "(none)"}`,

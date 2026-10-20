@@ -171,7 +171,7 @@ test("a worker past its deadline is stopped and its pane is confirmed closed", {
 			task: LONG_TASK,
 			cwd: repo,
 			label: "deadline",
-			timeoutMs: 20_000,
+			timeoutMs: 5_000,
 		});
 		const workerId = detailString(spawned.details, "workerId") ?? "";
 		const paneId = detailNumber(spawned.details, "paneId") ?? -1;

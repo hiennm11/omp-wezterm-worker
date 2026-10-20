@@ -138,7 +138,7 @@ test("the worker lifecycle, with a real worker", {
 			"The resumed worker did not answer the new message",
 		);
 
-		second.cleanup();
+		await second.cleanup();
 	} finally {
 		await host.cleanup();
 		removeDir(repo);

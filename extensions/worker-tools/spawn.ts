@@ -4,9 +4,10 @@
 
 import type { Placement } from "../lib/config.ts";
 import type { ToolCtx } from "../lib/host.ts";
+import { admitLaunch } from "../lib/limits.ts";
 import { monitorJob } from "../lib/monitor.ts";
 import { spawnWorker } from "../lib/spawn.ts";
-import { reply, type ToolDeps } from "./kit.ts";
+import { refusalReply, reply, type ToolDeps } from "./kit.ts";
 
 interface Params {
 	task: string;
@@ -73,7 +74,10 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 		async execute(_id: string, params: Params, _signal: unknown, _onUpdate: unknown, ctx: ToolCtx) {
 			const placement: Placement =
 				params.placement === "tab" || params.placement === "split" ? params.placement : rt.config.placement;
+			const admitted = admitLaunch(rt, ctx.sessionManager?.getSessionFile?.());
+			if ("refusal" in admitted) return refusalReply(admitted.refusal);
 			const job = await spawnWorker(rt, {
+				jobId: admitted.jobId,
 				task: params.task,
 				cwd: params.cwd || ctx.cwd,
 				label: params.label,

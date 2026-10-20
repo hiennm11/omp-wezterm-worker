@@ -28,6 +28,7 @@ import { loadConfig } from "./lib/config.ts";
 import { createDeliver } from "./lib/deliver.ts";
 import type { ExtensionAPI } from "./lib/host.ts";
 import { settleDetachedJob } from "./lib/lifecycle.ts";
+import { startRequest } from "./lib/limits.ts";
 import { monitorJob } from "./lib/monitor.ts";
 import { paneState } from "./lib/pane.ts";
 import { createRuntime } from "./lib/runtime.ts";
@@ -90,6 +91,9 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		for (const timer of rt.monitors.values()) clearInterval(timer);
 		rt.monitors.clear();
 	});
+
+	// A user prompt starts a new request. A worker result does not fire `input`.
+	pi.on("input", () => startRequest(rt));
 
 	// Report a failed poll through the host logger, so a broken worker poll
 	// is visible instead of silently swallowed.

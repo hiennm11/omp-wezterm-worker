@@ -2,10 +2,12 @@
  * wezterm_worker_resume
  */
 
+import type { ToolCtx } from "../lib/host.ts";
 import { isActive } from "../lib/job.ts";
+import { admitLaunch } from "../lib/limits.ts";
 import { monitorJob } from "../lib/monitor.ts";
 import { resumeWorker } from "../lib/spawn.ts";
-import { findJob, reply, type ToolDeps } from "./kit.ts";
+import { findJob, refusalReply, reply, type ToolDeps } from "./kit.ts";
 
 export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 	const z = pi.zod;
@@ -25,7 +27,13 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 			placement: z.string().optional().describe("'split' (default) or 'tab'."),
 		}),
 		loadMode: "essential",
-		async execute(_id: string, params: { workerId: string; message?: string; placement?: string }) {
+		async execute(
+			_id: string,
+			params: { workerId: string; message?: string; placement?: string },
+			_signal: unknown,
+			_onUpdate: unknown,
+			ctx: ToolCtx,
+		) {
 			const found = findJob(rt, params.workerId);
 			if ("error" in found) return found.error;
 			const { job } = found;
@@ -36,7 +44,10 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 					true,
 				);
 			}
+			const admitted = admitLaunch(rt, ctx.sessionManager?.getSessionFile?.());
+			if ("refusal" in admitted) return refusalReply(admitted.refusal);
 			const resumed = await resumeWorker(rt, job, {
+				jobId: admitted.jobId,
 				message: params.message,
 				placement: params.placement === "tab" ? "tab" : "split",
 			});

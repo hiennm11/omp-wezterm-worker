@@ -36,6 +36,8 @@ test("the file overrides the defaults", () => {
 		idleTimeoutMs: 2000,
 		isolated: true,
 		closePaneOnFinish: false,
+		maxActiveWorkers: 4,
+		maxLaunchesPerRequest: 9,
 	});
 	const cfg = loadConfig(file, {});
 	assert.equal(cfg.ompBin, "/opt/omp");
@@ -50,6 +52,8 @@ test("the file overrides the defaults", () => {
 	assert.equal(cfg.idleTimeoutMs, 2000);
 	assert.equal(cfg.isolated, true);
 	assert.equal(cfg.closePaneOnFinish, false);
+	assert.equal(cfg.maxActiveWorkers, 4);
+	assert.equal(cfg.maxLaunchesPerRequest, 9);
 });
 
 test("the environment wins over the file", () => {

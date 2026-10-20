@@ -25,6 +25,7 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0004-deliver-with-send-user-message.md",
 	"docs/adr/0005-use-the-host-managed-timers.md",
 	"docs/adr/0006-stopped-means-confirmed.md",
+	"docs/adr/0007-limits-and-usage-enforced-in-code.md",
 ];
 
 export interface DocumentResult {

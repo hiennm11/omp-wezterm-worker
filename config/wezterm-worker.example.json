@@ -10,5 +10,7 @@
 	"timeoutMs": 1800000,
 	"idleTimeoutMs": 0,
 	"isolated": false,
-	"closePaneOnFinish": true
+	"closePaneOnFinish": true,
+	"maxActiveWorkers": 1,
+	"maxLaunchesPerRequest": 3
 }

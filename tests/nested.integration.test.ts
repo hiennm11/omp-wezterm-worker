@@ -1,0 +1,103 @@
+/**
+ * The launch limits, with a real worker in a real pane.
+ *
+ * A worker process loads this extension from the OMP plugin link, so it has
+ * the spawn tool. The code must refuse that call. The host in this test acts
+ * as the main session and fires `input` as one user prompt.
+ */
+
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
+
+import { createHost, currentPanes, detailString, removeDir, sessionContext, waitFor } from "./harness.ts";
+
+function hasProgram(name: string): boolean {
+	const probe = spawnSync(name, ["--version"], { windowsHide: true, encoding: "utf8" });
+	return probe.status === 0 || probe.status === 1;
+}
+
+const CAN_RUN = hasProgram("omp") && hasProgram("wezterm");
+
+/** A task that keeps the worker busy for a while. */
+const LONG_TASK =
+	"Count from 1 to 200 slowly. Write one number per line into a file named count.txt " +
+	"in the current working directory, using the write tool, one number at a time. " +
+	"Then reply with the word DONE.";
+
+test("a worker cannot launch a worker", {
+	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+}, async () => {
+	const repo = mkdtempSync(join(tmpdir(), "wt-nested-"));
+	const stateDir = mkdtempSync(join(tmpdir(), "wt-nested-state-"));
+	const host = createHost({ stateDir, cwd: repo });
+	await host.fire("session_start", sessionContext(repo));
+	await host.fire("input", {});
+
+	try {
+		const panesBefore = currentPanes();
+		const spawned = await host.call("wezterm_spawn_worker", {
+			task:
+				"Call the tool wezterm_spawn_worker with the task 'Reply OK'. " +
+				"Then reply with the exact text of the tool result, and nothing else.",
+			cwd: repo,
+			label: "nested",
+		});
+		const workerId = detailString(spawned.details, "workerId") ?? "";
+		assert.ok(workerId, `The spawn tool returned no worker id: ${host.text(spawned)}`);
+
+		const finished = await waitFor(
+			async () => {
+				const status = await host.call("wezterm_worker_status", { workerId });
+				return /COMPLETED|FAILED|CANCELLED/.test(host.text(status));
+			},
+			180_000,
+			1000,
+		);
+		const status = await host.call("wezterm_worker_status", { workerId });
+		assert.ok(finished, `The worker did not finish: ${host.text(status)}`);
+		assert.match(host.text(status), /COMPLETED/, `The worker did not complete: ${host.text(status)}`);
+
+		const delivered = await waitFor(() => host.delivered.some((t) => t.includes(workerId)), 20_000, 250);
+		assert.ok(delivered, "The extension did not deliver the result");
+		const result = host.delivered.find((t) => t.includes(workerId)) ?? "";
+		assert.match(result, /cannot launch another worker/);
+
+		// Only the worker's own pane may have appeared: it closes when the worker ends.
+		const settled = await waitFor(() => currentPanes().every((p) => panesBefore.includes(p)), 20_000, 500);
+		assert.ok(settled, "The refused nested launch left a pane open");
+	} finally {
+		await host.cleanup();
+		removeDir(repo);
+	}
+});
+
+test("a second spawn is refused while one worker is active", {
+	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+}, async () => {
+	const repo = mkdtempSync(join(tmpdir(), "wt-limit-"));
+	const stateDir = mkdtempSync(join(tmpdir(), "wt-limit-state-"));
+	const host = createHost({ stateDir, cwd: repo });
+	await host.fire("session_start", sessionContext(repo));
+	await host.fire("input", {});
+
+	try {
+		const first = await host.call("wezterm_spawn_worker", { task: LONG_TASK, cwd: repo, label: "first" });
+		assert.ok(
+			detailString(first.details, "workerId"),
+			`The first spawn returned no worker id: ${host.text(first)}`,
+		);
+		const panesAfterFirst = currentPanes().sort();
+
+		const second = await host.call("wezterm_spawn_worker", { task: "Reply OK", cwd: repo, label: "second" });
+		assert.equal(second.isError, true);
+		assert.equal(detailString(second.details, "refused"), "maxActiveWorkers");
+		assert.deepEqual(currentPanes().sort(), panesAfterFirst);
+	} finally {
+		await host.cleanup();
+		removeDir(repo);
+	}
+});

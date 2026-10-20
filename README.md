@@ -207,7 +207,9 @@ screen text is never scraped for results.
 	"timeoutMs": 1800000,
 	"idleTimeoutMs": 0,
 	"isolated": false,
-	"closePaneOnFinish": true
+	"closePaneOnFinish": true,
+	"maxActiveWorkers": 1,
+	"maxLaunchesPerRequest": 3
 }
 ```
 
@@ -221,6 +223,13 @@ Environment overrides: `OMP_WORKER_OMP_BIN`, `OMP_WORKER_WEZTERM_BIN`,
 - `closePaneOnFinish` — close the worker's pane when it finishes. `true` by
   default, so a finished worker does not leave a pane behind. Set `false` to
   keep the pane open so the user can read the worker's screen.
+- `maxActiveWorkers` — refuse a spawn or a resume while this many workers are
+  active. The default is `1`. `0` disables the limit. A worker whose stop is
+  not confirmed counts as active.
+- `maxLaunchesPerRequest` — refuse a launch after this many launches since the
+  last user prompt. The default is `3`. `0` disables the limit.
+- A worker cannot launch a worker. The code refuses the call and the error
+  names the rule. See `docs/adr/0007-limits-and-usage-enforced-in-code.md`.
 
 ## Worker lifecycle
 
@@ -373,6 +382,7 @@ omp-wezterm-worker/
 │   │   ├── pane.ts              the WezTerm panes
 │   │   ├── worktree.ts          the isolated git worktree
 │   │   ├── spawn.ts             starting and resuming a worker
+│   │   ├── limits.ts            the launch limits and the nested-worker rule
 │   │   ├── monitor.ts           watching a worker and the deadline rules
 │   │   ├── lifecycle.ts         finishing and cancelling a worker
 │   │   ├── steer.ts             steering a running worker
@@ -400,10 +410,12 @@ omp-wezterm-worker/
 │   ├── config.test.ts           the config file
 │   ├── registry.test.ts         the registry file
 │   ├── stop.test.ts             a stop that waits for the pane to close
+│   ├── limits.test.ts           the launch limits
 │   ├── monitor.test.ts          the timeout, the idle limit and the result rule
 │   ├── architecture.test.ts     the size, import and runtime rules
 │   ├── ste100.test.ts           the checker and the document scores
 │   ├── worker.integration.test.ts    a real worker in a real pane
+│   ├── nested.integration.test.ts    the launch limits with a real worker
 │   └── worktree.integration.test.ts  the worktree of a real worker
 ├── docs/
 │   └── adr/                     the decisions and their reasons
@@ -452,6 +464,8 @@ test.
 | `stop.test.ts` | A cancel ends a worker only when the pane list shows the pane gone. An unreadable pane list does not count as a closed pane. An unconfirmed stop leaves the worker running, and a retry ends it. |
 | `monitor.test.ts` | A worker with no deadline never times out. An active worker still times out at the total deadline. A worker that keeps writing is not stopped as idle. A resumed worker does not report its old answer. |
 | `architecture.test.ts` | No source file exceeds 350 lines. The `lib/` folder never imports the entry or `worker-tools/`. Only `lib/process.ts` starts a child process. Only the entry creates the runtime. |
+| `limits.test.ts` | One active worker blocks a launch at the default limit. A worker with an unconfirmed stop still counts. A launch that failed before its pane existed does not count. A worker session cannot launch a worker. A user prompt resets the request count. |
+| `nested.integration.test.ts` | A real worker cannot launch a worker and opens no pane. A second spawn is refused while one worker is active. |
 | `ste100.test.ts` | Each agent-facing document reaches the required score. |
 | `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |

@@ -50,6 +50,8 @@ export interface WorkerRuntime {
 	stopConfirm: { attempts: number; intervalMs: number };
 	/** Ids of the workers with a stop in flight. */
 	readonly stopping: Set<string>;
+	/** Ids of the workers launched since the last user prompt. */
+	requestLaunches: string[];
 }
 
 export function createRuntime(exec: RunFn = run): WorkerRuntime {
@@ -61,6 +63,7 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 		errors: [],
 		stopConfirm: { attempts: 20, intervalMs: 250 },
 		stopping: new Set(),
+		requestLaunches: [],
 		timers: {
 			setInterval: (fn, ms) => {
 				const timer = setInterval(fn, ms);

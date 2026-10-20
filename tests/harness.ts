@@ -42,6 +42,8 @@ export interface TestHost {
 	stateDir: string;
 	/** The panes that this host created. */
 	panes: Set<number>;
+	/** The ids of the workers that this host started or resumed. */
+	workers: Set<string>;
 	/** Run every handler for one event. */
 	fire(event: string, ctx: unknown): Promise<void>;
 	/** Call a tool by name. */
@@ -130,6 +132,7 @@ export function createHost(options: { stateDir?: string; cwd: string }): TestHos
 		labels: [],
 		stateDir,
 		panes: new Set(),
+		workers: new Set(),
 		async fire(event, ctx) {
 			for (const entry of host.handlers) {
 				if (entry.event === event) await entry.handler({}, ctx);
@@ -144,21 +147,31 @@ export function createHost(options: { stateDir?: string; cwd: string }): TestHos
 			if (name === "wezterm_spawn_worker" || name === "wezterm_worker_resume") {
 				const paneId = detailNumber(result.details, "paneId");
 				if (paneId !== null) host.panes.add(paneId);
+				const workerId = detailString(result.details, "workerId");
+				if (workerId !== null) host.workers.add(workerId);
 			}
 			return result;
 		},
 		text(result) {
 			return result.content.map((c) => c.text).join("\n");
 		},
-		cleanup() {
+		async cleanup() {
+			// The extension runtime is shared by every host in one test file.
+			// Cancel each worker first, so a running job does not block the
+			// next spawn through maxActiveWorkers. A finished worker answers
+			// with an error, which does not matter here.
+			const workers = [...host.workers];
+			host.workers.clear();
+			for (const workerId of workers) {
+				await host.call("wezterm_worker_cancel", { workerId });
+			}
 			// A worker process holds its working directory open. Close its pane
 			// first and wait for the pane to go, so the process can let go of
 			// the directory.
 			const panes = [...host.panes];
 			host.panes.clear();
-			return closePanesAndWait(panes).then(() => {
-				removeDir(stateDir);
-			});
+			await closePanesAndWait(panes);
+			removeDir(stateDir);
 		},
 	};
 

@@ -13,8 +13,8 @@
 	],
 	"scripts": {
 		"test": "node --test --test-concurrency=1 tests/*.test.ts",
-		"test:unit": "node --test tests/transcript.test.ts tests/config.test.ts tests/registry.test.ts tests/monitor.test.ts tests/job.test.ts tests/lifecycle.test.ts tests/architecture.test.ts tests/ste100.test.ts tests/stop.test.ts",
-		"test:integration": "node --test --test-concurrency=1 tests/worker.integration.test.ts tests/worktree.integration.test.ts tests/result.integration.test.ts tests/live-worker.integration.test.ts",
+		"test:unit": "node --test tests/transcript.test.ts tests/config.test.ts tests/registry.test.ts tests/monitor.test.ts tests/job.test.ts tests/lifecycle.test.ts tests/architecture.test.ts tests/ste100.test.ts tests/stop.test.ts tests/limits.test.ts",
+		"test:integration": "node --test --test-concurrency=1 tests/worker.integration.test.ts tests/worktree.integration.test.ts tests/result.integration.test.ts tests/live-worker.integration.test.ts tests/nested.integration.test.ts",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
