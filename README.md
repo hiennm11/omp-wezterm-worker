@@ -58,6 +58,25 @@ Environment overrides: `OMP_BIN`, `OMP_AGENT_DIR`.
 Removes the plugin link, the config file and the runtime state directory. No
 core OMP file is touched.
 
+## Moving an OMP session into a project
+
+`scripts/move-session.sh` relocates an existing OMP transcript so it belongs to
+a different project directory:
+
+```bash
+"C:/Program Files/Git/bin/bash.exe" scripts/move-session.sh <session-file-or-id> <target-dir>
+```
+
+The session must not be owned by a running omp process — a live session cannot
+be relocated from outside, and the interactive `/move` command needs a
+confirmation picker that a script cannot drive. The script therefore resumes
+the transcript in a short-lived omp process and moves it there with the
+documented `SessionManager.moveTo(cwd)` path. The transcript, its artifacts and
+its session id are preserved; only the owning project changes.
+
+The interactive alternative, if you are in the TUI: type `/move <dir>` and
+confirm the picker.
+
 ## Tools
 
 | Tool | Purpose |
@@ -186,7 +205,9 @@ omp-wezterm-worker/
 ├── scripts/
 │   ├── _paths.sh                shared Windows-path helpers
 │   ├── install.sh               link the plugin + write the config
-│   └── uninstall.sh             unlink + remove the config and state
+│   ├── uninstall.sh             unlink + remove the config and state
+│   ├── move-session.sh          relocate an OMP session into a project
+│   └── move-session.ts          the move helper extension it loads
 ├── config/
 │   └── wezterm-worker.example.json
 ├── package.json                 omp/pi manifest: omp.extensions
