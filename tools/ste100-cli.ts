@@ -15,6 +15,7 @@ export const REQUIRED_SCORE = 80;
 
 /** The documents the agents read. Their score must reach the limit. */
 export const CHECKED_DOCUMENTS = [
+	"AGENTS.md",
 	"GLOSSARY.md",
 	"README.md",
 	"skills/wezterm-omp-pane-ops/SKILL.md",

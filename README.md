@@ -183,9 +183,9 @@ source of truth for the result.
    inherit history).
 3. The extension polls the worker's session JSONL for a final assistant text
    block with no outstanding tool call.
-4. On completion the result is pushed back with `pi.sendMessage`
-   (`deliverAs: "followUp"`, `triggerTurn: true`, `attribution: "agent"`), so
-   the main agent receives it without the user reading a file.
+4. On completion the result is delivered with `pi.sendUserMessage`
+   (`triggerTurn: true`), so the main agent starts a turn and acts on it
+   without the user reading a file. See `docs/adr/0004-deliver-with-send-user-message.md`.
 
 The worker's **session file is the source of truth** for the result — pane
 screen text is never scraped for results.
@@ -352,12 +352,27 @@ pane or a session move.
 ```text
 omp-wezterm-worker/
 ├── extensions/
-│   ├── wezterm-worker.ts        the extension (8 tools)
-│   └── lib/
-│       ├── config.ts            the config file and the defaults
-│       ├── job.ts               the worker record
-│       ├── registry.ts          the registry file
-│       └── transcript.ts        reading a worker's transcript
+│   ├── wezterm-worker.ts        the entry: wires the runtime, the events and the tools
+│   ├── lib/                     the worker lifecycle, with no tool schema
+│   │   ├── config.ts            the config file and the defaults
+│   │   ├── job.ts               the worker record and its run state
+│   │   ├── registry.ts          the registry file
+│   │   ├── transcript.ts        reading a worker's transcript
+│   │   ├── runtime.ts           the shared state and the services (the test seam)
+│   │   ├── process.ts           running a child process
+│   │   ├── host.ts              the shape of the OMP extension API
+│   │   ├── pane.ts              the WezTerm panes
+│   │   ├── worktree.ts          the isolated git worktree
+│   │   ├── spawn.ts             starting and resuming a worker
+│   │   ├── monitor.ts           watching a worker and the deadline rules
+│   │   ├── lifecycle.ts         finishing and cancelling a worker
+│   │   ├── steer.ts             steering a running worker
+│   │   └── deliver.ts           delivering a result to the main session
+│   └── worker-tools/            one module for each tool
+│       ├── kit.ts               the shared reply and the worker lookup
+│       ├── spawn.ts, status.ts, steer.ts, peek.ts
+│       ├── result.ts, resume.ts, cancel.ts, cleanup.ts
+│       └── roster.ts            the /wezterm-workers command
 ├── scripts/
 │   ├── _paths.sh                shared Windows-path helpers
 │   ├── install.sh               link the plugin + write the config + install the skill
@@ -375,6 +390,8 @@ omp-wezterm-worker/
 │   ├── transcript.test.ts       reading a transcript
 │   ├── config.test.ts           the config file
 │   ├── registry.test.ts         the registry file
+│   ├── monitor.test.ts          the timeout, the idle limit and the result rule
+│   ├── architecture.test.ts     the size, import and runtime rules
 │   ├── ste100.test.ts           the checker and the document scores
 │   ├── worker.integration.test.ts    a real worker in a real pane
 │   └── worktree.integration.test.ts  the worktree of a real worker
@@ -382,6 +399,7 @@ omp-wezterm-worker/
 │   └── adr/                     the decisions and their reasons
 ├── config/
 │   └── wezterm-worker.example.json
+├── AGENTS.md                    the rules for work in this repository
 ├── GLOSSARY.md                  the terms of this domain
 ├── biome.json                   the lint and format rules
 ├── package.json                 the scripts and the omp/pi manifest
@@ -421,6 +439,8 @@ test.
 | `transcript.test.ts` | A preamble is not the result. A new user message resets the counts. A resumed worker reports only a turn beyond its baseline. |
 | `config.test.ts` | The environment wins over the file. A value of the wrong type leaves the default. A malformed file leaves the defaults. |
 | `registry.test.ts` | A running worker with a pane comes back as alive. A job of the wrong shape does not break the load. The write is atomic. |
+| `monitor.test.ts` | A worker with no deadline never times out. An active worker still times out at the total deadline. A worker that keeps writing is not stopped as idle. A resumed worker does not report its old answer. |
+| `architecture.test.ts` | No source file exceeds 350 lines. The `lib/` folder never imports the entry or `worker-tools/`. Only `lib/process.ts` starts a child process. Only the entry creates the runtime. |
 | `ste100.test.ts` | Each agent-facing document reaches the required score. |
 | `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
