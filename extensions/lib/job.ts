@@ -62,3 +62,61 @@ export interface Job {
 	/** Set once the pane has been closed by the extension. */
 	paneClosed: boolean;
 }
+
+/** A worker that has not finished yet. */
+export function isActive(job: Job): boolean {
+	return job.status === "running" || job.status === "queued";
+}
+
+/** Mark a worker failed. The caller persists the registry. */
+export function failJob(job: Job, reason: string): void {
+	job.status = "failed";
+	job.error = reason;
+	job.finishedAt = Date.now();
+}
+
+/** The fields a worker run starts with. A spawn and a resume both begin from here. */
+export type RunState = Pick<
+	Job,
+	| "status"
+	| "paneId"
+	| "tabId"
+	| "windowId"
+	| "createdAt"
+	| "startedAt"
+	| "finishedAt"
+	| "result"
+	| "error"
+	| "worktreeDirty"
+	| "cancelled"
+	| "lastActivityAt"
+	| "currentTool"
+	| "turns"
+	| "baselineTurns"
+	| "steers"
+	| "lastTranscriptSize"
+	| "paneClosed"
+>;
+
+export function freshRunState(now: number): RunState {
+	return {
+		status: "queued",
+		paneId: null,
+		tabId: null,
+		windowId: null,
+		createdAt: now,
+		startedAt: null,
+		finishedAt: null,
+		result: null,
+		error: null,
+		worktreeDirty: null,
+		cancelled: false,
+		lastActivityAt: now,
+		currentTool: null,
+		turns: 0,
+		baselineTurns: 0,
+		steers: 0,
+		lastTranscriptSize: 0,
+		paneClosed: false,
+	};
+}
