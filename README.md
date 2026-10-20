@@ -144,11 +144,30 @@ The worker receives it as a follow-up user message and continues from its
 current state. Steering does not cancel the worker and does not lose the
 result: the final answer is still delivered back automatically.
 
+Steering a worker that has already finished reports that fact instead of
+sending text into a dead pane.
+
 Implementation note: `wezterm cli send-text` pastes by default, and a pasted
 block never submits in the OMP TUI — the text lands in the composer but the
 Enter key never arrives. Steering therefore uses `--no-paste`, which delivers
 the bytes as individual key events, plus a trailing `"\r"` that the worker
 receives as a real Enter.
+
+### Watching a worker
+
+`wezterm_worker_status` reports, for each worker:
+
+| Field | Meaning |
+|---|---|
+| `elapsed` | Wall-clock time since the worker started, plus the deadline it will hit. |
+| `idle` | Time since the worker last wrote to its transcript. A worker that is thinking or waiting on a slow tool still writes, so a growing `idle` means it is stuck. |
+| `running` | The tool the worker is inside right now, when there is one. |
+| `turns` | How many assistant turns the worker has taken. |
+| `steers` | How many steering messages were sent into this worker. |
+
+`wezterm_worker_peek` shows the last lines rendered in the worker's pane. It
+is a debug aid for a worker that looks stuck. The transcript remains the only
+source of truth for the result.
 
 ## How it works
 
