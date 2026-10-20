@@ -16,8 +16,8 @@
 # to_win_path <path> -> Windows path with forward slashes
 #
 # Handles the path shapes this project actually sees:
-#   C:\Users\Admin       (native Windows)
-#   C:/Users/Admin       (already converted)
+#   C:\Users\<you>       (native Windows)
+#   C:/Users/<you>       (already converted)
 #   /d/repos/x           (Git Bash drive-root form)
 #   /mnt/d/repos/x       (MSYS-style drive mount)
 #   /home/user           (MSYS home)
