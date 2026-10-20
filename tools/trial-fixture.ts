@@ -7,7 +7,6 @@
 
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 /** The module of the fixture. The bug is that `subtract` adds. */
@@ -40,9 +39,12 @@ test("subtract subtracts two numbers", () => {
  *
  * The repository holds one commit on the branch `main`, so a worker that
  * works in an isolated worktree can be compared with `main`.
+ *
+ * The fixture lives under the trial directory of the project, so the report
+ * can name it with a path that is relative to the project.
  */
-export function makeFixture(): string {
-	const dir = mkdtempSync(join(tmpdir(), "wt-trial-fixture-"));
+export function makeFixture(root: string): string {
+	const dir = mkdtempSync(join(root, "fixture-"));
 	mkdirSync(join(dir, "src"), { recursive: true });
 	mkdirSync(join(dir, "test"), { recursive: true });
 	writeFileSync(join(dir, "src", "math.mjs"), FIXTURE_MATH, "utf8");

@@ -12,11 +12,12 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { release as osRelease, type as osType, tmpdir } from "node:os";
+import { homedir, release as osRelease, type as osType } from "node:os";
 import { dirname, join } from "node:path";
 
 import { closePanesAndWait, createHost, sessionContext } from "../tests/harness.ts";
 import { makeFixture } from "./trial-fixture.ts";
+import { PROJECT_ROOT } from "./trial-paths.ts";
 import { renderTrialReport, type ScenarioResult, type TrialRun, trialPassed } from "./trial-report.ts";
 import { notStarted } from "./trial-scenario.ts";
 import { cancelScenario, fixScenario, surveyScenario, timeoutScenario } from "./trial-scenarios.ts";
@@ -24,6 +25,9 @@ import { FIX_TASK, LONG_TASK, SURVEY_TASK, TRIAL_MODEL } from "./trial-tasks.ts"
 
 /** The report of the trial, relative to the repository root. */
 const REPORT = "docs/trials/windows-trial.md";
+
+/** The directory that holds the state and the fixture of the trial. */
+const TRIAL_ROOT = join(PROJECT_ROOT, ".trial");
 
 /** One scenario of the trial. */
 interface Scenario {
@@ -64,8 +68,11 @@ async function main(): Promise<number> {
 		return 2;
 	}
 
-	const stateDir = mkdtempSync(join(tmpdir(), "wt-trial-state-"));
-	const fixture = makeFixture();
+	// The state and the fixture live under the project, so the report can
+	// name them with a path that is relative to the project.
+	mkdirSync(TRIAL_ROOT, { recursive: true });
+	const stateDir = mkdtempSync(join(TRIAL_ROOT, "state-"));
+	const fixture = makeFixture(TRIAL_ROOT);
 	const host = createHost({ stateDir, cwd: fixture });
 	await host.fire("session_start", sessionContext(fixture));
 
@@ -102,6 +109,13 @@ async function main(): Promise<number> {
 		},
 		model: TRIAL_MODEL,
 		stateDir,
+		// The paths of this machine never appear in the report. The trial
+		// directory becomes a label, and the home directory becomes one too.
+		roots: [
+			{ absolute: stateDir, label: "<trial state>" },
+			{ absolute: fixture, label: "<trial fixture>" },
+			{ absolute: homedir(), label: "<home>" },
+		],
 		scenarios,
 	};
 	const report = join(process.cwd(), REPORT);

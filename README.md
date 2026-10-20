@@ -411,6 +411,7 @@ omp-wezterm-worker/
 │   ├── ste100-cli.ts            the checker command line
 │   ├── trial.ts                 the Windows trial runner
 │   ├── trial-report.ts          the text of the trial report
+│   ├── trial-paths.ts           the paths that the report hides
 │   ├── trial-scenarios.ts       the four scenarios of the trial
 │   ├── trial-scenario.ts        the helpers of the scenarios
 │   ├── trial-tasks.ts           the task texts of the trial
@@ -426,6 +427,7 @@ omp-wezterm-worker/
 │   ├── architecture.test.ts     the size, import and runtime rules
 │   ├── ste100.test.ts           the checker and the document scores
 │   ├── trial-report.test.ts     the text of the Windows trial report
+│   ├── trial-paths.test.ts      the paths that the report hides
 │   ├── worker.integration.test.ts    a real worker in a real pane
 │   ├── nested.integration.test.ts    the launch limits with a real worker
 │   └── worktree.integration.test.ts  the worktree of a real worker
@@ -485,9 +487,26 @@ test.
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
 | `result.integration.test.ts` | The result tool returns the answer of a finished worker. |
 | `live-worker.integration.test.ts` | A running worker can be steered, peeked at and cancelled. A steering message reaches the worker. A cancel closes only the pane that the extension created. A worker past its deadline is stopped and its pane is confirmed closed. |
+| `trial-report.test.ts` | The report names a failing check. A check detail stays on one line. The report holds no path of the machine. |
+| `trial-paths.test.ts` | A path under the project becomes a relative path. A path outside it becomes a placeholder. The name of the user never appears. |
 
-The last three run a real `omp` worker in a real WezTerm pane. They take about
-a minute each.
+The three integration tests run a real `omp` worker in a real WezTerm pane. They
+take about a minute each.
+
+### The Windows trial
+
+`npm run trial` runs four real tasks with real workers: a survey, a fix that a
+test proves, a timeout and a cancel. It writes the report to
+`docs/trials/windows-trial.md` and exits with 1 when a check fails.
+
+The trial keeps its state, its fixture and its worktrees under `.trial/` in
+the project. The directory is in `.gitignore`, and it is never deleted: the
+transcripts are the evidence of the run.
+
+The report is a public document, so it holds no path of the machine that ran
+the trial. A path under the project becomes a relative path, and every other
+path becomes a placeholder such as `<trial state>`. The name of the user
+account never appears in the report.
 
 ### The writing standard
 

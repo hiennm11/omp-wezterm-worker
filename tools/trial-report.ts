@@ -6,6 +6,7 @@
  */
 
 import { combineReports, formatUsage, type UsageReport } from "../extensions/lib/usage.ts";
+import { redactHome, replaceRoots, reportPath, type TrialRoot } from "./trial-paths.ts";
 
 /** One check that a scenario ran. */
 export interface TrialCheck {
@@ -46,6 +47,8 @@ export interface TrialRun {
 	model: string;
 	/** The directory that holds the registry and the transcripts. */
 	stateDir: string;
+	/** The paths of this machine that must not appear in the report. */
+	roots: TrialRoot[];
 	/** The scenarios of the run, in the order they ran. */
 	scenarios: ScenarioResult[];
 }
@@ -82,6 +85,10 @@ const NOTES = [
 
 /** The report of one trial run, as markdown. */
 export function renderTrialReport(run: TrialRun): string {
+	// A worker writes paths of its own into its answer. Every path of this
+	// machine is replaced before the report is written, so the report holds
+	// no name of the user account.
+	const clean = (text: string): string => redactHome(replaceRoots(text, run.roots));
 	const lines: string[] = [];
 	lines.push("# Windows trial");
 	lines.push("");
@@ -95,7 +102,7 @@ export function renderTrialReport(run: TrialRun): string {
 	lines.push(`| Node | ${run.environment.node} |`);
 	lines.push(`| OMP | ${run.environment.omp} |`);
 	lines.push(`| WezTerm | ${run.environment.wezterm} |`);
-	lines.push(`| State directory | ${run.stateDir} |`);
+	lines.push(`| State directory | ${reportPath(run.stateDir)} |`);
 	lines.push("");
 	lines.push("## Summary");
 	lines.push("");
@@ -119,7 +126,7 @@ export function renderTrialReport(run: TrialRun): string {
 		lines.push("");
 		lines.push(`Worker: ${scenario.workerId ?? "none"}.`);
 		lines.push("");
-		lines.push(`Transcript: ${scenario.transcript ?? "none"}.`);
+		lines.push(`Transcript: ${scenario.transcript === null ? "none" : reportPath(scenario.transcript)}.`);
 		lines.push("");
 		lines.push("The task was:");
 		lines.push("");
@@ -129,7 +136,7 @@ export function renderTrialReport(run: TrialRun): string {
 		lines.push("");
 		for (const check of scenario.checks) {
 			const mark = check.pass ? "PASS" : "FAIL";
-			lines.push(`- ${mark}: ${check.name}. ${oneLine(check.detail)}`);
+			lines.push(`- ${mark}: ${check.name}. ${oneLine(clean(check.detail))}`);
 		}
 		lines.push("");
 	}

@@ -7,6 +7,9 @@ bun.lockb
 wezterm-workers/
 *.log
 
+# The Windows trial keeps its state and its fixture here
+.trial/
+
 # Editor / OS
 .DS_Store
 Thumbs.db
