@@ -83,12 +83,12 @@ confirm the picker.
 | Tool | Purpose |
 |---|---|
 | `wezterm_spawn_worker` | Start a worker. Returns worker id, pane id, tab id, cwd, transcript path. Does not wait. |
-| `wezterm_worker_status` | List workers, or inspect one by id. Shows lifecycle state, elapsed time, idle time, the tool running right now, turn count and steering count. |
+| `wezterm_worker_status` | List workers, or inspect one by id. Shows lifecycle state, elapsed time, idle time, the tool running right now, turn count, steering count, the tokens used, and a pending stop. |
 | `wezterm_worker_steer` | Send a new instruction into a **running** worker. It arrives as a follow-up user message and the worker keeps going. |
 | `wezterm_worker_peek` | Show the last visible lines of a worker's pane. A debug aid for a worker that looks stuck. |
 | `wezterm_worker_result` | Read a finished worker's final assistant text. |
 | `wezterm_worker_resume` | Reopen a **finished** worker in a new pane, continuing its transcript, optionally with a follow-up instruction. |
-| `wezterm_worker_cancel` | Cancel a worker and close **only** the pane that worker created. |
+| `wezterm_worker_cancel` | Cancel a worker and close **only** the pane that worker created. The cancel counts only after the pane list shows the pane gone. A worker whose stop is not confirmed stays `running`, and the tool accepts it again. |
 | `wezterm_worker_cleanup` | Release a finished worker's transcript directory and its isolated worktree. A worktree with uncommitted changes is kept unless `force` is set. |
 
 `/wezterm-workers` prints the roster in the TUI.
@@ -168,6 +168,7 @@ receives as a real Enter.
 | `turns` | How many assistant turns the worker has taken. |
 | `steers` | How many steering messages were sent into this worker. |
 | `tokens` | The tokens this worker used, summed from every transcript under its session folder. A value the transcript does not hold is `unknown`, never an estimate. |
+| `stop` | Shown only while a stop waits for confirmation: why the pane is not confirmed gone. Call `wezterm_worker_cancel` again to retry. |
 
 The status tool also reports the usage of the current request. That total
 covers the workers only. The main session is not counted.
@@ -257,9 +258,8 @@ the pane after the result is read — the transcript is the result source, and
 the worker stops writing once its pane is gone. Set `closePaneOnFinish: false`
 per spawn or in the config to keep the pane for inspection. That flag keeps the
 pane of a worker that is done. A worker that passes its `timeoutMs` or
-`idleTimeoutMs` deadline is still running, so its pane is closed anyway.
-Closing the pane is the only way to stop it. If the close fails, the `error` of
-the job says that the worker may still run.
+`idleTimeoutMs` deadline is still running, so the extension stops it. The stop
+counts only after the pane list shows the pane gone. See "Cancellation safety".
 
 **The registry survives a restart.** Every worker is written to
 `stateDir/registry.json` (atomic write: temp file plus rename). A new OMP
@@ -290,6 +290,10 @@ Two workers editing the same checkout is a real hazard. Two options:
 - **Restrict worker tools** — pass `tools: ["read","grep","glob"]` so the worker
   cannot write at all. Use this for survey/analysis work.
 
+The default of `maxActiveWorkers` is `1`, so the extension refuses a second
+worker while one is active. Raise the limit in the config file to run workers
+in parallel, and use `isolated: true` for the workers that write.
+
 `task.isolation.enabled` in OMP's own config governs the **native** `task`
 subagents only; it does not affect these workers.
 
@@ -319,10 +323,12 @@ needed.
 | `cwd` does not exist | Spawn fails immediately with `cwd does not exist: <path>`. No pane is created. |
 | `omp` binary missing or not runnable | Spawn fails immediately with the underlying spawn error. No empty pane is left behind. |
 | Worker dies during startup (bad model, crash) | The pane disappears with no transcript; the monitor marks the worker `failed` after a 45 s grace period and delivers the failure. |
-| Worker exceeds `timeoutMs` | The worker is marked `failed` with a timeout message. |
+| Worker exceeds `timeoutMs` | The extension stops the worker. When the pane list shows the pane gone, the worker is marked `failed` with a timeout message. Until then it stays `running` with a `stop` reason. |
 | User closes the worker pane | The worker stays in the registry; the isolated worktree (if any) is kept. |
 | OMP restarts while a worker runs | The worker is re-read from `registry.json` and re-monitored if its pane is still alive. |
-| OMP restarts after the user closed the pane | The worker is marked `failed` with "Worker pane was closed before this session re-attached". |
+| OMP restarts after the user closed the pane | The worker is marked `failed` with "Worker pane was closed before this session re-attached". A worker with a pending stop gets the status of that stop. |
+| The pane list cannot be read | The pane state is unknown. It is never treated as gone. A stop stays unconfirmed, and the startup check does not fail the worker. |
+| A launch breaks a limit | The spawn or the resume is refused with an error that names the rule. No worker and no pane are created. |
 
 Every failure is reported back into the main session the same way a success is,
 so the main agent never waits on a worker that will not finish.
@@ -423,6 +429,7 @@ omp-wezterm-worker/
 │   ├── registry.test.ts         the registry file
 │   ├── stop.test.ts             a stop that waits for the pane to close
 │   ├── limits.test.ts           the launch limits
+│   ├── usage.test.ts            the measured token usage
 │   ├── monitor.test.ts          the timeout, the idle limit and the result rule
 │   ├── architecture.test.ts     the size, import and runtime rules
 │   ├── ste100.test.ts           the checker and the document scores
@@ -481,6 +488,7 @@ test.
 | `monitor.test.ts` | A worker with no deadline never times out. An active worker still times out at the total deadline. A worker that keeps writing is not stopped as idle. A resumed worker does not report its old answer. |
 | `architecture.test.ts` | No source file exceeds 350 lines. The `lib/` folder never imports the entry or `worker-tools/`. Only `lib/process.ts` starts a child process. Only the entry creates the runtime. |
 | `limits.test.ts` | One active worker blocks a launch at the default limit. A worker with an unconfirmed stop still counts. A launch that failed before its pane existed does not count. A worker session cannot launch a worker. A user prompt resets the request count. |
+| `usage.test.ts` | A number comes only from a transcript. A model call without usage makes the count partial. A transcript without usage shows unknown. A resumed worker counts only what came after the resume. The request total adds the workers of the request. |
 | `nested.integration.test.ts` | A real worker cannot launch a worker and opens no pane. A second spawn is refused while one worker is active. |
 | `ste100.test.ts` | Each agent-facing document reaches the required score. |
 | `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
@@ -490,7 +498,7 @@ test.
 | `trial-report.test.ts` | The report names a failing check. A check detail stays on one line. The report holds no path of the machine. |
 | `trial-paths.test.ts` | A path under the project becomes a relative path. A path outside it becomes a placeholder. The name of the user never appears. |
 
-The three integration tests run a real `omp` worker in a real WezTerm pane. They
+The integration tests run a real `omp` worker in a real WezTerm pane. They
 take about a minute each.
 
 ### The Windows trial

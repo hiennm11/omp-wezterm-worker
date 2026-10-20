@@ -283,9 +283,9 @@ whatever the agent is doing, so it must not be used for a result.
 first: the transcript is the result source and the worker stops writing once
 its pane is gone. `closePaneOnFinish: false` keeps the pane for inspection,
 but finished panes accumulate. A deadline (`timeoutMs`, `idleTimeoutMs`) still
-closes the pane, because the worker is still running and the job is `failed`,
-so `wezterm_worker_cancel` refuses it. If the close fails, the job `error`
-says that the worker may still run.
+closes the pane, because the worker is still running. The job ends as `failed`
+only after the pane list shows the pane gone. Until then the job stays
+`running` with a `stop` reason, and `wezterm_worker_cancel` accepts it again.
 
 **The registry is a file, not just a map.** `stateDir/registry.json` holds
 every worker, written atomically (temp file plus rename). A new OMP process
@@ -322,9 +322,22 @@ go nowhere. The extension therefore reads the worker's transcript after each
 attempt and repeats the send until the message appears there. A steer call
 that reports success always delivered the message.
 
-**A cancel is confirmed the same way.** The pane list is the evidence that a
-closed pane is really gone. The extension checks it before it reports the
-cancel.
+**A cancel and a deadline stop are confirmed.** `kill-pane` returns success
+when WezTerm accepts the request, not when the pane is gone. The extension
+polls the pane list and ends the job only when the pane is missing. An
+unreadable list means unknown, never gone. An unconfirmed stop leaves the job
+`running`. Call `wezterm_worker_cancel` again to retry.
+
+**Limits are enforced in code.** One worker is active at a time by default
+(`maxActiveWorkers`). One request launches at most three workers
+(`maxLaunchesPerRequest`). A worker cannot launch a worker. A refused launch
+returns an error that names the rule. To run workers in parallel, raise
+`maxActiveWorkers` in the config file. A user prompt starts a new request.
+
+**Tokens are measured, not estimated.** `wezterm_worker_status` shows the
+tokens of each worker and of the request, read from the transcripts. The value
+`unknown` means that the transcript holds no usage data. Report it as unknown.
+The main session is not counted.
 
 ## Extension runtime rules (OMP)
 
