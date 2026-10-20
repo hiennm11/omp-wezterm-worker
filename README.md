@@ -408,7 +408,13 @@ omp-wezterm-worker/
 │       └── SKILL.md             operating knowledge for the model
 ├── tools/
 │   ├── ste100.ts                the Simplified Technical English checker
-│   └── ste100-cli.ts            the checker command line
+│   ├── ste100-cli.ts            the checker command line
+│   ├── trial.ts                 the Windows trial runner
+│   ├── trial-report.ts          the text of the trial report
+│   ├── trial-scenarios.ts       the four scenarios of the trial
+│   ├── trial-scenario.ts        the helpers of the scenarios
+│   ├── trial-tasks.ts           the task texts of the trial
+│   └── trial-fixture.ts         the repository that the trial workers use
 ├── tests/
 │   ├── harness.ts               a test host for the extension
 │   ├── transcript.test.ts       reading a transcript
@@ -419,11 +425,13 @@ omp-wezterm-worker/
 │   ├── monitor.test.ts          the timeout, the idle limit and the result rule
 │   ├── architecture.test.ts     the size, import and runtime rules
 │   ├── ste100.test.ts           the checker and the document scores
+│   ├── trial-report.test.ts     the text of the Windows trial report
 │   ├── worker.integration.test.ts    a real worker in a real pane
 │   ├── nested.integration.test.ts    the launch limits with a real worker
 │   └── worktree.integration.test.ts  the worktree of a real worker
 ├── docs/
-│   └── adr/                     the decisions and their reasons
+│   ├── adr/                     the decisions and their reasons
+│   └── trials/                  the record of the Windows trials
 ├── config/
 │   └── wezterm-worker.example.json
 ├── AGENTS.md                    the rules for work in this repository
@@ -446,6 +454,7 @@ so the suite needs no build step and no test framework.
 | `npm run lint` | Check the format and the lint rules. |
 | `npm run lint:fix` | Apply the fixes that Biome can apply. |
 | `npm run ste100` | Score every agent-facing document. The score must reach 80. |
+| `npm run trial` | Run the Windows trial with real workers. It writes `docs/trials/windows-trial.md`. |
 | `npm run typecheck` | Type check the extension, the tools and the tests. |
 | `npm run check` | Run the lint, the type check, the scores and the tests. |
 

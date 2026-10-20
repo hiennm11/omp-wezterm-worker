@@ -13,12 +13,13 @@
 	],
 	"scripts": {
 		"test": "node --test --test-concurrency=1 tests/*.test.ts",
-		"test:unit": "node --test tests/transcript.test.ts tests/config.test.ts tests/registry.test.ts tests/monitor.test.ts tests/job.test.ts tests/lifecycle.test.ts tests/architecture.test.ts tests/ste100.test.ts tests/stop.test.ts tests/limits.test.ts tests/usage.test.ts",
+		"test:unit": "node --test tests/transcript.test.ts tests/config.test.ts tests/registry.test.ts tests/monitor.test.ts tests/job.test.ts tests/lifecycle.test.ts tests/architecture.test.ts tests/ste100.test.ts tests/stop.test.ts tests/limits.test.ts tests/usage.test.ts tests/trial-report.test.ts",
 		"test:integration": "node --test --test-concurrency=1 tests/worker.integration.test.ts tests/worktree.integration.test.ts tests/result.integration.test.ts tests/live-worker.integration.test.ts tests/nested.integration.test.ts",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
 		"ste100": "node tools/ste100-cli.ts",
+		"trial": "node tools/trial.ts",
 		"typecheck": "tsc --noEmit -p tsconfig.json",
 		"check": "npm run lint && npm run typecheck && npm run ste100 && npm run test"
 	},
