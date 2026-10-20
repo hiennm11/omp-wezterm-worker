@@ -1,0 +1,15 @@
+# Node / bun
+node_modules/
+bun.lock
+bun.lockb
+
+# OMP local state produced at runtime
+wezterm-workers/
+*.log
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

@@ -1,0 +1,23 @@
+{
+	"name": "omp-wezterm-worker",
+	"version": "0.1.0",
+	"description": "Spawn an independent OMP worker session inside a WezTerm pane or tab. The user watches it live while the main agent keeps working; the worker's final result is delivered back into the main session.",
+	"license": "MIT",
+	"keywords": [
+		"omp-package",
+		"wezterm",
+		"pane",
+		"worker",
+		"async"
+	],
+	"omp": {
+		"extensions": [
+			"./extensions/wezterm-worker.ts"
+		]
+	},
+	"pi": {
+		"extensions": [
+			"./extensions/wezterm-worker.ts"
+		]
+	}
+}

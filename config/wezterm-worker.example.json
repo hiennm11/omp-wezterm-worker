@@ -1,0 +1,12 @@
+{
+	"ompBin": "omp",
+	"weztermBin": "wezterm",
+	"placement": "split",
+	"stateDir": "C:\\Users\\Admin\\.omp\\agent\\wezterm-workers",
+	"defaultCwd": "C:\\Users\\Admin",
+	"model": null,
+	"tools": null,
+	"pollMs": 2000,
+	"timeoutMs": 1800000,
+	"isolated": false
+}
