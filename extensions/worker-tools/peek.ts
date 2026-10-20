@@ -2,7 +2,7 @@
  * wezterm_worker_peek
  */
 
-import { paneExists, paneTail } from "../lib/pane.ts";
+import { paneState, paneTail } from "../lib/pane.ts";
 import { findJob, reply, type ToolDeps } from "./kit.ts";
 
 const DEFAULT_LINES = 20;
@@ -28,7 +28,11 @@ export function registerPeekTool({ pi, rt }: ToolDeps): void {
 				return reply(`Worker ${job.id} has no pane.`, { workerId: job.id }, true);
 			}
 			const text = await paneTail(rt, job.paneId, params.lines ?? DEFAULT_LINES);
-			const details = { workerId: job.id, paneId: job.paneId, alive: await paneExists(rt, job.paneId) };
+			const details = {
+				workerId: job.id,
+				paneId: job.paneId,
+				alive: (await paneState(rt, job.paneId)) === "present",
+			};
 			return reply(text || "No pane text available. The pane may be closed.", details);
 		},
 	});

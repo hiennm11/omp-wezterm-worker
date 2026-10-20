@@ -320,6 +320,11 @@ so the main agent never waits on a worker that will not finish.
 It never enumerates or kills unrelated panes, and it never signals processes the
 plugin did not create. Panes belonging to the user are never touched.
 
+A worker ends only after the pane list shows its pane is gone. If the list
+still shows the pane, or cannot be read, the worker stays `running` with a
+visible `stop` reason. Call `wezterm_worker_cancel` again to retry. The monitor
+also retries on every poll. See `docs/adr/0006-stopped-means-confirmed.md`.
+
 ## Known limitations
 
 - A worker can be steered **while it runs** (`wezterm_worker_steer`). A worker
@@ -394,6 +399,7 @@ omp-wezterm-worker/
 │   ├── transcript.test.ts       reading a transcript
 │   ├── config.test.ts           the config file
 │   ├── registry.test.ts         the registry file
+│   ├── stop.test.ts             a stop that waits for the pane to close
 │   ├── monitor.test.ts          the timeout, the idle limit and the result rule
 │   ├── architecture.test.ts     the size, import and runtime rules
 │   ├── ste100.test.ts           the checker and the document scores
@@ -443,13 +449,14 @@ test.
 | `transcript.test.ts` | A preamble is not the result. A new user message resets the counts. A resumed worker reports only a turn beyond its baseline. |
 | `config.test.ts` | The environment wins over the file. A value of the wrong type leaves the default. A malformed file leaves the defaults. |
 | `registry.test.ts` | A running worker with a pane comes back as alive. A job of the wrong shape does not break the load. The write is atomic. |
+| `stop.test.ts` | A cancel ends a worker only when the pane list shows the pane gone. An unreadable pane list does not count as a closed pane. An unconfirmed stop leaves the worker running, and a retry ends it. |
 | `monitor.test.ts` | A worker with no deadline never times out. An active worker still times out at the total deadline. A worker that keeps writing is not stopped as idle. A resumed worker does not report its old answer. |
 | `architecture.test.ts` | No source file exceeds 350 lines. The `lib/` folder never imports the entry or `worker-tools/`. Only `lib/process.ts` starts a child process. Only the entry creates the runtime. |
 | `ste100.test.ts` | Each agent-facing document reaches the required score. |
 | `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
 | `result.integration.test.ts` | The result tool returns the answer of a finished worker. |
-| `live-worker.integration.test.ts` | A running worker can be steered, peeked at and cancelled. A steering message reaches the worker. A cancel closes only the pane that the extension created. |
+| `live-worker.integration.test.ts` | A running worker can be steered, peeked at and cancelled. A steering message reaches the worker. A cancel closes only the pane that the extension created. A worker past its deadline is stopped and its pane is confirmed closed. |
 
 The last three run a real `omp` worker in a real WezTerm pane. They take about
 a minute each.

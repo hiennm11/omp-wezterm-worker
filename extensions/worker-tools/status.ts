@@ -50,6 +50,7 @@ interface StatusRow {
 	worktreePath: string | null;
 	worktreeBranch: string | null;
 	worktreeDirty: boolean | null;
+	stop: string | null;
 	error: string | null;
 }
 
@@ -72,6 +73,12 @@ function row(j: Job, now: number): StatusRow {
 		worktreePath: j.worktreePath,
 		worktreeBranch: j.worktreeBranch,
 		worktreeDirty: j.worktreeDirty,
+		stop:
+			j.pendingStop === null
+				? null
+				: j.pendingStop.failure === null
+					? "in progress"
+					: `not confirmed (${j.pendingStop.failure}). Call wezterm_worker_cancel to retry.`,
 		error: j.error,
 	};
 }
@@ -95,6 +102,7 @@ function formatRow(r: StatusRow): string {
 			? `  worktree  : ${r.worktreePath} (branch ${r.worktreeBranch ?? "-"})` +
 				(r.worktreeDirty === true ? " [has uncommitted changes]" : "")
 			: null,
+		r.stop ? `  stop      : ${r.stop}` : null,
 		r.error ? `  error     : ${r.error}` : null,
 	]
 		.filter((line): line is string => line !== null)

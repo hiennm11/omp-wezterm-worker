@@ -6,17 +6,25 @@
  */
 
 import type { Job } from "./job.ts";
-import { describeFailure } from "./process.ts";
+import { delay, describeFailure } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 
-export async function paneExists(rt: WorkerRuntime, paneId: number): Promise<boolean> {
+export type PaneState = "present" | "gone" | "unknown";
+
+function hasPaneId(entry: unknown, paneId: number): boolean {
+	return typeof entry === "object" && entry !== null && "pane_id" in entry && entry.pane_id === paneId;
+}
+
+/** An unreadable pane list is "unknown", never "gone": a broken CLI must not look like a closed pane. */
+export async function paneState(rt: WorkerRuntime, paneId: number): Promise<PaneState> {
 	const listing = await rt.wezterm(["list", "--format", "json"]);
-	if (listing.code !== 0) return false;
+	if (listing.code !== 0) return "unknown";
 	try {
-		const panes = JSON.parse(listing.stdout) as Array<{ pane_id: number }>;
-		return panes.some((p) => p.pane_id === paneId);
+		const panes: unknown = JSON.parse(listing.stdout);
+		if (!Array.isArray(panes)) return "unknown";
+		return panes.some((p) => hasPaneId(p, paneId)) ? "present" : "gone";
 	} catch {
-		return false;
+		return "unknown";
 	}
 }
 
@@ -115,4 +123,21 @@ export async function paneTail(rt: WorkerRuntime, paneId: number, lines: number)
 export async function killPane(rt: WorkerRuntime, paneId: number): Promise<string | null> {
 	const res = await rt.wezterm(["kill-pane", "--pane-id", String(paneId)]);
 	return res.code === 0 ? null : describeFailure(res);
+}
+
+/** Close one pane and wait until the pane list shows it is gone. Returns null when confirmed, else the reason. */
+export async function closePaneConfirmed(rt: WorkerRuntime, paneId: number): Promise<string | null> {
+	// A failed kill still polls: "pane not found" means the pane is already gone.
+	const killFailure = await killPane(rt, paneId);
+	const { attempts, intervalMs } = rt.stopConfirm;
+	let last: PaneState = "present";
+	for (let attempt = 0; attempt < attempts; attempt++) {
+		last = await paneState(rt, paneId);
+		if (last === "gone") return null;
+		if (attempt < attempts - 1) await delay(intervalMs);
+	}
+	if (killFailure !== null) return `WezTerm refused to close pane ${paneId}: ${killFailure}`;
+	if (last === "unknown")
+		return `The WezTerm pane list cannot be read, so the close of pane ${paneId} is not confirmed.`;
+	return `Pane ${paneId} is still open after the close request.`;
 }

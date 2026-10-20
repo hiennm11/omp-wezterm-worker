@@ -17,6 +17,7 @@ import {
 	answerAfterLastUser,
 	createHost,
 	currentPanes,
+	detailBoolean,
 	detailNumber,
 	detailString,
 	readTranscript,
@@ -138,6 +139,7 @@ test("a running worker can be cancelled and only its pane closes", {
 		const cancelled = await host.call("wezterm_worker_cancel", { workerId });
 		assert.equal(cancelled.isError, undefined, `The cancel tool failed: ${host.text(cancelled)}`);
 		assert.equal(detailString(cancelled.details, "status"), "cancelled");
+		assert.equal(detailBoolean(cancelled.details, "stopped"), true);
 
 		// --- the pane of the worker closes ---
 		const closed = await waitFor(() => !currentPanes().includes(paneId), 30_000, 500);
@@ -147,6 +149,56 @@ test("a running worker can be cancelled and only its pane closes", {
 		const panesAfter = currentPanes();
 		for (const pane of panesBefore) {
 			assert.ok(panesAfter.includes(pane), `The cancel closed pane ${pane}, which it did not create`);
+		}
+	} finally {
+		await host.cleanup();
+		removeDir(repo);
+	}
+});
+
+test("a worker past its deadline is stopped and its pane is confirmed closed", {
+	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+}, async () => {
+	const repo = mkdtempSync(join(tmpdir(), "wt-deadline-"));
+	const stateDir = mkdtempSync(join(tmpdir(), "wt-live-state-"));
+	const host = createHost({ stateDir, cwd: repo });
+	await host.fire("session_start", sessionContext(repo));
+
+	const panesBefore = currentPanes();
+
+	try {
+		const spawned = await host.call("wezterm_spawn_worker", {
+			task: LONG_TASK,
+			cwd: repo,
+			label: "deadline",
+			timeoutMs: 20_000,
+		});
+		const workerId = detailString(spawned.details, "workerId") ?? "";
+		const paneId = detailNumber(spawned.details, "paneId") ?? -1;
+		assert.ok(workerId, "The spawn tool returned no worker id");
+
+		const alive = await waitFor(() => currentPanes().includes(paneId), 30_000, 500);
+		assert.ok(alive, "The worker pane never appeared");
+
+		const workerRow = async (): Promise<{ status: string | null; error: string | null }> => {
+			const result = await host.call("wezterm_worker_status", { workerId });
+			const details = result.details;
+			if (typeof details !== "object" || details === null || !("workers" in details)) {
+				return { status: null, error: null };
+			}
+			const first: unknown = Array.isArray(details.workers) ? details.workers[0] : null;
+			return { status: detailString(first, "status"), error: detailString(first, "error") };
+		};
+		const failed = await waitFor(async () => (await workerRow()).status === "failed", 120_000, 1_000);
+		assert.ok(failed, "The worker never reached the failed status");
+
+		const row = await workerRow();
+		assert.match(row.error ?? "", /timed out/);
+		assert.ok(!currentPanes().includes(paneId), "The pane of the stopped worker is still open");
+
+		const panesAfter = currentPanes();
+		for (const pane of panesBefore) {
+			assert.ok(panesAfter.includes(pane), `The deadline closed pane ${pane}, which it did not create`);
 		}
 	} finally {
 		await host.cleanup();

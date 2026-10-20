@@ -3,7 +3,7 @@
  */
 
 import { isActive } from "../lib/job.ts";
-import { paneExists } from "../lib/pane.ts";
+import { paneState } from "../lib/pane.ts";
 import { steerWorker } from "../lib/steer.ts";
 import { findJob, reply, type ToolDeps } from "./kit.ts";
 
@@ -36,7 +36,7 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 				return reply(`Worker ${job.id} has no pane yet.`, { workerId: job.id, status: job.status }, true);
 			}
 			const paneId = job.paneId;
-			if (!(await paneExists(rt, paneId))) {
+			if ((await paneState(rt, paneId)) === "gone") {
 				return reply(
 					`The pane of worker ${job.id} is gone. The worker process exited.`,
 					{ workerId: job.id, status: job.status, paneId },

@@ -8,9 +8,9 @@
 
 import { statSync } from "node:fs";
 
-import { isActive, type Job, type JobStatus } from "./job.ts";
-import { finalizeJob } from "./lifecycle.ts";
-import { paneExists } from "./pane.ts";
+import { isActive, type Job, type JobStatus, type PendingStop } from "./job.ts";
+import { finalizeJob, stopJob } from "./lifecycle.ts";
+import { paneState } from "./pane.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { isTurnComplete, listSessionFiles, type SessionSummary, summarizeSession } from "./transcript.ts";
 
@@ -93,10 +93,20 @@ export function observeTranscript(job: Job, now: number): SessionSummary | null 
 export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => void): void {
 	rt.stopMonitor(job.id);
 
-	const end = (status: JobStatus, error: string | null, result: string | null, stopWorker = false) => {
+	const end = (status: JobStatus, error: string | null, result: string | null) => {
 		void (async () => {
-			await finalizeJob(rt, job, status, error, result, stopWorker);
+			await finalizeJob(rt, job, status, error, result);
 			notify(job);
+		})();
+	};
+
+	// Notify on a confirmed stop and on the first unconfirmed attempt. A
+	// failure that is already reported is not delivered again.
+	const stop = (status: PendingStop["status"], error: string) => {
+		void (async () => {
+			const hadFailure = job.pendingStop?.failure != null;
+			const outcome = await stopJob(rt, job, status, error);
+			if (outcome.stopped || !hadFailure) notify(job);
 		})();
 	};
 
@@ -105,9 +115,13 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 			rt.stopMonitor(job.id);
 			return;
 		}
+		// A poll must not overlap a stop that is still waiting for confirmation.
+		if (rt.stopping.has(job.id)) return;
 		const now = Date.now();
+		// A pending stop wins over a fresh deadline and over the transcript.
+		if (job.pendingStop) return stop(job.pendingStop.status, job.pendingStop.error);
 		const deadline = deadlineMessage(job, now);
-		if (deadline) return end("failed", deadline, null, true);
+		if (deadline) return stop("failed", deadline);
 
 		const summary = observeTranscript(job, now);
 		if (summary === null) {
@@ -116,7 +130,7 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 			const paneId = job.paneId;
 			if (now - (job.startedAt ?? job.createdAt) < STARTUP_GRACE_MS || paneId === null) return;
 			void (async () => {
-				if (await paneExists(rt, paneId)) return;
+				if ((await paneState(rt, paneId)) !== "gone") return;
 				if (listSessionFiles(job.sessionDir).length > 0) return;
 				await finalizeJob(
 					rt,
@@ -132,7 +146,6 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 
 		const finalText = finishedResult(job, summary);
 		if (finalText === null) return;
-		if (job.cancelled) return end("cancelled", "Worker cancelled", finalText || null);
 		end("completed", null, finalText);
 	};
 

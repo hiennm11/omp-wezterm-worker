@@ -27,9 +27,9 @@ import { mkdirSync } from "node:fs";
 import { loadConfig } from "./lib/config.ts";
 import { createDeliver } from "./lib/deliver.ts";
 import type { ExtensionAPI } from "./lib/host.ts";
-import { failJob } from "./lib/job.ts";
+import { settleDetachedJob } from "./lib/lifecycle.ts";
 import { monitorJob } from "./lib/monitor.ts";
-import { paneExists } from "./lib/pane.ts";
+import { paneState } from "./lib/pane.ts";
 import { createRuntime } from "./lib/runtime.ts";
 import { registerCancelTool } from "./worker-tools/cancel.ts";
 import { registerCleanupTool } from "./worker-tools/cleanup.ts";
@@ -76,13 +76,13 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			rt.jobs.set(job.id, job);
 			// A monitor only makes sense while the pane still exists. A pane
 			// that was closed by the user ends the worker instead of hanging
-			// forever.
-			if (job.paneId === null || (await paneExists(rt, job.paneId))) {
+			// forever. An unreadable pane list keeps the monitor, which retries
+			// any pending stop.
+			if (job.paneId === null || (await paneState(rt, job.paneId)) !== "gone") {
 				monitorJob(rt, job, deps.deliver);
 				continue;
 			}
-			failJob(job, "Worker pane was closed before this session re-attached");
-			rt.persist();
+			await settleDetachedJob(rt, job);
 		}
 	});
 

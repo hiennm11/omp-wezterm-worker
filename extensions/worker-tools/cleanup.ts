@@ -7,7 +7,7 @@
 import { rmSync } from "node:fs";
 
 import { activeSharers, isActive, type Job } from "../lib/job.ts";
-import { paneExists } from "../lib/pane.ts";
+import { paneState } from "../lib/pane.ts";
 import type { WorkerRuntime } from "../lib/runtime.ts";
 import { inspectWorktree, removeWorktree } from "../lib/worktree.ts";
 import { findJob, reply, type ToolDeps } from "./kit.ts";
@@ -29,9 +29,19 @@ async function releaseWorktree(rt: WorkerRuntime, job: Job, force: boolean): Pro
 	const path = job.worktreePath;
 	if (!path) return { notes: [], kept: null, keptChanges: [] };
 
-	if (job.paneId !== null && (await paneExists(rt, job.paneId))) {
+	const pane = job.paneId === null ? "gone" : await paneState(rt, job.paneId);
+	if (pane === "present") {
 		return {
 			notes: [`worktree kept: close pane ${job.paneId} first, it holds the directory`],
+			kept: path,
+			keptChanges: [],
+		};
+	}
+	if (pane === "unknown") {
+		return {
+			notes: [
+				`worktree kept: the WezTerm pane list cannot be read, so pane ${job.paneId} may still hold the directory`,
+			],
 			kept: path,
 			keptChanges: [],
 		};

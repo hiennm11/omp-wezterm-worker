@@ -25,25 +25,19 @@ export function registerCancelTool({ pi, rt }: ToolDeps): void {
 			if (!isActive(job)) {
 				return reply(`Worker ${job.id} is already ${job.status}.`, { workerId: job.id, status: job.status });
 			}
-			const cancelled = await cancelJob(rt, job);
-			if (cancelled.error) {
+			const outcome = await cancelJob(rt, job);
+			if (!outcome.stopped) {
 				return reply(
-					`Worker ${job.id} was cancelled, but its pane did not close: ${cancelled.error}`,
-					{
-						workerId: job.id,
-						status: job.status,
-						paneId: job.paneId,
-						paneClosed: cancelled.paneClosed,
-						error: cancelled.error,
-					},
+					`Worker ${job.id} is not stopped: ${outcome.error}. It still counts as running. Call wezterm_worker_cancel again to retry.`,
+					{ workerId: job.id, status: job.status, paneId: job.paneId, stopped: false, error: outcome.error },
 					true,
 				);
 			}
-			return reply(`Worker ${job.id} cancelled. Pane ${job.paneId} closed.`, {
+			return reply(`Worker ${job.id} cancelled. Pane ${job.paneId} is confirmed closed.`, {
 				workerId: job.id,
 				status: job.status,
 				paneId: job.paneId,
-				paneClosed: true,
+				stopped: true,
 			});
 		},
 	});

@@ -33,15 +33,14 @@ function runningJob(): Job {
 	};
 }
 
-async function finalizeWith(exec: RunFn, overrides: Partial<Job> = {}, stopWorker = false): Promise<Job> {
+async function finalizeWith(exec: RunFn, overrides: Partial<Job> = {}): Promise<Job> {
 	const stateDir = mkdtempSync(join(tmpdir(), "wz-lifecycle-"));
 	try {
 		const rt = createRuntime(exec);
 		rt.config.stateDir = stateDir;
 		const job = { ...runningJob(), ...overrides };
 		rt.jobs.set(job.id, job);
-		if (stopWorker) await finalizeJob(rt, job, "failed", "timed out", null, true);
-		else await finalizeJob(rt, job, "completed", null, "done");
+		await finalizeJob(rt, job, "completed", null, "done");
 		return job;
 	} finally {
 		rmSync(stateDir, { recursive: true, force: true });
@@ -75,27 +74,16 @@ test("a finished worker keeps its pane when closePaneOnFinish is false", async (
 	assert.equal(job.paneClosed, false);
 });
 
-test("a deadline stops the running worker even when closePaneOnFinish is false", async () => {
-	const calls: string[][] = [];
-	const job = await finalizeWith(recordingExec(0, calls), { closePaneOnFinish: false }, true);
-	assert.equal(kills(calls), 1);
-	assert.equal(job.paneClosed, true);
-});
-
-test("a deadline that cannot stop the worker says the worker may still run", async () => {
-	const calls: string[][] = [];
-	const job = await finalizeWith(recordingExec(1, calls), { closePaneOnFinish: false }, true);
-	assert.equal(job.status, "failed");
-	assert.equal(job.paneClosed, false);
-	assert.match(job.error ?? "", /timed out/);
-	assert.match(job.error ?? "", /may still run/);
-});
-
 test("the monitor kills the pane of a worker that passes its deadline when closePaneOnFinish is false", async () => {
 	const calls: string[][] = [];
 	const stateDir = mkdtempSync(join(tmpdir(), "wz-lifecycle-"));
 	try {
-		const rt = createRuntime(recordingExec(0, calls));
+		const exec: RunFn = async (_bin, args) => {
+			calls.push(args);
+			return { code: 0, stdout: args.includes("list") ? "[]" : "", stderr: "" };
+		};
+		const rt = createRuntime(exec);
+		rt.stopConfirm = { attempts: 2, intervalMs: 1 };
 		rt.config.stateDir = stateDir;
 		let tick: () => void = () => {};
 		rt.timers = {

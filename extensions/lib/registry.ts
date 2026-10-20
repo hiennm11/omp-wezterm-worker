@@ -9,7 +9,7 @@
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { Job, JobStatus } from "./job.ts";
+import type { Job, JobStatus, PendingStop } from "./job.ts";
 
 /** The registry file inside the state directory. */
 export function registryFile(stateDir: string): string {
@@ -102,7 +102,7 @@ function restoreJob(entry: Record<string, unknown>): Job {
 		worktreeBranch: typeof entry.worktreeBranch === "string" ? entry.worktreeBranch : null,
 		worktreeOrigin: typeof entry.worktreeOrigin === "string" ? entry.worktreeOrigin : null,
 		worktreeDirty: typeof entry.worktreeDirty === "boolean" ? entry.worktreeDirty : null,
-		cancelled: entry.cancelled === true,
+		pendingStop: restorePendingStop(entry.pendingStop),
 		lastActivityAt: typeof entry.lastActivityAt === "number" ? entry.lastActivityAt : Date.now(),
 		currentTool: typeof entry.currentTool === "string" ? entry.currentTool : null,
 		turns: typeof entry.turns === "number" ? entry.turns : 0,
@@ -114,6 +114,13 @@ function restoreJob(entry: Record<string, unknown>): Job {
 		closePaneOnFinish: entry.closePaneOnFinish !== false,
 		paneClosed: entry.paneClosed === true,
 	};
+}
+
+function restorePendingStop(value: unknown): PendingStop | null {
+	if (typeof value !== "object" || value === null) return null;
+	const { status, error, failure } = value as Record<string, unknown>;
+	if ((status !== "failed" && status !== "cancelled") || typeof error !== "string") return null;
+	return { status, error, failure: typeof failure === "string" ? failure : null };
 }
 
 function isJobStatus(value: unknown): value is JobStatus {

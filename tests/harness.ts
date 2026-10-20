@@ -238,6 +238,15 @@ export function detailNumber(details: unknown, field: string): number | null {
 	return typeof value === "number" ? value : null;
 }
 
+/** Read a boolean field from the details of a tool result. */
+export function detailBoolean(details: unknown, field: string): boolean | null {
+	if (details === null || typeof details !== "object") return null;
+	const record = details as Record<string, unknown>;
+	if (!(field in record)) return null;
+	const value = record[field];
+	return typeof value === "boolean" ? value : null;
+}
+
 /** One message from a worker transcript. */
 export interface TranscriptMessage {
 	role: "user" | "assistant" | "toolResult";

@@ -14,11 +14,19 @@ import type { ExtensionAPI } from "./host.ts";
 import type { Job } from "./job.ts";
 
 export function formatDelivery(job: Job): string {
+	const pending = job.pendingStop;
 	const header =
-		job.status === "completed"
-			? `Async worker ${job.id} finished (${job.label}).`
-			: `Async worker ${job.id} ${job.status} (${job.label}).`;
-	const body = job.status === "completed" ? (job.result ?? "") : (job.error ?? job.status);
+		pending !== null
+			? `Async worker ${job.id} is not stopped (${job.label}).`
+			: job.status === "completed"
+				? `Async worker ${job.id} finished (${job.label}).`
+				: `Async worker ${job.id} ${job.status} (${job.label}).`;
+	const body =
+		pending !== null
+			? `${pending.error}. The stop is not confirmed: ${pending.failure ?? "unknown reason"}. The worker may still run. Call wezterm_worker_cancel to retry.`
+			: job.status === "completed"
+				? (job.result ?? "")
+				: (job.error ?? job.status);
 	const meta = [
 		`cwd: ${job.cwd}`,
 		job.model ? `model: ${job.model}` : null,

@@ -32,7 +32,7 @@ function job(overrides: Partial<Job> = {}): Job {
 		worktreeBranch: null,
 		worktreeOrigin: null,
 		worktreeDirty: null,
-		cancelled: false,
+		pendingStop: null,
 		lastActivityAt: 1150,
 		currentTool: null,
 		turns: 1,
@@ -68,6 +68,19 @@ test("a running job with a pane comes back as alive", () => {
 	assert.equal(finished.length, 0);
 	assert.equal(alive.length, 1);
 	assert.equal(alive[0].id, "wz-live");
+	rmSync(dir, { recursive: true, force: true });
+});
+
+test("a pending stop survives a reload, and a malformed one is dropped", () => {
+	const dir = mkdtempSync(join(tmpdir(), "wt-registry-"));
+	const pendingStop = { status: "failed" as const, error: "x", failure: "y" };
+	persistRegistry(dir, [
+		job({ id: "wz-pending", status: "running", paneId: 3, pendingStop }),
+		job({ id: "wz-bogus", status: "running", paneId: 4, pendingStop: { status: "bogus" } as never }),
+	]);
+	const { alive } = loadRegistry(dir);
+	assert.deepEqual(alive.find((j) => j.id === "wz-pending")?.pendingStop, pendingStop);
+	assert.equal(alive.find((j) => j.id === "wz-bogus")?.pendingStop, null);
 	rmSync(dir, { recursive: true, force: true });
 });
 

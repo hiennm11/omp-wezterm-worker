@@ -10,6 +10,16 @@ import type { Placement } from "./config.ts";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
+/** A stop that was requested but that the pane list has not confirmed yet. */
+export interface PendingStop {
+	/** The status the worker gets once the stop is confirmed. */
+	status: "failed" | "cancelled";
+	/** The error the worker gets once the stop is confirmed. */
+	error: string;
+	/** Why the last stop attempt was not confirmed. Null until an attempt fails. */
+	failure: string | null;
+}
+
 export interface Job {
 	id: string;
 	label: string;
@@ -35,7 +45,8 @@ export interface Job {
 	worktreeOrigin: string | null;
 	/** True when the worktree held uncommitted changes when it was last checked. */
 	worktreeDirty: boolean | null;
-	cancelled: boolean;
+	/** Set while a stop waits for confirmation. The worker stays active until the pane is gone. */
+	pendingStop: PendingStop | null;
 	/** Timestamp of the last observed transcript change. */
 	lastActivityAt: number;
 	/** Tool the worker was running at the last observation, if any. */
@@ -100,7 +111,7 @@ export type RunState = Pick<
 	| "result"
 	| "error"
 	| "worktreeDirty"
-	| "cancelled"
+	| "pendingStop"
 	| "lastActivityAt"
 	| "currentTool"
 	| "turns"
@@ -122,7 +133,7 @@ export function freshRunState(now: number): RunState {
 		result: null,
 		error: null,
 		worktreeDirty: null,
-		cancelled: false,
+		pendingStop: null,
 		lastActivityAt: now,
 		currentTool: null,
 		turns: 0,

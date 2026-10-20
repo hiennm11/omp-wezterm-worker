@@ -66,3 +66,8 @@ _Avoid_: Sandbox, clone, workspace
 A worktree with no uncommitted changes and no untracked files. Only a clean
 worktree may be removed without the user saying so.
 _Avoid_: Untouched worktree, pristine worktree
+
+**Stopped**:
+The state of a worker whose pane is confirmed gone. A close request that
+WezTerm accepted is not enough.
+_Avoid_: Killed, terminated, closed

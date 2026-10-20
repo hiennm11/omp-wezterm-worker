@@ -46,6 +46,10 @@ export interface WorkerRuntime {
 	/** Start a poll. A throw inside the callback is recorded and the poll keeps running. */
 	startInterval: (fn: () => void, ms: number) => NodeJS.Timeout;
 	stopMonitor: (jobId: string) => void;
+	/** How long a stop waits for the pane list to show the pane gone. */
+	stopConfirm: { attempts: number; intervalMs: number };
+	/** Ids of the workers with a stop in flight. */
+	readonly stopping: Set<string>;
 }
 
 export function createRuntime(exec: RunFn = run): WorkerRuntime {
@@ -55,6 +59,8 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 		jobs: new Map(),
 		monitors: new Map(),
 		errors: [],
+		stopConfirm: { attempts: 20, intervalMs: 250 },
+		stopping: new Set(),
 		timers: {
 			setInterval: (fn, ms) => {
 				const timer = setInterval(fn, ms);
