@@ -7,6 +7,7 @@
  */
 
 import type { Placement } from "./config.ts";
+import type { UsageTotals } from "./usage.ts";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
@@ -60,6 +61,11 @@ export interface Job {
 	 * new result.
 	 */
 	baselineTurns: number;
+	/**
+	 * Usage that the session folder already held when this run started.
+	 * A resumed worker reports only what came after it.
+	 */
+	usageBaseline: UsageTotals | null;
 	/** Number of steering messages sent into this worker. */
 	steers: number;
 	/** Size of the transcript at the last observation, used to detect activity. */
@@ -116,6 +122,7 @@ export type RunState = Pick<
 	| "currentTool"
 	| "turns"
 	| "baselineTurns"
+	| "usageBaseline"
 	| "steers"
 	| "lastTranscriptSize"
 	| "paneClosed"
@@ -138,6 +145,7 @@ export function freshRunState(now: number): RunState {
 		currentTool: null,
 		turns: 0,
 		baselineTurns: 0,
+		usageBaseline: null,
 		steers: 0,
 		lastTranscriptSize: 0,
 		paneClosed: false,

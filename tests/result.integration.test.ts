@@ -47,6 +47,22 @@ test("the result tool returns the worker's answer", {
 		);
 		assert.ok(finished, "The worker did not finish");
 
+		// The usage comes from the transcript of the worker.
+		const status = await host.call("wezterm_worker_status", { workerId });
+		const details = status.details as {
+			workers?: Array<{ usage?: { state?: string; totals?: { turns?: { total?: number } } } }>;
+			requestUsage?: { state?: string };
+		};
+		const usage = details.workers?.[0]?.usage;
+		assert.equal(usage?.state, "measured", `The usage is not measured: ${host.text(status)}`);
+		assert.ok((usage?.totals?.turns?.total ?? 0) > 0, `The worker used no tokens: ${host.text(status)}`);
+		assert.equal(details.requestUsage?.state, "measured");
+
+		const delivered = await waitFor(() => host.delivered.some((t) => t.includes(workerId)), 20_000, 250);
+		assert.ok(delivered, "The extension did not deliver the result");
+		const delivery = host.delivered.find((t) => t.includes(workerId)) ?? "";
+		assert.match(delivery, /tokens: \d+ tokens, measured/);
+
 		const result = await host.call("wezterm_worker_result", { workerId });
 		assert.equal(result.isError, undefined);
 		assert.match(host.text(result), /PONG/, "The result tool did not return the worker's answer");

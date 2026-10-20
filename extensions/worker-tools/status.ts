@@ -6,6 +6,7 @@ import { statSync } from "node:fs";
 
 import { isActive, type Job, type JobStatus } from "../lib/job.ts";
 import { listSessionFiles, summarizeSession } from "../lib/transcript.ts";
+import { formatUsage, jobUsage, requestUsage, requestWorkerIds, type UsageReport } from "../lib/usage.ts";
 import { reply, type ToolDeps } from "./kit.ts";
 
 /**
@@ -44,6 +45,8 @@ interface StatusRow {
 	idleMs: number;
 	currentTool: string | null;
 	turns: number;
+	/** The measured token usage of this worker. */
+	usage: UsageReport;
 	steers: number;
 	timeoutMs: number;
 	paneClosed: boolean;
@@ -54,7 +57,7 @@ interface StatusRow {
 	error: string | null;
 }
 
-function row(j: Job, now: number): StatusRow {
+function row(j: Job, now: number, usage: UsageReport): StatusRow {
 	return {
 		workerId: j.id,
 		label: j.label,
@@ -67,6 +70,7 @@ function row(j: Job, now: number): StatusRow {
 		idleMs: j.finishedAt ? 0 : now - j.lastActivityAt,
 		currentTool: j.currentTool,
 		turns: j.turns,
+		usage,
 		steers: j.steers,
 		timeoutMs: j.timeoutMs,
 		paneClosed: j.paneClosed,
@@ -98,6 +102,7 @@ function formatRow(r: StatusRow): string {
 			: null,
 		r.currentTool ? `  running   : ${r.currentTool}` : null,
 		`  turns     : ${r.turns}${r.steers > 0 ? ` (${r.steers} steering message(s))` : ""}`,
+		`  tokens    : ${formatUsage(r.usage)}`,
 		r.worktreePath
 			? `  worktree  : ${r.worktreePath} (branch ${r.worktreeBranch ?? "-"})` +
 				(r.worktreeDirty === true ? " [has uncommitted changes]" : "")
@@ -118,7 +123,7 @@ export function registerStatusTool({ pi, rt }: ToolDeps): void {
 			"List the WezTerm pane workers of this session, or inspect one by id. " +
 			"Returns lifecycle state (queued/running/completed/failed/cancelled), pane id, cwd, transcript path, " +
 			"elapsed time, time since the last worker activity, the tool the worker is running right now, " +
-			"how many turns it took, and whether its pane is still alive.",
+			"how many turns it took, the tokens it used, and whether its pane is still alive.",
 		parameters: z.object({
 			workerId: z.string().optional().describe("Inspect a single worker. Omit to list all."),
 		}),
@@ -137,8 +142,14 @@ export function registerStatusTool({ pi, rt }: ToolDeps): void {
 			}
 			const now = Date.now();
 			for (const job of jobs) refreshActivity(job, now);
-			const rows = jobs.map((j) => row(j, now));
-			return reply(rows.map(formatRow).join("\n\n"), { workers: rows });
+			const rows = jobs.map((j) => row(j, now, jobUsage(j)));
+			const request = requestUsage(rt.jobs, rt.requestLaunches);
+			const count = requestWorkerIds(rt.jobs, rt.requestLaunches).length;
+			const text =
+				rows.map(formatRow).join("\n\n") +
+				`\n\nThis request: ${formatUsage(request)} across ${count} worker(s). ` +
+				"The main session is not counted.";
+			return reply(text, { workers: rows, requestUsage: request });
 		},
 	});
 }

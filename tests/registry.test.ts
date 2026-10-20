@@ -37,6 +37,7 @@ function job(overrides: Partial<Job> = {}): Job {
 		currentTool: null,
 		turns: 1,
 		baselineTurns: 0,
+		usageBaseline: null,
 		steers: 0,
 		lastTranscriptSize: 100,
 		timeoutMs: 0,
@@ -135,6 +136,33 @@ test("a job of the wrong shape does not break the load", () => {
 	assert.equal(types?.paneId, null);
 	assert.equal(types?.turns, 0);
 	assert.equal(types?.tools, null);
+	rmSync(dir, { recursive: true, force: true });
+});
+
+test("a usage baseline survives a reload, and a broken one is dropped", () => {
+	const dir = mkdtempSync(join(tmpdir(), "wt-registry-"));
+	const baseline = {
+		turns: { input: 1, output: 2, cacheRead: 3, cacheWrite: 4, reasoning: 5, total: 10 },
+		sideCalls: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, total: 0 },
+		calls: 2,
+		callsWithoutUsage: 0,
+		cost: 0,
+		files: 1,
+	};
+	persistRegistry(dir, [job({ id: "wz-base", usageBaseline: baseline })]);
+	const { finished } = loadRegistry(dir);
+	assert.deepEqual(finished.find((j) => j.id === "wz-base")?.usageBaseline, baseline);
+
+	writeFileSync(
+		registryFile(dir),
+		JSON.stringify({
+			version: 1,
+			jobs: [{ id: "wz-bad", status: "completed", usageBaseline: { calls: "x" } }],
+		}),
+		"utf8",
+	);
+	const reloaded = loadRegistry(dir);
+	assert.equal(reloaded.finished.find((j) => j.id === "wz-bad")?.usageBaseline, null);
 	rmSync(dir, { recursive: true, force: true });
 });
 

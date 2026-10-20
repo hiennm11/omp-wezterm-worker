@@ -10,6 +10,7 @@ import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node
 import { join } from "node:path";
 
 import type { Job, JobStatus, PendingStop } from "./job.ts";
+import { restoreUsageTotals } from "./usage.ts";
 
 /** The registry file inside the state directory. */
 export function registryFile(stateDir: string): string {
@@ -107,6 +108,7 @@ function restoreJob(entry: Record<string, unknown>): Job {
 		currentTool: typeof entry.currentTool === "string" ? entry.currentTool : null,
 		turns: typeof entry.turns === "number" ? entry.turns : 0,
 		baselineTurns: typeof entry.baselineTurns === "number" ? entry.baselineTurns : 0,
+		usageBaseline: restoreUsageTotals(entry.usageBaseline),
 		steers: typeof entry.steers === "number" ? entry.steers : 0,
 		lastTranscriptSize: typeof entry.lastTranscriptSize === "number" ? entry.lastTranscriptSize : 0,
 		timeoutMs: typeof entry.timeoutMs === "number" ? entry.timeoutMs : 0,

@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
+import { readUsageTotals } from "../extensions/lib/usage.ts";
 import { createHost, removeDir, sessionContext, waitFor } from "./harness.ts";
 
 /** The programs the test needs. */
@@ -136,6 +137,20 @@ test("the worker lifecycle, with a real worker", {
 		assert.ok(
 			second.delivered.some((t) => t.includes("RESUMED")),
 			"The resumed worker did not answer the new message",
+		);
+
+		// --- the resumed worker reports only its own turns ---
+		const resumeStatusResult = await second.call("wezterm_worker_status", { workerId: resumedId });
+		const usageDetails = resumeStatusResult.details as {
+			workers?: Array<{ usage?: { totals?: { calls?: number } } }>;
+		};
+		const reportedCalls = usageDetails.workers?.[0]?.usage?.totals?.calls ?? 0;
+		// The resumed worker writes into the folder of the worker it resumes.
+		const allCalls = readUsageTotals(join(stateDir, "sessions", workerId)).calls;
+		assert.ok(reportedCalls > 0, "The resumed worker reported no usage");
+		assert.ok(
+			reportedCalls < allCalls,
+			`The baseline was not subtracted: ${reportedCalls} of ${allCalls} calls`,
 		);
 
 		await second.cleanup();

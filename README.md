@@ -167,6 +167,10 @@ receives as a real Enter.
 | `running` | The tool the worker is inside right now, when there is one. |
 | `turns` | How many assistant turns the worker has taken. |
 | `steers` | How many steering messages were sent into this worker. |
+| `tokens` | The tokens this worker used, summed from every transcript under its session folder. A value the transcript does not hold is `unknown`, never an estimate. |
+
+The status tool also reports the usage of the current request. That total
+covers the workers only. The main session is not counted.
 
 `wezterm_worker_peek` shows the last lines rendered in the worker's pane. It
 is a debug aid for a worker that looks stuck. The transcript remains the only
@@ -376,6 +380,7 @@ omp-wezterm-worker/
 │   │   ├── job.ts               the worker record and its run state
 │   │   ├── registry.ts          the registry file
 │   │   ├── transcript.ts        reading a worker's transcript
+│   │   ├── usage.ts             the measured token usage of a worker
 │   │   ├── runtime.ts           the shared state and the services (the test seam)
 │   │   ├── process.ts           running a child process
 │   │   ├── host.ts              the shape of the OMP extension API

@@ -10,6 +10,7 @@ import { cancelJob, settleDetachedJob, stopJob } from "../extensions/lib/lifecyc
 import { monitorJob } from "../extensions/lib/monitor.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
+import { usageReport } from "../extensions/lib/usage.ts";
 
 const GONE = "[]";
 const PRESENT = '[{"pane_id":7}]';
@@ -143,7 +144,10 @@ test("the monitor keeps a timed-out worker running until the stop is confirmed",
 		await pending.promise;
 		assert.equal(notifications, 1);
 		assert.equal(job.status, "running");
-		assert.match(formatDelivery(job), /is not stopped/);
+		assert.match(
+			formatDelivery(job, { worker: usageReport(null, "x"), request: usageReport(null, "x") }),
+			/is not stopped/,
+		);
 
 		f.list.reply = GONE;
 		pending = Promise.withResolvers<void>();

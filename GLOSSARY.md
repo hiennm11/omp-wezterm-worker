@@ -83,6 +83,6 @@ applies to one request.
 _Avoid_: Session, conversation, turn
 
 **Usage**:
-The tokens a worker used, summed from its transcript. A missing value is
-`unknown`, never an estimate.
+The tokens a worker used, summed from its transcript and the transcripts of
+its subagents. A missing value is `unknown`, never an estimate.
 _Avoid_: Consumption, cost, billing

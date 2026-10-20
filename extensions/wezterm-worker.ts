@@ -54,7 +54,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	mkdirSync(rt.config.stateDir, { recursive: true });
 	pi.setLabel?.("WezTerm Workers");
 
-	const deps = { pi, rt, deliver: createDeliver(pi) };
+	const deps = { pi, rt, deliver: createDeliver(pi, rt) };
 
 	// The registry is read eagerly, because the status tool must list the
 	// finished workers straight away. Re-attaching the running ones waits for

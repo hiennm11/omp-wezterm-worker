@@ -16,6 +16,7 @@ import { launchPane } from "./pane.ts";
 import { describeFailure } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { listSessionFiles, summarizeSession } from "./transcript.ts";
+import { readUsageTotals } from "./usage.ts";
 import { createWorktree } from "./worktree.ts";
 
 export interface SpawnParams {
@@ -177,6 +178,9 @@ export async function resumeWorker(
 			/* an unreadable transcript just means no baseline */
 		}
 	}
+	// The token baseline is read before the pane starts, so the turns of the
+	// new run do not land in the baseline.
+	job.usageBaseline = readUsageTotals(job.sessionDir);
 	rt.persist();
 
 	// The task is not repeated: the transcript already holds it. A follow-up

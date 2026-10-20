@@ -12,8 +12,16 @@
 
 import type { ExtensionAPI } from "./host.ts";
 import type { Job } from "./job.ts";
+import type { WorkerRuntime } from "./runtime.ts";
+import { formatUsage, jobUsage, requestUsage, type UsageReport } from "./usage.ts";
 
-export function formatDelivery(job: Job): string {
+/** The usage of the worker and of the request the worker belongs to. */
+export interface DeliveryUsage {
+	worker: UsageReport;
+	request: UsageReport;
+}
+
+export function formatDelivery(job: Job, usage: DeliveryUsage): string {
 	const pending = job.pendingStop;
 	const header =
 		pending !== null
@@ -32,6 +40,7 @@ export function formatDelivery(job: Job): string {
 		job.model ? `model: ${job.model}` : null,
 		job.paneId !== null ? `pane: ${job.paneId}` : null,
 		job.turns > 0 ? `turns: ${job.turns}` : null,
+		`tokens: ${formatUsage(usage.worker)}`,
 		job.steers > 0 ? `steers: ${job.steers}` : null,
 		job.worktreePath ? `worktree: ${job.worktreePath}` : null,
 		job.sessionFile ? `transcript: ${job.sessionFile}` : null,
@@ -39,12 +48,16 @@ export function formatDelivery(job: Job): string {
 	]
 		.filter((line): line is string => line !== null)
 		.join(" | ");
-	return `${header}\n\n${body}\n\n(${meta})`;
+	const request = `\n\nThis request so far: ${formatUsage(usage.request)}. The main session is not counted.`;
+	return `${header}\n\n${body}\n\n(${meta})${request}`;
 }
 
-export function createDeliver(pi: ExtensionAPI): (job: Job) => void {
+export function createDeliver(pi: ExtensionAPI, rt: WorkerRuntime): (job: Job) => void {
 	return (job) => {
-		const text = formatDelivery(job);
+		const text = formatDelivery(job, {
+			worker: jobUsage(job),
+			request: requestUsage(rt.jobs, rt.requestLaunches),
+		});
 		if (typeof pi.sendUserMessage === "function") {
 			pi.sendUserMessage(text, { triggerTurn: true });
 			return;
