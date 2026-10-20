@@ -8,12 +8,12 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { createHost, sessionContext, waitFor } from "./harness.ts";
+import { createHost, removeDir, sessionContext, waitFor } from "./harness.ts";
 
 /** The programs the test needs. */
 function hasProgram(name: string): boolean {
@@ -112,7 +112,7 @@ test("the worktree survives the worker and cleanup keeps the changes", {
 			"The branch of the worker is gone. Commits must survive the worktree.",
 		);
 	} finally {
-		host.cleanup();
-		rmSync(repo, { recursive: true, force: true });
+		await host.cleanup();
+		removeDir(repo);
 	}
 });

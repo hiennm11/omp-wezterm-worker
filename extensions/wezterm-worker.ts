@@ -612,6 +612,56 @@ async function sendToPane(paneId: number, text: string): Promise<{ ok: boolean; 
 }
 
 /**
+ * The number of user messages in a worker's transcript.
+ *
+ * The count is the evidence that a steering message arrived. The keystrokes
+ * can reach the pane before the worker starts its TUI, and then they go
+ * nowhere.
+ */
+function userMessageCount(sessionDir: string): number {
+	const files = listSessionFiles(sessionDir);
+	if (files.length === 0) return 0;
+	return summarizeSession(files[0]).userMessages.length;
+}
+
+/**
+ * Steer a worker and confirm that the message arrived.
+ *
+ * The keystrokes reach the pane as soon as the pane exists. The worker needs
+ * a few seconds to start its TUI, and keystrokes that arrive before that go
+ * nowhere. The tool must not report success in that case, so the transcript
+ * is read after every attempt and the send is repeated until the message
+ * shows up there.
+ */
+async function steerWorker(
+	job: Job,
+	message: string,
+): Promise<{ ok: boolean; error: string | null; attempts: number }> {
+	const before = userMessageCount(job.sessionDir);
+	const maxAttempts = 8;
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		const sent = await sendToPane(job.paneId as number, message);
+		if (!sent.ok) {
+			return { ok: false, error: sent.error, attempts: attempt };
+		}
+		// Give the worker a moment to write the message into its transcript.
+		for (let wait = 0; wait < 10; wait++) {
+			await new Promise((resolve) => setTimeout(resolve, 500));
+			if (userMessageCount(job.sessionDir) > before) {
+				return { ok: true, error: null, attempts: attempt };
+			}
+		}
+	}
+	return {
+		ok: false,
+		error:
+			"The worker did not accept the message. Its pane may not have started its interface yet. " +
+			"Try again in a few seconds.",
+		attempts: maxAttempts,
+	};
+}
+
+/**
  * Read the last few visible lines of a pane.
  *
  * This is a debug aid for a stalled worker, never a result source: the
@@ -730,15 +780,32 @@ function monitorJob(job: Job, notify: (job: Job) => void): void {
 // Cancellation
 // ---------------------------------------------------------------------------
 
-async function cancelJob(job: Job): Promise<void> {
+async function cancelJob(job: Job): Promise<{ paneClosed: boolean; error: string | null }> {
 	job.cancelled = true;
 	// Kill only the pane this extension created. Never touch other panes.
 	// The pane is closed here, so finalizeJob must not close it a second time.
+	let paneClosed = false;
+	let error: string | null = null;
 	if (job.paneId !== null) {
-		await wezterm(["kill-pane", "--pane-id", String(job.paneId)]);
-		job.paneClosed = true;
+		const res = await wezterm(["kill-pane", "--pane-id", String(job.paneId)]);
+		if (res.code !== 0) {
+			error = (res.stderr || res.stdout).trim() || `exit code ${res.code}`;
+		} else {
+			// The command reports success when it accepts the request. The
+			// pane list is the evidence that the pane is really gone.
+			for (let wait = 0; wait < 20; wait++) {
+				if (!(await paneExists(job.paneId))) {
+					paneClosed = true;
+					break;
+				}
+				await new Promise((resolve) => setTimeout(resolve, 250));
+			}
+			if (!paneClosed) error = "The pane of the worker is still open after the cancel.";
+		}
+		job.paneClosed = paneClosed;
 	}
 	await finalizeJob(job, "cancelled", "Cancelled by the main agent", job.result);
+	return { paneClosed, error };
 }
 
 // ---------------------------------------------------------------------------
@@ -1186,16 +1253,22 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 					isError: true,
 				};
 			}
-			const sent = await sendToPane(job.paneId, params.message);
-			if (!sent.ok) {
+			const steered = await steerWorker(job, params.message);
+			if (!steered.ok) {
 				return {
 					content: [
 						{
 							type: "text",
-							text: `Could not send to worker ${job.id}: ${sent.error ?? "unknown error"}`,
+							text: `Could not send to worker ${job.id}: ${steered.error ?? "unknown error"}`,
 						},
 					],
-					details: { workerId: job.id, status: job.status, paneId: job.paneId, error: sent.error },
+					details: {
+						workerId: job.id,
+						status: job.status,
+						paneId: job.paneId,
+						error: steered.error,
+						attempts: steered.attempts,
+					},
 					isError: true,
 				};
 			}
@@ -1215,7 +1288,13 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 							"\n\nThe worker continues working; its final result is still delivered back automatically.",
 					},
 				],
-				details: { workerId: job.id, status: job.status, paneId: job.paneId, steers: job.steers },
+				details: {
+					workerId: job.id,
+					status: job.status,
+					paneId: job.paneId,
+					steers: job.steers,
+					attempts: steered.attempts,
+				},
 			};
 		},
 	});
@@ -1434,10 +1513,28 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 					details: { workerId: job.id, status: job.status },
 				};
 			}
-			await cancelJob(job);
+			const cancelled = await cancelJob(job);
+			if (cancelled.error) {
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Worker ${job.id} was cancelled, but its pane did not close: ${cancelled.error}`,
+						},
+					],
+					details: {
+						workerId: job.id,
+						status: job.status,
+						paneId: job.paneId,
+						paneClosed: cancelled.paneClosed,
+						error: cancelled.error,
+					},
+					isError: true,
+				};
+			}
 			return {
 				content: [{ type: "text", text: `Worker ${job.id} cancelled. Pane ${job.paneId} closed.` }],
-				details: { workerId: job.id, status: job.status, paneId: job.paneId },
+				details: { workerId: job.id, status: job.status, paneId: job.paneId, paneClosed: true },
 			};
 		},
 	});

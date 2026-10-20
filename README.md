@@ -395,8 +395,9 @@ so the suite needs no build step and no test framework.
 
 | Command | What it does |
 |---|---|
-| `npm test` | Run every test. The integration tests spawn a real worker in a real pane. |
+| `npm test` | Run every test, one file at a time. The integration tests spawn a real worker in a real pane. |
 | `npm run test:unit` | Run only the tests that need no worker. |
+| `npm run test:integration` | Run only the tests that spawn a real worker. |
 | `npm run lint` | Check the format and the lint rules. |
 | `npm run lint:fix` | Apply the fixes that Biome can apply. |
 | `npm run ste100` | Score every agent-facing document. The score must reach 80. |
@@ -405,6 +406,29 @@ so the suite needs no build step and no test framework.
 
 The integration tests need `omp` and `wezterm` on PATH. Without them the tests
 report that they cannot run. They never report a pass they did not observe.
+
+The tests run one file at a time. Two workers that run at the same time share
+one WezTerm window, so a test that counts the panes would see the panes of
+the other test.
+
+### The essential tests
+
+Each test protects one behaviour. A change that breaks a behaviour breaks a
+test.
+
+| Test | The behaviour it protects |
+|---|---|
+| `transcript.test.ts` | A preamble is not the result. A new user message resets the counts. A resumed worker reports only a turn beyond its baseline. |
+| `config.test.ts` | The environment wins over the file. A value of the wrong type leaves the default. A malformed file leaves the defaults. |
+| `registry.test.ts` | A running worker with a pane comes back as alive. A job of the wrong shape does not break the load. The write is atomic. |
+| `ste100.test.ts` | Each agent-facing document reaches the required score. |
+| `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
+| `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
+| `result.integration.test.ts` | The result tool returns the answer of a finished worker. |
+| `live-worker.integration.test.ts` | A running worker can be steered, peeked at and cancelled. A steering message reaches the worker. A cancel closes only the pane that the extension created. |
+
+The last three run a real `omp` worker in a real WezTerm pane. They take about
+a minute each.
 
 ### The writing standard
 

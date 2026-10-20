@@ -8,12 +8,12 @@
 
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { createHost, sessionContext, waitFor } from "./harness.ts";
+import { createHost, removeDir, sessionContext, waitFor } from "./harness.ts";
 
 /** The programs the test needs. */
 function hasProgram(name: string): boolean {
@@ -140,7 +140,7 @@ test("the worker lifecycle, with a real worker", {
 
 		second.cleanup();
 	} finally {
-		host.cleanup();
-		rmSync(repo, { recursive: true, force: true });
+		await host.cleanup();
+		removeDir(repo);
 	}
 });

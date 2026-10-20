@@ -312,6 +312,17 @@ the changed paths are listed, because those changes are the worker's output.
 `force: true` discards them. The branch is never deleted by the extension, so
 commits survive the worktree.
 
+**A steering message is confirmed, not assumed.** `wezterm cli send-text`
+returns success as soon as the keystrokes reach the pane. A worker needs a
+few seconds to start its interface, and keystrokes that arrive before that
+go nowhere. The extension therefore reads the worker's transcript after each
+attempt and repeats the send until the message appears there. A steer call
+that reports success always delivered the message.
+
+**A cancel is confirmed the same way.** The pane list is the evidence that a
+closed pane is really gone. The extension checks it before it reports the
+cancel.
+
 ## Extension runtime rules (OMP)
 
 From the official extension docs (`can1357/oh-my-pi` → `docs/extensions.md`):
