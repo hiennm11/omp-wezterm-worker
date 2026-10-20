@@ -87,6 +87,7 @@ confirm the picker.
 | `wezterm_worker_steer` | Send a new instruction into a **running** worker. It arrives as a follow-up user message and the worker keeps going. |
 | `wezterm_worker_peek` | Show the last visible lines of a worker's pane. A debug aid for a worker that looks stuck. |
 | `wezterm_worker_result` | Read a finished worker's final assistant text. |
+| `wezterm_worker_resume` | Reopen a **finished** worker in a new pane, continuing its transcript, optionally with a follow-up instruction. |
 | `wezterm_worker_cancel` | Cancel a worker and close **only** the pane that worker created. |
 | `wezterm_worker_cleanup` | Release a finished worker's isolated worktree and transcript directory. |
 
@@ -115,6 +116,7 @@ Then keep working; the result arrives on its own.
 | `placement` | `"split"` \| `"tab"` | `split` splits the current pane; `tab` opens a new tab. |
 | `isolated` | boolean | Run in a dedicated `git worktree` so parallel workers never edit the same checkout. |
 | `timeoutMs` | number | Deadline for this worker. `0` means **no deadline**. Defaults to the configured `timeoutMs` (30 min). |
+| `closePaneOnFinish` | boolean | Close the worker's pane when it finishes. Defaults to the config value (`true`). Set `false` to leave the pane open for inspection. |
 
 ### Long tasks
 
@@ -204,7 +206,8 @@ screen text is never scraped for results.
 	"pollMs": 2000,
 	"timeoutMs": 1800000,
 	"idleTimeoutMs": 0,
-	"isolated": false
+	"isolated": false,
+	"closePaneOnFinish": true
 }
 ```
 
@@ -215,6 +218,49 @@ Environment overrides: `OMP_WORKER_OMP_BIN`, `OMP_WORKER_WEZTERM_BIN`,
 - `idleTimeoutMs` — fail a worker that produced no transcript activity for
   this long, in ms. `0` disables it (the default).
 - `pollMs` — how often the extension checks the worker transcript.
+- `closePaneOnFinish` — close the worker's pane when it finishes. `true` by
+  default, so a finished worker does not leave a pane behind. Set `false` to
+  keep the pane open so the user can read the worker's screen.
+
+## Worker lifecycle
+
+```text
+spawn ──> running ──> completed ──> (pane closed) ──> resume ──> running
+             │                                            ▲
+             ├──> failed / cancelled ────────────────────┘
+             │
+             └──> OMP restarts ──> re-attached from registry.json
+```
+
+**The result wakes the main agent.** The finished result is delivered with
+`pi.sendUserMessage(text, { triggerTurn: true })`, which lands the text in the
+session as a user message and starts a new turn. The agent acts on a finished
+worker right away. `pi.sendMessage` with `deliverAs: "steer"` is the fallback
+for a host that does not expose `sendUserMessage`.
+
+**The pane is closed when the worker finishes.** A finished worker leaves its
+pane open by default, and those panes accumulate. `closePaneOnFinish` closes
+the pane after the result is read — the transcript is the result source, and
+the worker stops writing once its pane is gone. Set `closePaneOnFinish: false`
+per spawn or in the config to keep the pane for inspection.
+
+**The registry survives a restart.** Every worker is written to
+`stateDir/registry.json` (atomic write: temp file plus rename). A new OMP
+process reads that file on startup, so `wezterm_worker_status` still lists
+workers that were running when the previous process ended, and the extension
+re-attaches a monitor to any whose pane is still alive. A worker whose pane
+was closed while OMP was down is marked `failed`.
+
+**A finished worker can be resumed.** `wezterm_worker_resume` starts a new
+`omp --resume <transcript>` in a fresh pane, so the worker comes back with its
+whole history and can be given a follow-up instruction. This is the only way
+to continue a worker that already completed — steering needs a live pane.
+
+A resumed transcript already holds a finished turn, so the extension records
+how many assistant turns the transcript had when the worker started. Only a
+turn **beyond** that baseline counts as the new result — otherwise the
+previous answer is delivered as the new one before the worker has done any
+work.
 
 ## Concurrency safety
 
@@ -239,6 +285,8 @@ subagents only; it does not affect these workers.
 | Worker dies during startup (bad model, crash) | The pane disappears with no transcript; the monitor marks the worker `failed` after a 45 s grace period and delivers the failure. |
 | Worker exceeds `timeoutMs` | The worker is marked `failed` with a timeout message. |
 | User closes the worker pane | The worker stays in the registry; the isolated worktree (if any) is released. |
+| OMP restarts while a worker runs | The worker is re-read from `registry.json` and re-monitored if its pane is still alive. |
+| OMP restarts after the user closed the pane | The worker is marked `failed` with "Worker pane was closed before this session re-attached". |
 
 Every failure is reported back into the main session the same way a success is,
 so the main agent never waits on a worker that will not finish.
@@ -251,8 +299,12 @@ plugin did not create. Panes belonging to the user are never touched.
 
 ## Known limitations
 
-- A worker can be steered **while it runs** (`wezterm_worker_steer`), but not
-  after it finishes — a completed worker has no live composer to type into.
+- A worker can be steered **while it runs** (`wezterm_worker_steer`). A worker
+  that already finished is continued with `wezterm_worker_resume`, which
+  reopens it in a new pane from its transcript.
+- The registry is per-process in memory and mirrored to `registry.json`. A
+  worker spawned in one OMP process is visible in another through the file, but
+  a **result** is only delivered to the process that spawned it.
 - `omp --cwd` inside the home directory auto-switches to a temp directory, so a
   worker needs a real repository path.
 - `isolated: true` needs a git repository. On Windows, `git worktree add` can
@@ -277,7 +329,7 @@ pane or a session move.
 ```text
 omp-wezterm-worker/
 ├── extensions/
-│   └── wezterm-worker.ts        the extension (7 tools)
+│   └── wezterm-worker.ts        the extension (8 tools)
 ├── scripts/
 │   ├── _paths.sh                shared Windows-path helpers
 │   ├── install.sh               link the plugin + write the config + install the skill

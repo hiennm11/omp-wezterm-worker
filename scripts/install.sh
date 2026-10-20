@@ -110,7 +110,8 @@ if [ "$WRITE_CONFIG" -eq 1 ]; then
 	"pollMs": 2000,
 	"timeoutMs": 1800000,
 	"idleTimeoutMs": 0,
-	"isolated": false
+	"isolated": false,
+	"closePaneOnFinish": true
 }
 EOF
 	fi

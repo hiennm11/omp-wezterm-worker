@@ -1,6 +1,6 @@
 ---
 name: wezterm-omp-pane-ops
-description: Use when driving an OMP session from a WezTerm pane on Windows, or when moving an OMP session between projects. Covers spawning a worker into a pane, sending text into a live pane (the Enter-key problem), reading live worker status, relocating a session transcript, and the Windows shell traps (WSL on PATH, path forms, plugin linking). Triggers on WezTerm pane, pane worker, send text to a pane, steer a running worker, worker status, move an OMP session, resume a session elsewhere, pack a session, omp plugin link, Git Bash vs WSL.
+description: Use when driving an OMP session from a WezTerm pane on Windows, or when moving an OMP session between projects. Covers spawning a worker into a pane, sending text into a live pane (the Enter-key problem), reading live worker status, the worker lifecycle (result delivery, pane closing, registry across restarts, resuming a finished worker), relocating a session transcript, and the Windows shell traps (WSL on PATH, path forms, plugin linking). Triggers on WezTerm pane, pane worker, send text to a pane, steer a running worker, worker status, resume a finished worker, move an OMP session, resume a session elsewhere, pack a session, omp plugin link, Git Bash vs WSL.
 ---
 
 # WezTerm + OMP pane operations (Windows)
@@ -184,6 +184,37 @@ A newly added extension module is **not** loaded into a running session by
 `/reload-plugins`. A restart is required. Edit-then-reload leaves the agent
 running the old code while the file on disk says otherwise.
 
+## The OMP extension API surface
+
+The runtime API of an omp extension, verified against omp 18.12.3 on Windows:
+
+| Member | Purpose |
+|---|---|
+| `pi.registerTool({name, label, description, parameters, execute})` | Register a tool. `parameters` is a schema object; `execute(id, params, signal, onUpdate, ctx)` returns `{content, details, isError?}`. |
+| `pi.registerCommand(name, {description, handler})` | Register a slash command. |
+| `pi.sendUserMessage(text, {triggerTurn})` | Inject a user message and start a turn. **This is what wakes the main agent.** |
+| `pi.sendMessage(content, {deliverAs, triggerTurn, attribution})` | Inject with an explicit delivery mode. `deliverAs: "steer"` delivers now; `"followUp"` queues behind the current turn. |
+| `pi.appendEntry({type:"custom", customType, content})` | Append a custom entry to session state. Does **not** start a turn. |
+| `pi.logger.info/warn/error` | Logging. |
+| `pi.zod` | Schema builder: `z.string()`, `z.number()`, `z.boolean()`, `z.array()`, `z.object()`. |
+| `pi.ui.notify(message, level?)` | Toast notification. |
+
+The `pi.sendMessage` options are **not** in the published type stub
+(`~/.omp/agent/extensions/.stubs/omp-types.d.ts` lists only `appendEntry` and
+`sendUserMessage`), so a delivery that silently does nothing is easy to miss.
+Verify a delivery by watching for a new `agent_start` / `turn_start` in the
+RPC event stream, not by comparing message timestamps — the timestamps of an
+injected message and the reply it triggers can land in the same millisecond.
+
+### Reading the RPC event stream
+
+`omp --mode rpc` emits `agent_start`, `turn_start`, `message_start`,
+`message_end`, `message_update`, `tool_execution_start`,
+`tool_execution_end`, `turn_end`, `agent_end`, `prompt_result` and
+`session_settled`. A tool's real result is on `tool_execution_end` under
+`result` — `message_end` carries only the assistant's tool call, not its
+output.
+
 ## Checking a worker is alive
 
 For a worker running in a pane, the live signals are:
@@ -202,7 +233,7 @@ This skill's mechanics are packaged as an OMP extension at
 `D:\repos\omp-wezterm-worker` (public: `github.com/hiennm11/omp-wezterm-worker`).
 It registers `wezterm_spawn_worker`, `wezterm_worker_status`,
 `wezterm_worker_steer`, `wezterm_worker_peek`, `wezterm_worker_result`,
-`wezterm_worker_cancel` and `wezterm_worker_cleanup`.
+`wezterm_worker_resume`, `wezterm_worker_cancel` and `wezterm_worker_cleanup`.
 
 **The extension's README is the source of truth for its tools and parameters.**
 Read it rather than recalling them. What belongs here is only the operating
@@ -221,3 +252,46 @@ knowledge the README cannot state:
   file at `~/.omp/agent/wezterm-worker.json`. Keep one copy: a second copy in
   `~/.omp/agent/extensions/` loads the extension twice.
 - The scripts need Git Bash, not WSL.
+
+## Worker lifecycle
+
+```text
+spawn ──> running ──> completed ──> (pane closed) ──> resume ──> running
+             │                                            ▲
+             ├──> failed / cancelled ────────────────────┘
+             │
+             └──> OMP restarts ──> re-attached from registry.json
+```
+
+Four behaviours that are easy to get wrong:
+
+**Delivery must wake the agent.** The result arrives through
+`pi.sendUserMessage(text, { triggerTurn: true })`. That lands the text in the
+session as a user message and starts a new turn, so the agent acts on a
+finished worker immediately. `pi.sendMessage(..., { deliverAs: "steer" })` is
+the fallback for a host without `sendUserMessage`; a `followUp` queues behind
+whatever the agent is doing, so it must not be used for a result.
+
+**The pane is closed when the worker finishes.** Reading the result must come
+first: the transcript is the result source and the worker stops writing once
+its pane is gone. `closePaneOnFinish: false` keeps the pane for inspection,
+but finished panes accumulate.
+
+**The registry is a file, not just a map.** `stateDir/registry.json` holds
+every worker, written atomically (temp file plus rename). A new OMP process
+reads it at startup, so `wezterm_worker_status` still lists workers that
+survived the previous process, and the extension re-monitors any whose pane is
+still alive. A worker whose pane was closed while OMP was down is marked
+`failed`.
+
+**A finished worker is continued with `--resume`, not with steering.**
+Steering needs a live pane, and a completed worker has none.
+`wezterm_worker_resume` starts `omp --resume <transcript>` in a fresh pane,
+so the worker returns with its whole history and accepts a follow-up
+instruction.
+
+**Completion is counted from the newest user message.** A resumed transcript
+already holds a finished turn, so a completion check over the absolute counts
+reports the *previous* answer as the new result before the worker did any
+work. Count assistant turns and tool calls only since the last user message,
+and require at least one assistant turn in that window.
