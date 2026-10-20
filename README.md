@@ -82,7 +82,9 @@ confirm the picker.
 | Tool | Purpose |
 |---|---|
 | `wezterm_spawn_worker` | Start a worker. Returns worker id, pane id, tab id, cwd, transcript path. Does not wait. |
-| `wezterm_worker_status` | List workers, or inspect one by id. Shows `queued`/`running`/`completed`/`failed`/`cancelled`. |
+| `wezterm_worker_status` | List workers, or inspect one by id. Shows lifecycle state, elapsed time, idle time, the tool running right now, turn count and steering count. |
+| `wezterm_worker_steer` | Send a new instruction into a **running** worker. It arrives as a follow-up user message and the worker keeps going. |
+| `wezterm_worker_peek` | Show the last visible lines of a worker's pane. A debug aid for a worker that looks stuck. |
 | `wezterm_worker_result` | Read a finished worker's final assistant text. |
 | `wezterm_worker_cancel` | Cancel a worker and close **only** the pane that worker created. |
 | `wezterm_worker_cleanup` | Release a finished worker's isolated worktree and transcript directory. |
@@ -111,6 +113,42 @@ Then keep working; the result arrives on its own.
 | `tools` | string[] | Optional tool list, e.g. `["read","grep","glob"]`. Omit for the default set. |
 | `placement` | `"split"` \| `"tab"` | `split` splits the current pane; `tab` opens a new tab. |
 | `isolated` | boolean | Run in a dedicated `git worktree` so parallel workers never edit the same checkout. |
+| `timeoutMs` | number | Deadline for this worker. `0` means **no deadline**. Defaults to the configured `timeoutMs` (30 min). |
+
+### Long tasks
+
+A worker runs for as long as it needs, up to its deadline. The deadline is a
+**total** limit, not a per-poll limit — a worker that keeps making progress is
+never interrupted mid-task.
+
+- `timeoutMs: 0` on the spawn call removes the deadline entirely.
+- The configured default is 30 minutes (`timeoutMs` in the config file).
+- `idleTimeoutMs` (config file, default `0` = disabled) is a separate safety
+  net: it fails a worker that produced no transcript activity for that long.
+  A worker that is thinking or waiting on a slow tool still writes to its
+  transcript, so this only fires on a genuinely stuck worker.
+
+The main agent never blocks on a worker. It can keep working for hours while
+the worker runs, and the result is delivered back when the worker finishes.
+
+### Steering a running worker
+
+`wezterm_worker_steer` sends text into a running worker's composer and
+submits it, exactly as if the user had typed it:
+
+```
+wezterm_worker_steer(workerId: "wz-...", message: "Stop surveying and focus on the parser only")
+```
+
+The worker receives it as a follow-up user message and continues from its
+current state. Steering does not cancel the worker and does not lose the
+result: the final answer is still delivered back automatically.
+
+Implementation note: `wezterm cli send-text` pastes by default, and a pasted
+block never submits in the OMP TUI — the text lands in the composer but the
+Enter key never arrives. Steering therefore uses `--no-paste`, which delivers
+the bytes as individual key events, plus a trailing `"\r"` that the worker
+receives as a real Enter.
 
 ## How it works
 
@@ -145,12 +183,18 @@ screen text is never scraped for results.
 	"tools": null,
 	"pollMs": 2000,
 	"timeoutMs": 1800000,
+	"idleTimeoutMs": 0,
 	"isolated": false
 }
 ```
 
 Environment overrides: `OMP_WORKER_OMP_BIN`, `OMP_WORKER_WEZTERM_BIN`,
 `OMP_WORKER_STATE_DIR`.
+
+- `timeoutMs` — total deadline for a worker, in ms. `0` disables it.
+- `idleTimeoutMs` — fail a worker that produced no transcript activity for
+  this long, in ms. `0` disables it (the default).
+- `pollMs` — how often the extension checks the worker transcript.
 
 ## Concurrency safety
 
