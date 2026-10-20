@@ -328,11 +328,11 @@ polls the pane list and ends the job only when the pane is missing. An
 unreadable list means unknown, never gone. An unconfirmed stop leaves the job
 `running`. Call `wezterm_worker_cancel` again to retry.
 
-**Limits are enforced in code.** One worker is active at a time by default
-(`maxActiveWorkers`). One request launches at most three workers
-(`maxLaunchesPerRequest`). A worker cannot launch a worker. A refused launch
-returns an error that names the rule. To run workers in parallel, raise
-`maxActiveWorkers` in the config file. A user prompt starts a new request.
+**Limits are enforced in code.** Three workers are active at most by default
+(`maxActiveWorkers`). The main session is not counted. One request launches at
+most three workers (`maxLaunchesPerRequest`). A worker cannot launch a worker.
+A refused launch returns an error that names the rule. Raise the limits in the
+config file when you need more. A user prompt starts a new request.
 
 **Tokens are measured, not estimated.** `wezterm_worker_status` shows the
 tokens of each worker and of the request, read from the transcripts. The value

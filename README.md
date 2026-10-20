@@ -213,7 +213,7 @@ screen text is never scraped for results.
 	"idleTimeoutMs": 0,
 	"isolated": false,
 	"closePaneOnFinish": true,
-	"maxActiveWorkers": 1,
+	"maxActiveWorkers": 3,
 	"maxLaunchesPerRequest": 3
 }
 ```
@@ -229,8 +229,8 @@ Environment overrides: `OMP_WORKER_OMP_BIN`, `OMP_WORKER_WEZTERM_BIN`,
   default, so a finished worker does not leave a pane behind. Set `false` to
   keep the pane open so the user can read the worker's screen.
 - `maxActiveWorkers` — refuse a spawn or a resume while this many workers are
-  active. The default is `1`. `0` disables the limit. A worker whose stop is
-  not confirmed counts as active.
+  active. The default is `3`. `0` disables the limit. The main session is not
+  counted. A worker whose stop is not confirmed counts as active.
 - `maxLaunchesPerRequest` — refuse a launch after this many launches since the
   last user prompt. The default is `3`. `0` disables the limit.
 - A worker cannot launch a worker. The code refuses the call and the error
@@ -290,9 +290,9 @@ Two workers editing the same checkout is a real hazard. Two options:
 - **Restrict worker tools** — pass `tools: ["read","grep","glob"]` so the worker
   cannot write at all. Use this for survey/analysis work.
 
-The default of `maxActiveWorkers` is `1`, so the extension refuses a second
-worker while one is active. Raise the limit in the config file to run workers
-in parallel, and use `isolated: true` for the workers that write.
+The default of `maxActiveWorkers` is `3`, so the extension refuses a fourth
+worker while three are active. Use `isolated: true` for the workers that write,
+so that parallel workers never edit the same checkout.
 
 `task.isolation.enabled` in OMP's own config governs the **native** `task`
 subagents only; it does not affect these workers.

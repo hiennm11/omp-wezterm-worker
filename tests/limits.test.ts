@@ -47,8 +47,11 @@ test("a worker transcript path is recognised on both path styles", () => {
 	assert.equal(isWorkerSession(undefined), false);
 });
 
-test("an active worker blocks a launch at the default limit", () => {
-	const refusal = launchRefusal(jobMap(job()), [], DEFAULT_CONFIG, null);
+test("the active worker limit of the default config is three", () => {
+	const active = (count: number) =>
+		jobMap(...Array.from({ length: count }, (_, n) => job({ id: `wz-a-${n}` })));
+	assert.equal(launchRefusal(active(2), [], DEFAULT_CONFIG, null), null);
+	const refusal = launchRefusal(active(3), [], DEFAULT_CONFIG, null);
 	assert.equal(refusal?.rule, "maxActiveWorkers");
 	assert.match(refusal?.message ?? "", /maxActiveWorkers/);
 });

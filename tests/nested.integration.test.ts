@@ -75,7 +75,7 @@ test("a worker cannot launch a worker", {
 	}
 });
 
-test("a second spawn is refused while one worker is active", {
+test("a spawn over the active worker limit is refused", {
 	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
 }, async () => {
 	const repo = mkdtempSync(join(tmpdir(), "wt-limit-"));
@@ -85,17 +85,19 @@ test("a second spawn is refused while one worker is active", {
 	await host.fire("input", {});
 
 	try {
-		const first = await host.call("wezterm_spawn_worker", { task: LONG_TASK, cwd: repo, label: "first" });
-		assert.ok(
-			detailString(first.details, "workerId"),
-			`The first spawn returned no worker id: ${host.text(first)}`,
-		);
-		const panesAfterFirst = currentPanes().sort();
+		for (const label of ["first", "second", "third"]) {
+			const spawned = await host.call("wezterm_spawn_worker", { task: LONG_TASK, cwd: repo, label });
+			assert.ok(
+				detailString(spawned.details, "workerId"),
+				`The ${label} spawn returned no worker id: ${host.text(spawned)}`,
+			);
+		}
+		const panesAfterThree = currentPanes().sort();
 
-		const second = await host.call("wezterm_spawn_worker", { task: "Reply OK", cwd: repo, label: "second" });
-		assert.equal(second.isError, true);
-		assert.equal(detailString(second.details, "refused"), "maxActiveWorkers");
-		assert.deepEqual(currentPanes().sort(), panesAfterFirst);
+		const fourth = await host.call("wezterm_spawn_worker", { task: "Reply OK", cwd: repo, label: "fourth" });
+		assert.equal(fourth.isError, true);
+		assert.equal(detailString(fourth.details, "refused"), "maxActiveWorkers");
+		assert.deepEqual(currentPanes().sort(), panesAfterThree);
 	} finally {
 		await host.cleanup();
 		removeDir(repo);

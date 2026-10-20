@@ -46,7 +46,7 @@ export const DEFAULT_CONFIG: WorkerConfig = {
 	idleTimeoutMs: 0,
 	isolated: false,
 	closePaneOnFinish: true,
-	maxActiveWorkers: 1,
+	maxActiveWorkers: 3,
 	maxLaunchesPerRequest: 3,
 };
 

@@ -3,9 +3,9 @@
 A prompt cannot limit a model. The extension therefore refuses a launch in
 code and returns an error that names the rule.
 
-- At most one worker is active by default (`maxActiveWorkers`). A spawn or a
-  resume over the limit is rejected, not queued. A worker whose stop is not
-  confirmed (ADR 0006) counts as active.
+- At most three workers are active by default (`maxActiveWorkers`). The main
+  session is not counted. A spawn or a resume over the limit is rejected, not
+  queued. A worker whose stop is not confirmed (ADR 0006) counts as active.
 - A worker cannot launch a worker. The extension detects a worker from the
   session file of the calling session, `ctx.sessionManager.getSessionFile()`.
   A worker transcript lives under `sessions/wz-…/`, a path that this extension
