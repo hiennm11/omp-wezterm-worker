@@ -211,6 +211,8 @@ interface SessionSummary {
 	assistantTexts: string[];
 	toolCalls: number;
 	toolResults: number;
+	/** Text of the newest assistant message, but only if it issued no tool call. */
+	finalText: string | null;
 }
 
 interface ContentBlock {
@@ -236,6 +238,8 @@ function summarizeSession(file: string): SessionSummary {
 		assistantTexts: [],
 		toolCalls: 0,
 		toolResults: 0,
+		/** Text of the newest assistant message, but only if it issued no tool call. */
+		finalText: null,
 	};
 	let raw: string;
 	try {
@@ -265,8 +269,14 @@ function summarizeSession(file: string): SessionSummary {
 				.filter(b => b.type === "text")
 				.map(b => b.text ?? "")
 				.join("");
+			const calls = blocks.filter(b => b.type === "toolCall").length;
+			summary.toolCalls += calls;
 			if (text) summary.assistantTexts.push(text);
-			summary.toolCalls += blocks.filter(b => b.type === "toolCall").length;
+			// An assistant message that issues a tool call is not the end of the
+			// turn. Its text is a preamble ("I'll read that file."), so it must
+			// not be treated as the worker's answer. Only a text-only assistant
+			// message concludes a turn.
+			summary.finalText = calls === 0 && text ? text : null;
 		} else if (role === "toolResult") {
 			summary.toolResults += 1;
 		}
@@ -275,11 +285,11 @@ function summarizeSession(file: string): SessionSummary {
 }
 
 /**
- * A worker turn is complete when its session file holds a final assistant text
- * block and no tool call is still outstanding.
+ * A worker turn is complete when its session file ends with a text-only
+ * assistant message and no tool call is still outstanding.
  */
 function isTurnComplete(summary: SessionSummary): boolean {
-	return summary.assistantTexts.length > 0 && summary.toolCalls <= summary.toolResults;
+	return summary.finalText !== null && summary.toolCalls <= summary.toolResults;
 }
 
 // ---------------------------------------------------------------------------
@@ -552,7 +562,7 @@ function monitorJob(job: Job, notify: (job: Job) => void): void {
 		const summary = summarizeSession(file);
 		if (!isTurnComplete(summary)) return;
 
-		const finalText = summary.assistantTexts[summary.assistantTexts.length - 1] ?? "";
+		const finalText = summary.finalText ?? "";
 		if (job.cancelled) {
 			finalizeJob(job, "cancelled", "Worker cancelled", finalText || null);
 			notify(job);
