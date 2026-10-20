@@ -12,6 +12,7 @@
 		"enabled": true,
 		"indentStyle": "tab",
 		"indentWidth": 2,
+		"lineEnding": "auto",
 		"lineWidth": 110
 	},
 	"javascript": {
