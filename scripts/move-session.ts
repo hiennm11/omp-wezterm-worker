@@ -15,6 +15,13 @@
  * the header cwd and moves the artifacts directory.
  */
 
+/** Wait for a time. */
+function sleep(ms: number): Promise<void> {
+	const { promise, resolve } = Promise.withResolvers<void>();
+	setTimeout(resolve, ms);
+	return promise;
+}
+
 export default function moveSessionExtension(pi: {
 	on: (event: string, handler: (event: unknown, ctx: unknown) => void) => void;
 	logger: { info: (message: string) => void };
@@ -39,22 +46,22 @@ export default function moveSessionExtension(pi: {
 		// A lazy session has no transcript yet, so the move would have nothing
 		// to relocate.
 		sm.ensureOnDisk?.();
-		await new Promise(resolve => setTimeout(resolve, 800));
+		await sleep(800);
 		sm.flushSync?.();
 
 		const before = sm.getSessionFile?.() ?? "(unknown)";
-		console.error("MOVE_BEFORE " + before);
+		console.error(`MOVE_BEFORE ${before}`);
 
 		try {
 			const result = sm.moveTo(target);
-			console.error("MOVE_RESULT " + JSON.stringify(result ?? null));
+			console.error(`MOVE_RESULT ${JSON.stringify(result ?? null)}`);
 		} catch (e) {
-			console.error("MOVE_ERROR " + String(e));
+			console.error(`MOVE_ERROR ${String(e)}`);
 			return;
 		}
 
-		await new Promise(resolve => setTimeout(resolve, 2500));
-		console.error("MOVE_AFTER " + (sm.getSessionFile?.() ?? "(unknown)"));
-		console.error("MOVE_CWD " + session.cwd);
+		await sleep(2500);
+		console.error(`MOVE_AFTER ${sm.getSessionFile?.() ?? "(unknown)"}`);
+		console.error(`MOVE_CWD ${session.cwd}`);
 	});
 }

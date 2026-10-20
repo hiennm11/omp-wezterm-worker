@@ -1,0 +1,14 @@
+{
+	"compilerOptions": {
+		"target": "ES2024",
+		"lib": ["ES2024"],
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"allowImportingTsExtensions": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"strict": true,
+		"types": ["node"]
+	},
+	"include": ["extensions/**/*.ts", "tools/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"]
+}

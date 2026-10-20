@@ -331,3 +331,42 @@ From the official extension docs (`can1357/oh-my-pi` → `docs/extensions.md`):
   session-entry labelling action.
 - `pi.zod` is the schema builder; `pi.registerTool`, `pi.registerCommand` and
   `pi.on` are the registration methods.
+
+## The domain vocabulary
+
+The repository holds a glossary at `GLOSSARY.md`. It defines the terms of
+this domain: **worker**, **result**, **preamble**, **turn**, **steering
+message**, **resume**, **transcript**, **delivery**, **registry**,
+**worktree**. Use these words. A term with a second name makes the next
+reader guess.
+
+Two terms cause the most confusion:
+
+- A **preamble** is the text of an assistant message that also carries a tool
+  call. A preamble is not the result.
+- A **turn** is one assistant message. A turn that calls a tool is not the end
+  of the work. Only a text-only turn ends it.
+
+The decisions and their reasons live in `docs/adr/`. Read an ADR before you
+change the behaviour it describes.
+
+## Writing for the other agents
+
+The orchestrator and the workers read these documents. Write them in Simplified
+Technical English, and check the result.
+
+Apply these rules:
+
+- Use one word for one concept.
+- Use one instruction per sentence.
+- Use the active voice and name the actor.
+- Use simple tenses. Write "the worker reads the file", not "the worker is
+  reading the file".
+- Keep the articles. Write "the file", not "file".
+- Use "must" and "can". Write "must" where a rule applies.
+- Limit a sentence to 20 words for a procedure. Limit a sentence to 25 words
+  for a description.
+- Delete filler words such as "simply" and "just".
+
+Run `npm run ste100` in the repository. The command scores every document
+that an agent reads. It fails below 80.

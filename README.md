@@ -14,7 +14,7 @@ Three distinct mechanisms. They are not interchangeable:
 | Mechanism | What it is | Pane? | Result delivery | Where to see it |
 |---|---|---|---|---|
 | Native subagent (`task` tool) | In-process child OMP session | No | OMP-managed async job injection | Agent Hub (`Alt+A`), pinned Subagents block |
-| **WezTerm worker (this plugin)** | A **separate `omp` process** in a WezTerm pane, own model/tools/session file | **Yes** | `pi.sendMessage` back into the main session | The pane itself, live |
+| **WezTerm worker (this plugin)** | A **separate `omp` process** in a WezTerm pane, own model/tools/session file | **Yes** | `pi.sendUserMessage` back into the main session | The pane itself, live |
 | Pane transcript view | `wezterm cli get-text` — rendered screen text only | — | Not a result source | Read-only text dump |
 
 This plugin creates a **real, interactive OMP TUI** in the pane. It is not a
@@ -352,7 +352,12 @@ pane or a session move.
 ```text
 omp-wezterm-worker/
 ├── extensions/
-│   └── wezterm-worker.ts        the extension (8 tools)
+│   ├── wezterm-worker.ts        the extension (8 tools)
+│   └── lib/
+│       ├── config.ts            the config file and the defaults
+│       ├── job.ts               the worker record
+│       ├── registry.ts          the registry file
+│       └── transcript.ts        reading a worker's transcript
 ├── scripts/
 │   ├── _paths.sh                shared Windows-path helpers
 │   ├── install.sh               link the plugin + write the config + install the skill
@@ -362,11 +367,52 @@ omp-wezterm-worker/
 ├── skills/
 │   └── wezterm-omp-pane-ops/
 │       └── SKILL.md             operating knowledge for the model
+├── tools/
+│   ├── ste100.ts                the Simplified Technical English checker
+│   └── ste100-cli.ts            the checker command line
+├── tests/
+│   ├── harness.ts               a test host for the extension
+│   ├── transcript.test.ts       reading a transcript
+│   ├── config.test.ts           the config file
+│   ├── registry.test.ts         the registry file
+│   ├── ste100.test.ts           the checker and the document scores
+│   ├── worker.integration.test.ts    a real worker in a real pane
+│   └── worktree.integration.test.ts  the worktree of a real worker
+├── docs/
+│   └── adr/                     the decisions and their reasons
 ├── config/
 │   └── wezterm-worker.example.json
-├── package.json                 omp/pi manifest: omp.extensions
+├── GLOSSARY.md                  the terms of this domain
+├── biome.json                   the lint and format rules
+├── package.json                 the scripts and the omp/pi manifest
 └── README.md
 ```
+
+## Development
+
+The commands need Node 22 or later. Node reads the TypeScript files directly,
+so the suite needs no build step and no test framework.
+
+| Command | What it does |
+|---|---|
+| `npm test` | Run every test. The integration tests spawn a real worker in a real pane. |
+| `npm run test:unit` | Run only the tests that need no worker. |
+| `npm run lint` | Check the format and the lint rules. |
+| `npm run lint:fix` | Apply the fixes that Biome can apply. |
+| `npm run ste100` | Score every agent-facing document. The score must reach 80. |
+| `npm run typecheck` | Type check the extension, the tools and the tests. |
+| `npm run check` | Run the lint, the type check, the scores and the tests. |
+
+The integration tests need `omp` and `wezterm` on PATH. Without them the tests
+report that they cannot run. They never report a pass they did not observe.
+
+### The writing standard
+
+Every document that an agent reads is written in Simplified Technical English.
+The `npm run ste100` command scores each one and fails below 80. The checker
+lives in `tools/ste100.ts`, so the standard is a measured result and not a
+claim. The glossary in `GLOSSARY.md` and the decisions in `docs/adr/` carry the
+same standard, because the orchestrator and the workers read them both.
 
 ## License
 

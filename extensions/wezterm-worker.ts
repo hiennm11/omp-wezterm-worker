@@ -25,153 +25,20 @@
  */
 
 import { spawn } from "node:child_process";
-import {
-	existsSync,
-	mkdirSync,
-	readdirSync,
-	readFileSync,
-	renameSync,
-	rmSync,
-	statSync,
-	writeFileSync,
-} from "node:fs";
-import { homedir } from "node:os";
+import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-// ---------------------------------------------------------------------------
-// Config
-// ---------------------------------------------------------------------------
-
-const CONFIG_FILE = join(homedir(), ".omp", "agent", "wezterm-worker.json");
-
-type Placement = "split" | "tab";
-
-interface WorkerConfig {
-	ompBin: string;
-	weztermBin: string;
-	placement: Placement;
-	stateDir: string;
-	defaultCwd: string;
-	model: string | null;
-	tools: string[] | null;
-	pollMs: number;
-	timeoutMs: number;
-	/** Fail a worker that produced no transcript activity for this long. 0 disables. */
-	idleTimeoutMs: number;
-	isolated: boolean;
-	/** Close the worker pane when the worker finishes. */
-	closePaneOnFinish: boolean;
-}
-
-const DEFAULT_CONFIG: WorkerConfig = {
-	ompBin: "omp",
-	weztermBin: "wezterm",
-	placement: "split",
-	stateDir: join(homedir(), ".omp", "agent", "wezterm-workers"),
-	defaultCwd: process.cwd(),
-	model: null,
-	tools: null,
-	pollMs: 2000,
-	timeoutMs: 30 * 60 * 1000,
-	idleTimeoutMs: 0,
-	isolated: false,
-	closePaneOnFinish: true,
-};
-
-/** Static string-keyed table: config key -> the config field it overrides. */
-const CONFIG_STRING_KEYS = ["ompBin", "weztermBin", "stateDir", "defaultCwd"] as const;
-const CONFIG_NUMBER_KEYS = ["pollMs", "timeoutMs", "idleTimeoutMs"] as const;
-const CONFIG_BOOLEAN_KEYS = ["isolated", "closePaneOnFinish"] as const;
-
-function loadConfig(): WorkerConfig {
-	const cfg: WorkerConfig = { ...DEFAULT_CONFIG };
-	try {
-		if (existsSync(CONFIG_FILE)) {
-			const raw = JSON.parse(readFileSync(CONFIG_FILE, "utf8")) as Record<string, unknown>;
-			for (const key of CONFIG_STRING_KEYS) {
-				const v = raw[key];
-				if (typeof v === "string") cfg[key] = v;
-			}
-			for (const key of CONFIG_NUMBER_KEYS) {
-				const v = raw[key];
-				if (typeof v === "number") cfg[key] = v;
-			}
-			for (const key of CONFIG_BOOLEAN_KEYS) {
-				const v = raw[key];
-				if (typeof v === "boolean") cfg[key] = v;
-			}
-			if (raw.placement === "split" || raw.placement === "tab") cfg.placement = raw.placement;
-			if (typeof raw.model === "string") cfg.model = raw.model;
-			if (Array.isArray(raw.tools)) cfg.tools = raw.tools.map(String);
-		}
-	} catch (e) {
-		void e;
-	}
-	// Environment overrides win over the file so a caller can retarget binaries.
-	if (process.env.OMP_WORKER_OMP_BIN) cfg.ompBin = process.env.OMP_WORKER_OMP_BIN;
-	if (process.env.OMP_WORKER_WEZTERM_BIN) cfg.weztermBin = process.env.OMP_WORKER_WEZTERM_BIN;
-	if (process.env.OMP_WORKER_STATE_DIR) cfg.stateDir = process.env.OMP_WORKER_STATE_DIR;
-	return cfg;
-}
+import { DEFAULT_CONFIG, loadConfig, type Placement, type WorkerConfig } from "./lib/config.ts";
+import type { Job, JobStatus } from "./lib/job.ts";
+import {
+	loadRegistry as loadRegistryFromDisk,
+	persistRegistry as persistRegistryToDisk,
+} from "./lib/registry.ts";
+import { isTurnComplete, listSessionFiles, summarizeSession } from "./lib/transcript.ts";
 
 // ---------------------------------------------------------------------------
 // Job registry (module scope: shared by every session this factory binds)
 // ---------------------------------------------------------------------------
-
-type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
-
-interface Job {
-	id: string;
-	label: string;
-	task: string;
-	cwd: string;
-	model: string | null;
-	tools: string[] | null;
-	status: JobStatus;
-	paneId: number | null;
-	tabId: number | null;
-	windowId: number | null;
-	placement: Placement;
-	sessionDir: string;
-	sessionFile: string | null;
-	createdAt: number;
-	startedAt: number | null;
-	finishedAt: number | null;
-	result: string | null;
-	error: string | null;
-	worktreePath: string | null;
-	worktreeBranch: string | null;
-	/** Repository the isolated worktree was created from. */
-	worktreeOrigin: string | null;
-	/** True when the worktree held uncommitted changes when it was last checked. */
-	worktreeDirty: boolean | null;
-	cancelled: boolean;
-	/** Timestamp of the last observed transcript change. */
-	lastActivityAt: number;
-	/** Tool the worker was running at the last observation, if any. */
-	currentTool: string | null;
-	/** Number of assistant turns observed so far. */
-	turns: number;
-	/**
-	 * Number of assistant turns the transcript already held when this worker
-	 * started. A resumed worker must produce a turn beyond this count before
-	 * it counts as finished, otherwise the previous answer is reported as the
-	 * new result.
-	 */
-	baselineTurns: number;
-	/** Number of steering messages sent into this worker. */
-	steers: number;
-	/** Size of the transcript at the last observation, used to detect activity. */
-	lastTranscriptSize: number;
-	/** Deadline for this worker, in ms. 0 means no deadline. */
-	timeoutMs: number;
-	/** Idle deadline for this worker, in ms. 0 means no deadline. */
-	idleTimeoutMs: number;
-	/** Close the pane when the worker finishes. */
-	closePaneOnFinish: boolean;
-	/** Set once the pane has been closed by the extension. */
-	paneClosed: boolean;
-}
 
 const JOBS = new Map<string, Job>();
 const MONITORS = new Map<string, NodeJS.Timeout>();
@@ -229,153 +96,21 @@ function startManagedInterval(fn: () => void, ms: number): NodeJS.Timeout {
 }
 
 /**
- * The registry file. The job map lives in this process, so an OMP restart
- * would otherwise lose every worker. Writing the jobs to disk lets a later
- * session re-attach to workers that are still alive.
- */
-function registryFile(): string {
-	return join(CONFIG.stateDir, "registry.json");
-}
-
-/** Shape written to disk. Only plain data survives JSON. */
-interface PersistedJob {
-	id: string;
-	label: string;
-	task: string;
-	cwd: string;
-	model: string | null;
-	tools: string[] | null;
-	status: JobStatus;
-	paneId: number | null;
-	tabId: number | null;
-	windowId: number | null;
-	placement: Placement;
-	sessionDir: string;
-	sessionFile: string | null;
-	createdAt: number;
-	startedAt: number | null;
-	finishedAt: number | null;
-	result: string | null;
-	error: string | null;
-	worktreePath: string | null;
-	worktreeBranch: string | null;
-	worktreeOrigin: string | null;
-	worktreeDirty: boolean | null;
-	cancelled: boolean;
-	lastActivityAt: number;
-	currentTool: string | null;
-	turns: number;
-	baselineTurns: number;
-	steers: number;
-	lastTranscriptSize: number;
-	timeoutMs: number;
-	idleTimeoutMs: number;
-	closePaneOnFinish: boolean;
-	paneClosed: boolean;
-}
-
-/**
- * Write the registry to disk.
- *
- * The write is atomic: a temp file plus a rename, so a crash mid-write
- * cannot leave a truncated registry that would fail to parse on the next read.
- */
-function persistRegistry(): void {
-	const jobs: PersistedJob[] = [...JOBS.values()].map(job => ({ ...job }));
-	const payload = JSON.stringify({ version: 1, jobs }, null, "\t");
-	const file = registryFile();
-	const tmp = file + ".tmp";
-	try {
-		mkdirSync(CONFIG.stateDir, { recursive: true });
-		writeFileSync(tmp, payload, "utf8");
-		renameSync(tmp, file);
-	} catch (e) {
-		void e;
-		try {
-			rmSync(tmp, { force: true });
-		} catch {
-			/* the temp file is best-effort cleanup */
-		}
-	}
-}
-
-/**
- * Read the registry back from disk.
- *
- * Jobs that were still running when the process ended are only useful if their
- * pane is still alive, so those are returned separately: a caller re-attaches
- * a monitor to them, while finished jobs are just history.
- */
-function loadRegistry(): { finished: Job[]; alive: Job[] } {
-	const finished: Job[] = [];
-	const alive: Job[] = [];
-	let raw: string;
-	try {
-		raw = readFileSync(registryFile(), "utf8");
-	} catch {
-		return { finished, alive };
-	}
-	let parsed: { version?: number; jobs?: PersistedJob[] };
-	try {
-		parsed = JSON.parse(raw) as typeof parsed;
-	} catch {
-		return { finished, alive };
-	}
-	if (!Array.isArray(parsed.jobs)) return { finished, alive };
-	for (const entry of parsed.jobs) {
-		if (!entry || typeof entry.id !== "string") continue;
-		const job: Job = {
-			id: entry.id,
-			label: entry.label ?? entry.id,
-			task: entry.task ?? "",
-			cwd: entry.cwd ?? "",
-			model: entry.model ?? null,
-			tools: Array.isArray(entry.tools) ? entry.tools : null,
-			status: entry.status ?? "completed",
-			paneId: typeof entry.paneId === "number" ? entry.paneId : null,
-			tabId: typeof entry.tabId === "number" ? entry.tabId : null,
-			windowId: typeof entry.windowId === "number" ? entry.windowId : null,
-			placement: entry.placement === "tab" ? "tab" : "split",
-			sessionDir: entry.sessionDir ?? "",
-			sessionFile: entry.sessionFile ?? null,
-			createdAt: entry.createdAt ?? Date.now(),
-			startedAt: entry.startedAt ?? null,
-			finishedAt: entry.finishedAt ?? null,
-			result: entry.result ?? null,
-			error: entry.error ?? null,
-			worktreePath: entry.worktreePath ?? null,
-			worktreeBranch: entry.worktreeBranch ?? null,
-			worktreeOrigin: entry.worktreeOrigin ?? null,
-			worktreeDirty: typeof entry.worktreeDirty === "boolean" ? entry.worktreeDirty : null,
-			cancelled: entry.cancelled === true,
-			lastActivityAt: entry.lastActivityAt ?? Date.now(),
-			currentTool: entry.currentTool ?? null,
-			turns: entry.turns ?? 0,
-			baselineTurns: entry.baselineTurns ?? 0,
-			steers: entry.steers ?? 0,
-			lastTranscriptSize: entry.lastTranscriptSize ?? 0,
-			timeoutMs: entry.timeoutMs ?? 0,
-			idleTimeoutMs: entry.idleTimeoutMs ?? 0,
-			closePaneOnFinish: entry.closePaneOnFinish !== false,
-			paneClosed: entry.paneClosed === true,
-		};
-		// A job that was running when the process died can be picked up again
-		// only if its pane still exists.
-		if ((job.status === "running" || job.status === "queued") && job.paneId !== null) {
-			alive.push(job);
-		} else {
-			finished.push(job);
-		}
-	}
-	return { finished, alive };
-}
-
-/**
  * Effective configuration. Replaced on every factory bind so a session picks up
  * the current file/env values. Module scope is required: child sessions rebind
  * the factory but must observe the same job registry.
  */
 let CONFIG: WorkerConfig = { ...DEFAULT_CONFIG };
+
+/** Write the registry of this session to disk. */
+function persistRegistry(): void {
+	persistRegistryToDisk(CONFIG.stateDir, JOBS.values());
+}
+
+/** Read the registry of this session from disk. */
+function readRegistry(): { finished: Job[]; alive: Job[] } {
+	return loadRegistryFromDisk(CONFIG.stateDir);
+}
 
 function nextJobId(): string {
 	JOB_SEQ += 1;
@@ -425,14 +160,14 @@ function git(cwd: string, args: string[]): Promise<RunResult> {
 async function createWorktree(cwd: string, jobId: string): Promise<{ path: string; branch: string }> {
 	const inside = await git(cwd, ["rev-parse", "--is-inside-work-tree"]);
 	if (inside.code !== 0 || inside.stdout.trim() !== "true") {
-		throw new Error("Isolation requested but cwd is not a git repository: " + cwd);
+		throw new Error(`Isolation requested but cwd is not a git repository: ${cwd}`);
 	}
 	const base = join(CONFIG.stateDir, "worktrees", jobId);
 	mkdirSync(join(CONFIG.stateDir, "worktrees"), { recursive: true });
-	const branch = "omp/worker/" + jobId;
+	const branch = `omp/worker/${jobId}`;
 	const res = await git(cwd, ["worktree", "add", "-b", branch, base, "HEAD"]);
 	if (res.code !== 0) {
-		throw new Error("git worktree add failed: " + (res.stderr || res.stdout).trim());
+		throw new Error(`git worktree add failed: ${(res.stderr || res.stdout).trim()}`);
 	}
 	return { path: base, branch };
 }
@@ -461,170 +196,9 @@ async function inspectWorktree(path: string): Promise<{
 	}
 	const changes = res.stdout
 		.split("\n")
-		.map(l => l.trim())
-		.filter(l => l.length > 0);
+		.map((l) => l.trim())
+		.filter((l) => l.length > 0);
 	return { exists: true, clean: changes.length === 0, changes };
-}
-
-// ---------------------------------------------------------------------------
-// Worker session inspection
-// ---------------------------------------------------------------------------
-
-interface SessionSummary {
-	userMessages: string[];
-	assistantTexts: string[];
-	toolCalls: number;
-	toolResults: number;
-	/** Text of the newest assistant message, but only if it issued no tool call. */
-	finalText: string | null;
-	/** Name of the tool the worker is running right now, if any. */
-	currentTool: string | null;
-	/** Text of the newest assistant message, preamble included. */
-	latestText: string | null;
-	/** Number of assistant turns (assistant messages) seen so far. */
-	turns: number;
-	/** Number of user messages (the task plus every steering message). */
-	steers: number;
-	/** Assistant turns counted since the newest user message. */
-	turnsSinceLastUser: number;
-	/** Tool calls counted since the newest user message. */
-	toolCallsSinceLastUser: number;
-	/** Tool results counted since the newest user message. */
-	toolResultsSinceLastUser: number;
-	/**
-	 * Ordinal of the assistant message that produced `finalText`, counting
-	 * every assistant message from the start of the transcript. A job records
-	 * the ordinal that existed when it started, so a resumed worker does not
-	 * report an earlier answer as its new result.
-	 */
-	finalTextIndex: number;
-}
-
-interface ContentBlock {
-	type?: string;
-	text?: string;
-}
-
-function listSessionFiles(sessionDir: string): string[] {
-	try {
-		if (!existsSync(sessionDir)) return [];
-		return readdirSync(sessionDir)
-			.filter(f => f.endsWith(".jsonl"))
-			.map(f => join(sessionDir, f))
-			.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
-	} catch {
-		return [];
-	}
-}
-
-function summarizeSession(file: string): SessionSummary {
-	const summary: SessionSummary = {
-		userMessages: [],
-		assistantTexts: [],
-		toolCalls: 0,
-		toolResults: 0,
-		/** Text of the newest assistant message, but only if it issued no tool call. */
-		finalText: null,
-		currentTool: null,
-		latestText: null,
-		turns: 0,
-		steers: 0,
-		turnsSinceLastUser: 0,
-		toolCallsSinceLastUser: 0,
-		toolResultsSinceLastUser: 0,
-		finalTextIndex: 0,
-	};
-	let raw: string;
-	try {
-		raw = readFileSync(file, "utf8");
-	} catch {
-		return summary;
-	}
-	for (const line of raw.split("\n")) {
-		if (!line.trim()) continue;
-		let entry: { type?: string; message?: { role?: string; content?: ContentBlock[] } };
-		try {
-			entry = JSON.parse(line) as typeof entry;
-		} catch {
-			continue;
-		}
-		if (entry.type !== "message" || !entry.message) continue;
-		const role = entry.message.role;
-		const blocks = Array.isArray(entry.message.content) ? entry.message.content : [];
-		if (role === "user") {
-			const text = blocks
-				.filter(b => b.type === "text")
-				.map(b => b.text ?? "")
-				.join("");
-			if (text) {
-				summary.userMessages.push(text);
-				// The first user message is the task; every later one is a
-				// steering message sent into the running worker.
-				if (summary.userMessages.length > 1) summary.steers += 1;
-				// A new user message starts a fresh stretch of work. Turns
-				// counted before it belong to an earlier request, so the
-				// completion check looks only at what follows. Without this, a
-				// resumed worker would immediately report the previous
-				// request's answer as its new result.
-				summary.turnsSinceLastUser = 0;
-				summary.finalText = null;
-				summary.toolCallsSinceLastUser = 0;
-				summary.toolResultsSinceLastUser = 0;
-			}
-		} else if (role === "assistant") {
-			const text = blocks
-				.filter(b => b.type === "text")
-				.map(b => b.text ?? "")
-				.join("");
-			const calls = blocks.filter(b => b.type === "toolCall").length;
-			summary.toolCalls += calls;
-			summary.toolCallsSinceLastUser += calls;
-			summary.turns += 1;
-			summary.turnsSinceLastUser += 1;
-			if (text) {
-				summary.assistantTexts.push(text);
-				summary.latestText = text;
-			}
-			// An assistant message that issues a tool call is not the end of the
-			// turn. Its text is a preamble ("I'll read that file."), so it must
-			// not be treated as the worker's answer. Only a text-only assistant
-			// message concludes a turn.
-			summary.finalText = calls === 0 && text ? text : null;
-			if (calls === 0 && text) summary.finalTextIndex = summary.turns;
-			// A tool call without its result means the worker is inside that
-			// tool right now. The result resets it.
-			summary.currentTool = calls > 0 ? toolCallNames(blocks).join(", ") : null;
-		} else if (role === "toolResult") {
-			summary.toolResults += 1;
-			summary.toolResultsSinceLastUser += 1;
-			summary.currentTool = null;
-		}
-	}
-	return summary;
-}
-
-/** Names of the tool calls in one assistant message. */
-function toolCallNames(blocks: ContentBlock[]): string[] {
-	return blocks
-		.filter(b => b.type === "toolCall")
-		.map(b => (b as ContentBlock & { name?: string }).name ?? "?");
-}
-
-/**
- * A worker turn is complete when its session file ends with a text-only
- * assistant message and no tool call is still outstanding.
- *
- * The counts are the ones taken since the newest user message. A resumed
- * worker opens on a transcript that already holds a finished turn, so the
- * absolute counts would report that old answer as the new result before the
- * worker had done any work.
- */
-function isTurnComplete(summary: SessionSummary): boolean {
-	return (
-		summary.finalText !== null &&
-		summary.turnsSinceLastUser > 0 &&
-		summary.toolCallsSinceLastUser <= summary.toolResultsSinceLastUser
-	);
 }
 
 // ---------------------------------------------------------------------------
@@ -686,7 +260,7 @@ async function spawnWorker(params: SpawnParams): Promise<Job> {
 	persistRegistry();
 
 	if (!existsSync(job.cwd)) {
-		await finalizeJob(job, "failed", "cwd does not exist: " + job.cwd, null);
+		await finalizeJob(job, "failed", `cwd does not exist: ${job.cwd}`, null);
 		return job;
 	}
 
@@ -701,7 +275,7 @@ async function spawnWorker(params: SpawnParams): Promise<Job> {
 			"Cannot run the omp binary '" +
 				CONFIG.ompBin +
 				"': " +
-				(ompCheck.stderr || ompCheck.stdout || "exit code " + ompCheck.code).trim(),
+				(ompCheck.stderr || ompCheck.stdout || `exit code ${ompCheck.code}`).trim(),
 			null,
 		);
 		return job;
@@ -726,7 +300,7 @@ async function spawnWorker(params: SpawnParams): Promise<Job> {
 	// omp argv — every value is its own argv element.
 	const ompArgs: string[] = ["--no-title", "--cwd", job.cwd, "--session-dir", job.sessionDir];
 	if (job.model) ompArgs.push("--model", job.model);
-	if (job.tools && job.tools.length) ompArgs.push("--tools", job.tools.join(","));
+	if (job.tools?.length) ompArgs.push("--tools", job.tools.join(","));
 	// The task is a single argv element: no shell parsing, no quoting hazards.
 	ompArgs.push(job.task);
 
@@ -741,7 +315,7 @@ async function spawnWorker(params: SpawnParams): Promise<Job> {
 		await finalizeJob(
 			job,
 			"failed",
-			"wezterm " + job.placement + " failed: " + (res.stderr || res.stdout).trim(),
+			`wezterm ${job.placement} failed: ${(res.stderr || res.stdout).trim()}`,
 			null,
 		);
 		return job;
@@ -752,7 +326,7 @@ async function spawnWorker(params: SpawnParams): Promise<Job> {
 		await finalizeJob(
 			job,
 			"failed",
-			"wezterm did not return a pane id (got: " + JSON.stringify(res.stdout) + ")",
+			`wezterm did not return a pane id (got: ${JSON.stringify(res.stdout)})`,
 			null,
 		);
 		return job;
@@ -771,7 +345,7 @@ async function spawnWorker(params: SpawnParams): Promise<Job> {
 				tab_id: number;
 				window_id: number;
 			}>;
-			const found = panes.find(p => p.pane_id === paneId);
+			const found = panes.find((p) => p.pane_id === paneId);
 			if (found) {
 				job.tabId = found.tab_id;
 				job.windowId = found.window_id;
@@ -786,7 +360,7 @@ async function spawnWorker(params: SpawnParams): Promise<Job> {
 	// shares the user's tab, and renaming it would overwrite the title of
 	// whatever the user is running.
 	if (job.placement === "tab") {
-		await wezterm(["set-tab-title", "--pane-id", String(paneId), "OMP worker " + job.id]);
+		await wezterm(["set-tab-title", "--pane-id", String(paneId), `OMP worker ${job.id}`]);
 	}
 
 	// Persist again now that the pane id is known. The first write happened
@@ -812,10 +386,7 @@ async function spawnWorker(params: SpawnParams): Promise<Job> {
  * finished worker has no live composer to type into, and steering requires a
  * running pane.
  */
-async function resumeWorker(
-	source: Job,
-	params: { message?: string; placement?: Placement },
-): Promise<Job> {
+async function resumeWorker(source: Job, params: { message?: string; placement?: Placement }): Promise<Job> {
 	const jobId = nextJobId();
 	const sessionFile = source.sessionFile;
 	if (!sessionFile || !existsSync(sessionFile)) {
@@ -823,7 +394,7 @@ async function resumeWorker(
 			...source,
 			id: jobId,
 			status: "failed",
-			error: "The worker has no transcript to resume: " + (source.sessionFile ?? "(none)"),
+			error: `The worker has no transcript to resume: ${source.sessionFile ?? "(none)"}`,
 			finishedAt: Date.now(),
 		};
 		JOBS.set(jobId, failed);
@@ -833,7 +404,7 @@ async function resumeWorker(
 	const job: Job = {
 		...source,
 		id: jobId,
-		label: source.label + " (resumed)",
+		label: `${source.label} (resumed)`,
 		status: "queued",
 		paneId: null,
 		tabId: null,
@@ -887,7 +458,7 @@ async function resumeWorker(
 		sessionFile,
 	];
 	if (job.model) ompArgs.push("--model", job.model);
-	if (job.tools && job.tools.length) ompArgs.push("--tools", job.tools.join(","));
+	if (job.tools?.length) ompArgs.push("--tools", job.tools.join(","));
 	// A follow-up message restarts the turn; without one the worker opens on
 	// its transcript and waits.
 	if (params.message) ompArgs.push(params.message);
@@ -900,7 +471,7 @@ async function resumeWorker(
 	const res = await wezterm(weztermArgs);
 	if (res.code !== 0) {
 		job.status = "failed";
-		job.error = "wezterm " + job.placement + " failed: " + (res.stderr || res.stdout).trim();
+		job.error = `wezterm ${job.placement} failed: ${(res.stderr || res.stdout).trim()}`;
 		job.finishedAt = Date.now();
 		persistRegistry();
 		return job;
@@ -908,7 +479,7 @@ async function resumeWorker(
 	const paneId = Number.parseInt(res.stdout.trim(), 10);
 	if (!Number.isFinite(paneId)) {
 		job.status = "failed";
-		job.error = "wezterm did not return a pane id (got: " + JSON.stringify(res.stdout) + ")";
+		job.error = `wezterm did not return a pane id (got: ${JSON.stringify(res.stdout)})`;
 		job.finishedAt = Date.now();
 		persistRegistry();
 		return job;
@@ -920,7 +491,7 @@ async function resumeWorker(
 
 	// Only a worker that owns its tab may rename it — see spawnWorker.
 	if (job.placement === "tab") {
-		await wezterm(["set-tab-title", "--pane-id", String(paneId), "OMP worker " + job.id]);
+		await wezterm(["set-tab-title", "--pane-id", String(paneId), `OMP worker ${job.id}`]);
 	}
 	persistRegistry();
 	return job;
@@ -997,10 +568,13 @@ async function finalizeJob(
  * worktree stays and the caller reports why. Removing the branch is a
  * separate decision and is never taken here.
  */
-async function removeWorktree(cwd: string, path: string): Promise<{ removed: boolean; error: string | null }> {
+async function removeWorktree(
+	cwd: string,
+	path: string,
+): Promise<{ removed: boolean; error: string | null }> {
 	const res = await git(cwd, ["worktree", "remove", "--force", path]);
 	if (res.code === 0) return { removed: true, error: null };
-	return { removed: false, error: (res.stderr || res.stdout).trim() || "exit code " + res.code };
+	return { removed: false, error: (res.stderr || res.stdout).trim() || `exit code ${res.code}` };
 }
 
 async function paneExists(paneId: number): Promise<boolean> {
@@ -1008,7 +582,7 @@ async function paneExists(paneId: number): Promise<boolean> {
 	if (listing.code !== 0) return false;
 	try {
 		const panes = JSON.parse(listing.stdout) as Array<{ pane_id: number }>;
-		return panes.some(p => p.pane_id === paneId);
+		return panes.some((p) => p.pane_id === paneId);
 	} catch {
 		return false;
 	}
@@ -1030,9 +604,9 @@ async function paneExists(paneId: number): Promise<boolean> {
  * composer submits. The "\r" is appended here, never by the caller.
  */
 async function sendToPane(paneId: number, text: string): Promise<{ ok: boolean; error: string | null }> {
-	const res = await wezterm(["send-text", "--no-paste", "--pane-id", String(paneId), text + "\r"]);
+	const res = await wezterm(["send-text", "--no-paste", "--pane-id", String(paneId), `${text}\r`]);
 	if (res.code !== 0) {
-		return { ok: false, error: (res.stderr || res.stdout).trim() || "exit code " + res.code };
+		return { ok: false, error: (res.stderr || res.stdout).trim() || `exit code ${res.code}` };
 	}
 	return { ok: true, error: null };
 }
@@ -1046,7 +620,7 @@ async function sendToPane(paneId: number, text: string): Promise<{ ok: boolean; 
 async function paneTail(paneId: number, lines: number): Promise<string> {
 	const res = await wezterm(["get-text", "--pane-id", String(paneId)]);
 	if (res.code !== 0) return "";
-	const rows = res.stdout.split("\n").filter(l => l.trim());
+	const rows = res.stdout.split("\n").filter((l) => l.trim());
 	return rows.slice(-lines).join("\n");
 }
 
@@ -1072,7 +646,7 @@ function monitorJob(job: Job, notify: (job: Job) => void): void {
 		const elapsed = Date.now() - (job.startedAt ?? job.createdAt);
 		if (cap > 0 && elapsed > cap) {
 			void (async () => {
-				await finalizeJob(job, "failed", "Worker timed out after " + Math.round(cap / 1000) + "s", null);
+				await finalizeJob(job, "failed", `Worker timed out after ${Math.round(cap / 1000)}s`, null);
 				notify(job);
 			})();
 			return;
@@ -1085,7 +659,7 @@ function monitorJob(job: Job, notify: (job: Job) => void): void {
 				await finalizeJob(
 					job,
 					"failed",
-					"Worker produced no activity for " + Math.round(idleCap / 1000) + "s and was stopped",
+					`Worker produced no activity for ${Math.round(idleCap / 1000)}s and was stopped`,
 					null,
 				);
 				notify(job);
@@ -1210,7 +784,11 @@ interface ExtensionAPI {
 	 */
 	sendMessage: (
 		content: string,
-		options?: { deliverAs?: "steer" | "followUp" | "nextTurn" | "aside"; triggerTurn?: boolean; attribution?: "user" | "agent" },
+		options?: {
+			deliverAs?: "steer" | "followUp" | "nextTurn" | "aside";
+			triggerTurn?: boolean;
+			attribution?: "user" | "agent";
+		},
 	) => void;
 	zod: ZodLike;
 }
@@ -1289,7 +867,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	// `ExtensionRuntimeNotInitializedError` when an action method is called
 	// during extension load. The registry itself is read eagerly, because the
 	// status tool must list the finished workers straight away.
-	const restored = loadRegistry();
+	const restored = readRegistry();
 	for (const job of restored.finished) {
 		JOBS.set(job.id, job);
 	}
@@ -1330,7 +908,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	const drainErrors = () => {
 		while (EXTENSION_ERRORS.length > 0) {
 			const message = EXTENSION_ERRORS.shift();
-			if (message) pi.logger?.error?.("[wezterm-worker] " + message);
+			if (message) pi.logger?.error?.(`[wezterm-worker] ${message}`);
 		}
 	};
 	pi.on("tool_result", drainErrors);
@@ -1350,14 +928,28 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			"Use for long read-only or independent tasks. Prefer the native `task` tool when no pane is needed.",
 		parameters: z.object({
 			task: z.string().describe("Self-contained instructions for the worker. It sees only this text."),
-			cwd: optional(() => z.string()).describe("Absolute working directory for the worker. Defaults to the current session cwd."),
+			cwd: optional(() => z.string()).describe(
+				"Absolute working directory for the worker. Defaults to the current session cwd.",
+			),
 			label: optional(() => z.string()).describe("Short human label shown in the pane title and in reports."),
-			model: optional(() => z.string()).describe("Model selector for the worker, e.g. 'omniroute/minimax/MiniMax-M3.1-Flash'. Omit to use omp's default."),
-			tools: optional(() => z.array(z.string())).describe("Tool list for the worker, e.g. ['read','grep','glob']. Omit for the default tool set."),
-			placement: optional(() => z.string()).describe("'split' (default) splits the current pane; 'tab' opens a new tab in the current window."),
-			isolated: optional(() => z.boolean()).describe("Run the worker in its own git worktree so parallel workers never edit the same checkout."),
-			timeoutMs: optional(() => z.number()).describe("Deadline for this worker in ms. 0 means no deadline. Defaults to the configured timeoutMs (30 min). Use a large value for a task that legitimately takes hours."),
-			closePaneOnFinish: optional(() => z.boolean()).describe("Close the worker pane when the worker finishes. Defaults to the config value (true). Set false to keep the pane open for inspection."),
+			model: optional(() => z.string()).describe(
+				"Model selector for the worker, e.g. 'omniroute/minimax/MiniMax-M3.1-Flash'. Omit to use omp's default.",
+			),
+			tools: optional(() => z.array(z.string())).describe(
+				"Tool list for the worker, e.g. ['read','grep','glob']. Omit for the default tool set.",
+			),
+			placement: optional(() => z.string()).describe(
+				"'split' (default) splits the current pane; 'tab' opens a new tab in the current window.",
+			),
+			isolated: optional(() => z.boolean()).describe(
+				"Run the worker in its own git worktree so parallel workers never edit the same checkout.",
+			),
+			timeoutMs: optional(() => z.number()).describe(
+				"Deadline for this worker in ms. 0 means no deadline. Defaults to the configured timeoutMs (30 min). Use a large value for a task that legitimately takes hours.",
+			),
+			closePaneOnFinish: optional(() => z.boolean()).describe(
+				"Close the worker pane when the worker finishes. Defaults to the config value (true). Set false to keep the pane open for inspection.",
+			),
 		}),
 		loadMode: "essential",
 		async execute(
@@ -1393,7 +985,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 
 			if (job.status === "failed") {
 				return {
-					content: [{ type: "text", text: "Worker failed to start: " + (job.error ?? "unknown error") }],
+					content: [{ type: "text", text: `Worker failed to start: ${job.error ?? "unknown error"}` }],
 					details: { workerId: job.id, status: job.status, error: job.error },
 					isError: true,
 				};
@@ -1450,14 +1042,14 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			_ctx: unknown,
 		) {
 			const all = [...JOBS.values()].sort((a, b) => b.createdAt - a.createdAt);
-			const jobs = params.workerId ? all.filter(j => j.id === params.workerId) : all;
+			const jobs = params.workerId ? all.filter((j) => j.id === params.workerId) : all;
 			if (jobs.length === 0) {
 				return {
 					content: [
 						{
 							type: "text",
 							text: params.workerId
-								? "Unknown worker id: " + params.workerId
+								? `Unknown worker id: ${params.workerId}`
 								: "No workers have been spawned in this process.",
 						},
 					],
@@ -1486,7 +1078,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 					/* the transcript is being written; the next poll retries */
 				}
 			}
-			const rows = jobs.map(j => ({
+			const rows = jobs.map((j) => ({
 				workerId: j.id,
 				label: j.label,
 				status: j.status,
@@ -1507,7 +1099,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 				error: j.error,
 			}));
 			const text = rows
-				.map(r =>
+				.map((r) =>
 					[
 						`${r.workerId}  ${r.status.toUpperCase()}`,
 						`  label      : ${r.label}`,
@@ -1561,7 +1153,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			const job = JOBS.get(params.workerId);
 			if (!job) {
 				return {
-					content: [{ type: "text", text: "Unknown worker id: " + params.workerId }],
+					content: [{ type: "text", text: `Unknown worker id: ${params.workerId}` }],
 					details: { known: [...JOBS.keys()] },
 					isError: true,
 				};
@@ -1569,7 +1161,10 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			if (job.status !== "running" && job.status !== "queued") {
 				return {
 					content: [
-						{ type: "text", text: "Worker " + job.id + " is already " + job.status + " and cannot be steered." },
+						{
+							type: "text",
+							text: `Worker ${job.id} is already ${job.status} and cannot be steered.`,
+						},
 					],
 					details: { workerId: job.id, status: job.status },
 					isError: true,
@@ -1577,7 +1172,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			}
 			if (job.paneId === null) {
 				return {
-					content: [{ type: "text", text: "Worker " + job.id + " has no pane yet." }],
+					content: [{ type: "text", text: `Worker ${job.id} has no pane yet.` }],
 					details: { workerId: job.id, status: job.status },
 					isError: true,
 				};
@@ -1585,7 +1180,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			if (!(await paneExists(job.paneId))) {
 				return {
 					content: [
-						{ type: "text", text: "The pane of worker " + job.id + " is gone. The worker process exited." },
+						{ type: "text", text: `The pane of worker ${job.id} is gone. The worker process exited.` },
 					],
 					details: { workerId: job.id, status: job.status, paneId: job.paneId },
 					isError: true,
@@ -1595,7 +1190,10 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			if (!sent.ok) {
 				return {
 					content: [
-						{ type: "text", text: "Could not send to worker " + job.id + ": " + (sent.error ?? "unknown error") },
+						{
+							type: "text",
+							text: `Could not send to worker ${job.id}: ${sent.error ?? "unknown error"}`,
+						},
 					],
 					details: { workerId: job.id, status: job.status, paneId: job.paneId, error: sent.error },
 					isError: true,
@@ -1608,7 +1206,11 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 					{
 						type: "text",
 						text:
-							"Sent to worker " + job.id + " in pane " + job.paneId + ":\n" +
+							"Sent to worker " +
+							job.id +
+							" in pane " +
+							job.paneId +
+							":\n" +
 							params.message +
 							"\n\nThe worker continues working; its final result is still delivered back automatically.",
 					},
@@ -1642,14 +1244,14 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			const job = JOBS.get(params.workerId);
 			if (!job) {
 				return {
-					content: [{ type: "text", text: "Unknown worker id: " + params.workerId }],
+					content: [{ type: "text", text: `Unknown worker id: ${params.workerId}` }],
 					details: { known: [...JOBS.keys()] },
 					isError: true,
 				};
 			}
 			if (job.paneId === null) {
 				return {
-					content: [{ type: "text", text: "Worker " + job.id + " has no pane." }],
+					content: [{ type: "text", text: `Worker ${job.id} has no pane.` }],
 					details: { workerId: job.id },
 					isError: true,
 				};
@@ -1657,9 +1259,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			const text = await paneTail(job.paneId, params.lines ?? 20);
 			if (!text) {
 				return {
-					content: [
-						{ type: "text", text: "No pane text available. The pane may be closed." },
-					],
+					content: [{ type: "text", text: "No pane text available. The pane may be closed." }],
 					details: { workerId: job.id, paneId: job.paneId, alive: await paneExists(job.paneId) },
 				};
 			}
@@ -1691,16 +1291,14 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			const job = JOBS.get(params.workerId);
 			if (!job) {
 				return {
-					content: [{ type: "text", text: "Unknown worker id: " + params.workerId }],
+					content: [{ type: "text", text: `Unknown worker id: ${params.workerId}` }],
 					details: { known: [...JOBS.keys()] },
 					isError: true,
 				};
 			}
 			if (job.result === null && (job.status === "running" || job.status === "queued")) {
 				return {
-					content: [
-						{ type: "text", text: "Worker " + job.id + " is still " + job.status + "." },
-					],
+					content: [{ type: "text", text: `Worker ${job.id} is still ${job.status}.` }],
 					details: { workerId: job.id, status: job.status },
 				};
 			}
@@ -1746,7 +1344,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			const job = JOBS.get(params.workerId);
 			if (!job) {
 				return {
-					content: [{ type: "text", text: "Unknown worker id: " + params.workerId }],
+					content: [{ type: "text", text: `Unknown worker id: ${params.workerId}` }],
 					details: { known: [...JOBS.keys()] },
 					isError: true,
 				};
@@ -1756,12 +1354,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 					content: [
 						{
 							type: "text",
-							text:
-								"Worker " +
-								job.id +
-								" is still " +
-								job.status +
-								". Steer it instead of resuming it.",
+							text: `Worker ${job.id} is still ${job.status}. Steer it instead of resuming it.`,
 						},
 					],
 					details: { workerId: job.id, status: job.status },
@@ -1772,7 +1365,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			const resumed = await resumeWorker(job, { message: params.message, placement });
 			if (resumed.status === "failed") {
 				return {
-					content: [{ type: "text", text: "Could not resume worker: " + (resumed.error ?? "unknown error") }],
+					content: [{ type: "text", text: `Could not resume worker: ${resumed.error ?? "unknown error"}` }],
 					details: { workerId: resumed.id, status: resumed.status, error: resumed.error },
 					isError: true,
 				};
@@ -1830,22 +1423,20 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			const job = JOBS.get(params.workerId);
 			if (!job) {
 				return {
-					content: [{ type: "text", text: "Unknown worker id: " + params.workerId }],
+					content: [{ type: "text", text: `Unknown worker id: ${params.workerId}` }],
 					details: { known: [...JOBS.keys()] },
 					isError: true,
 				};
 			}
 			if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
 				return {
-					content: [{ type: "text", text: "Worker " + job.id + " is already " + job.status + "." }],
+					content: [{ type: "text", text: `Worker ${job.id} is already ${job.status}.` }],
 					details: { workerId: job.id, status: job.status },
 				};
 			}
 			await cancelJob(job);
 			return {
-				content: [
-					{ type: "text", text: "Worker " + job.id + " cancelled. Pane " + job.paneId + " closed." },
-				],
+				content: [{ type: "text", text: `Worker ${job.id} cancelled. Pane ${job.paneId} closed.` }],
 				details: { workerId: job.id, status: job.status, paneId: job.paneId },
 			};
 		},
@@ -1883,16 +1474,14 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			const job = JOBS.get(params.workerId);
 			if (!job) {
 				return {
-					content: [{ type: "text", text: "Unknown worker id: " + params.workerId }],
+					content: [{ type: "text", text: `Unknown worker id: ${params.workerId}` }],
 					details: { known: [...JOBS.keys()] },
 					isError: true,
 				};
 			}
 			if (job.status === "running" || job.status === "queued") {
 				return {
-					content: [
-						{ type: "text", text: "Worker " + job.id + " is still " + job.status + ". Cancel it first." },
-					],
+					content: [{ type: "text", text: `Worker ${job.id} is still ${job.status}. Cancel it first.` }],
 					details: { workerId: job.id, status: job.status },
 					isError: true,
 				};
@@ -1902,7 +1491,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			let keptChanges: string[] = [];
 			if (job.worktreePath) {
 				if (job.paneId !== null && (await paneExists(job.paneId))) {
-					notes.push("worktree kept: close pane " + job.paneId + " first, it holds the directory");
+					notes.push(`worktree kept: close pane ${job.paneId} first, it holds the directory`);
 					keptWorktree = job.worktreePath;
 				} else {
 					// Never throw away work. A checkout with uncommitted edits,
@@ -1910,7 +1499,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 					// it survives unless the caller forces the removal.
 					const state = await inspectWorktree(job.worktreePath);
 					if (!state.exists) {
-						notes.push("worktree already gone: " + job.worktreePath);
+						notes.push(`worktree already gone: ${job.worktreePath}`);
 					} else if (!state.clean && !params.force) {
 						keptWorktree = job.worktreePath;
 						keptChanges = state.changes;
@@ -1919,23 +1508,19 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 								state.changes.length +
 								"). Keep it, or pass force to discard them.",
 						);
-						for (const change of state.changes) notes.push("  " + change);
+						for (const change of state.changes) notes.push(`  ${change}`);
 					} else {
 						const origin = job.worktreeOrigin ?? job.cwd;
 						const out = await removeWorktree(origin, job.worktreePath);
 						if (out.removed) {
-							notes.push("worktree removed: " + job.worktreePath);
+							notes.push(`worktree removed: ${job.worktreePath}`);
 							if (job.worktreeBranch) {
-								notes.push(
-									"branch kept (commits made by the worker survive): " + job.worktreeBranch,
-								);
+								notes.push(`branch kept (commits made by the worker survive): ${job.worktreeBranch}`);
 							}
 							job.worktreePath = null;
 							job.worktreeBranch = null;
 						} else {
-							notes.push(
-								"worktree NOT removed (" + (out.error ?? "unknown") + "): " + job.worktreePath,
-							);
+							notes.push(`worktree NOT removed (${out.error ?? "unknown"}): ${job.worktreePath}`);
 							keptWorktree = job.worktreePath;
 						}
 					}
@@ -1943,13 +1528,13 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			}
 			try {
 				rmSync(job.sessionDir, { recursive: true, force: true });
-				notes.push("transcript directory removed: " + job.sessionDir);
+				notes.push(`transcript directory removed: ${job.sessionDir}`);
 			} catch (e) {
-				notes.push("transcript directory NOT removed: " + String(e));
+				notes.push(`transcript directory NOT removed: ${String(e)}`);
 			}
 			persistRegistry();
 			return {
-				content: [{ type: "text", text: "Cleanup for worker " + job.id + ":\n- " + notes.join("\n- ") }],
+				content: [{ type: "text", text: `Cleanup for worker ${job.id}:\n- ${notes.join("\n- ")}` }],
 				details: {
 					workerId: job.id,
 					notes,
@@ -1966,18 +1551,13 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	// -----------------------------------------------------------------------
 	pi.registerCommand("wezterm-workers", {
 		description: "Show the WezTerm pane workers of this session.",
-		handler: async (
-			_args: string,
-			ctx: { ui?: { notify?: (message: string, level?: string) => void } },
-		) => {
+		handler: async (_args: string, ctx: { ui?: { notify?: (message: string, level?: string) => void } }) => {
 			const jobs = [...JOBS.values()].sort((a, b) => b.createdAt - a.createdAt);
 			if (jobs.length === 0) {
 				ctx.ui?.notify?.("No WezTerm workers in this session.", "info");
 				return;
 			}
-			const text = jobs
-				.map(j => `${j.id}  ${j.status}  pane=${j.paneId ?? "-"}  ${j.label}`)
-				.join("\n");
+			const text = jobs.map((j) => `${j.id}  ${j.status}  pane=${j.paneId ?? "-"}  ${j.label}`).join("\n");
 			ctx.ui?.notify?.(text, "info");
 		},
 	});
