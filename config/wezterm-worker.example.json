@@ -8,5 +8,6 @@
 	"tools": null,
 	"pollMs": 2000,
 	"timeoutMs": 1800000,
+	"idleTimeoutMs": 0,
 	"isolated": false
 }

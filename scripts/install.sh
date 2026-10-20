@@ -95,6 +95,7 @@ if [ "$WRITE_CONFIG" -eq 1 ]; then
 	"tools": null,
 	"pollMs": 2000,
 	"timeoutMs": 1800000,
+	"idleTimeoutMs": 0,
 	"isolated": false
 }
 EOF
