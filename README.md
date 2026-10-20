@@ -89,7 +89,7 @@ confirm the picker.
 | `wezterm_worker_result` | Read a finished worker's final assistant text. |
 | `wezterm_worker_resume` | Reopen a **finished** worker in a new pane, continuing its transcript, optionally with a follow-up instruction. |
 | `wezterm_worker_cancel` | Cancel a worker and close **only** the pane that worker created. |
-| `wezterm_worker_cleanup` | Release a finished worker's isolated worktree and transcript directory. |
+| `wezterm_worker_cleanup` | Release a finished worker's transcript directory and its isolated worktree. A worktree with uncommitted changes is kept unless `force` is set. |
 
 `/wezterm-workers` prints the roster in the TUI.
 
@@ -268,13 +268,32 @@ Two workers editing the same checkout is a real hazard. Two options:
 
 - **`isolated: true`** — the worker gets its own `git worktree`
   (`omp/worker/<jobId>` branch) under `stateDir/worktrees/`. Requires a git repo.
-  The worktree is released automatically once the worker pane is closed
-  (the worker's own process holds the directory open until then).
+  The worktree **survives the worker**: it is not removed when the worker
+  finishes, is cancelled, or times out. See "Isolated worktrees" below.
 - **Restrict worker tools** — pass `tools: ["read","grep","glob"]` so the worker
   cannot write at all. Use this for survey/analysis work.
 
 `task.isolation.enabled` in OMP's own config governs the **native** `task`
 subagents only; it does not affect these workers.
+
+### Isolated worktrees
+
+A worker that commits, edits or creates files has produced work. That work is
+kept: the extension never removes a worktree on its own.
+
+| Moment | What happens to the worktree |
+|---|---|
+| Worker finishes, is cancelled, or times out | Kept. The branch `omp/worker/<jobId>` and the checkout both survive. |
+| `wezterm_worker_cleanup` without `force` | Kept when the checkout has uncommitted changes or untracked files. The changed paths are listed. |
+| `wezterm_worker_cleanup` with `force: true` | Removed. The branch is **kept**, so commits the worker made survive. |
+
+Cleanup checks the checkout with `git status --porcelain` before removing
+anything. A worktree with changes is reported, not deleted — the changes are
+the worker's output. Pass `force: true` only when discarding them is intended.
+
+The branch is never deleted by the extension. Remove it yourself with
+`git branch -d omp/worker/<jobId>` once its content is merged or no longer
+needed.
 
 ## Failure handling
 
@@ -284,7 +303,7 @@ subagents only; it does not affect these workers.
 | `omp` binary missing or not runnable | Spawn fails immediately with the underlying spawn error. No empty pane is left behind. |
 | Worker dies during startup (bad model, crash) | The pane disappears with no transcript; the monitor marks the worker `failed` after a 45 s grace period and delivers the failure. |
 | Worker exceeds `timeoutMs` | The worker is marked `failed` with a timeout message. |
-| User closes the worker pane | The worker stays in the registry; the isolated worktree (if any) is released. |
+| User closes the worker pane | The worker stays in the registry; the isolated worktree (if any) is kept. |
 | OMP restarts while a worker runs | The worker is re-read from `registry.json` and re-monitored if its pane is still alive. |
 | OMP restarts after the user closed the pane | The worker is marked `failed` with "Worker pane was closed before this session re-attached". |
 
@@ -309,6 +328,10 @@ plugin did not create. Panes belonging to the user are never touched.
   worker needs a real repository path.
 - `isolated: true` needs a git repository. On Windows, `git worktree add` can
   fall back to a plain checkout when block cloning is unavailable.
+- The extension never deletes a worktree or its branch. Worktrees accumulate
+  under `stateDir/worktrees/` until `wezterm_worker_cleanup` is called on them,
+  and their branches accumulate in the repository until they are deleted by
+  hand.
 - The extension module loads at OMP startup. A newly added module is not
   picked up by `/reload-plugins`; restart OMP.
 

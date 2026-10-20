@@ -192,12 +192,19 @@ The runtime API of an omp extension, verified against omp 18.12.3 on Windows:
 |---|---|
 | `pi.registerTool({name, label, description, parameters, execute})` | Register a tool. `parameters` is a schema object; `execute(id, params, signal, onUpdate, ctx)` returns `{content, details, isError?}`. |
 | `pi.registerCommand(name, {description, handler})` | Register a slash command. |
+| `pi.on(event, handler)` | Register an event handler (`session_start`, `session_shutdown`, `tool_call`, …). The handler receives `(event, ctx)`. |
 | `pi.sendUserMessage(text, {triggerTurn})` | Inject a user message and start a turn. **This is what wakes the main agent.** |
 | `pi.sendMessage(content, {deliverAs, triggerTurn, attribution})` | Inject with an explicit delivery mode. `deliverAs: "steer"` delivers now; `"followUp"` queues behind the current turn. |
 | `pi.appendEntry({type:"custom", customType, content})` | Append a custom entry to session state. Does **not** start a turn. |
+| `pi.setLabel(label)` | Set the extension's display label. |
 | `pi.logger.info/warn/error` | Logging. |
 | `pi.zod` | Schema builder: `z.string()`, `z.number()`, `z.boolean()`, `z.array()`, `z.object()`. |
 | `pi.ui.notify(message, level?)` | Toast notification. |
+| `ctx.setInterval(fn, ms)` / `ctx.clearTimer(handle)` | Managed timers. Isolated like a handler dispatch: a throw is logged, not fatal. |
+
+The authoritative source is `docs/extensions.md` in the upstream repository
+(`can1357/oh-my-pi`). Read it before relying on an API detail; the local type
+stub is incomplete.
 
 The `pi.sendMessage` options are **not** in the published type stub
 (`~/.omp/agent/extensions/.stubs/omp-types.d.ts` lists only `appendEntry` and
@@ -295,3 +302,32 @@ already holds a finished turn, so a completion check over the absolute counts
 reports the *previous* answer as the new result before the worker did any
 work. Count assistant turns and tool calls only since the last user message,
 and require at least one assistant turn in that window.
+
+**A worker's worktree outlives the worker.** An isolated worker owns a `git
+worktree` on branch `omp/worker/<jobId>`. The extension never removes it —
+not on completion, not on cancel, not on timeout. `wezterm_worker_cleanup` is
+the only thing that removes one, and it checks `git status --porcelain`
+first: a checkout with uncommitted changes or untracked files is **kept** and
+the changed paths are listed, because those changes are the worker's output.
+`force: true` discards them. The branch is never deleted by the extension, so
+commits survive the worktree.
+
+## Extension runtime rules (OMP)
+
+From the official extension docs (`can1357/oh-my-pi` → `docs/extensions.md`):
+
+- **The extension factory parameter is named `pi` and its type is
+  `ExtensionAPI`.** That is the host's own convention, not a legacy name.
+- **Do not call action methods during extension load.** `pi.sendMessage()` and
+  friends throw `ExtensionRuntimeNotInitializedError` while the factory runs.
+  Register first; do runtime work from `pi.on("session_start", ...)`, a
+  command, or a tool.
+- **Background work must use `ctx.setInterval`, not a raw `setInterval`.**
+  Extensions run in-process with no isolation: a throw in a raw timer callback
+  becomes a process-level `uncaughtException` and tears the **whole session**
+  down. `ctx.setInterval` contains the failure, is `unref`'d, and is cleared
+  automatically on `session_shutdown`.
+- **`pi.setLabel(label)`** sets the extension's display label. It is not a
+  session-entry labelling action.
+- `pi.zod` is the schema builder; `pi.registerTool`, `pi.registerCommand` and
+  `pi.on` are the registration methods.

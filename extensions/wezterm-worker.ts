@@ -143,6 +143,8 @@ interface Job {
 	worktreeBranch: string | null;
 	/** Repository the isolated worktree was created from. */
 	worktreeOrigin: string | null;
+	/** True when the worktree held uncommitted changes when it was last checked. */
+	worktreeDirty: boolean | null;
 	cancelled: boolean;
 	/** Timestamp of the last observed transcript change. */
 	lastActivityAt: number;
@@ -173,8 +175,58 @@ interface Job {
 
 const JOBS = new Map<string, Job>();
 const MONITORS = new Map<string, NodeJS.Timeout>();
-const REAPERS = new Map<string, NodeJS.Timeout>();
 let JOB_SEQ = 0;
+
+/**
+ * Errors raised inside a background poll.
+ *
+ * A poll that throws must not take the session down, so the failure is
+ * recorded here and surfaced through the extension logger.
+ */
+const EXTENSION_ERRORS: string[] = [];
+
+/**
+ * Managed timers.
+ *
+ * OMP runs extensions in-process with no isolation: a raw `setInterval`
+ * callback that throws becomes a process-level `uncaughtException` and tears
+ * the whole session down. Every background poll therefore goes through the
+ * host's `ctx.setInterval`, which contains the failure, and every callback
+ * carries its own try/catch as a second line of defence.
+ */
+interface TimerHost {
+	setInterval: (fn: () => void, ms: number) => NodeJS.Timeout;
+}
+
+let TIMER_HOST: TimerHost = {
+	setInterval: (fn, ms) => {
+		const timer = setInterval(fn, ms);
+		timer.unref?.();
+		return timer;
+	},
+};
+
+/** Replace the timer host with the host's managed timers. */
+function useTimerHost(host: TimerHost): void {
+	TIMER_HOST = host;
+}
+
+/**
+ * Start a managed interval.
+ *
+ * The callback body is wrapped: a throw inside it is reported and the poller
+ * keeps running instead of taking the session down.
+ */
+function startManagedInterval(fn: () => void, ms: number): NodeJS.Timeout {
+	return TIMER_HOST.setInterval(() => {
+		try {
+			fn();
+		} catch (e) {
+			// A failed poll must never end the session.
+			EXTENSION_ERRORS.push(e instanceof Error ? e.message : String(e));
+		}
+	}, ms);
+}
 
 /**
  * The registry file. The job map lives in this process, so an OMP restart
@@ -208,6 +260,7 @@ interface PersistedJob {
 	worktreePath: string | null;
 	worktreeBranch: string | null;
 	worktreeOrigin: string | null;
+	worktreeDirty: boolean | null;
 	cancelled: boolean;
 	lastActivityAt: number;
 	currentTool: string | null;
@@ -293,6 +346,7 @@ function loadRegistry(): { finished: Job[]; alive: Job[] } {
 			worktreePath: entry.worktreePath ?? null,
 			worktreeBranch: entry.worktreeBranch ?? null,
 			worktreeOrigin: entry.worktreeOrigin ?? null,
+			worktreeDirty: typeof entry.worktreeDirty === "boolean" ? entry.worktreeDirty : null,
 			cancelled: entry.cancelled === true,
 			lastActivityAt: entry.lastActivityAt ?? Date.now(),
 			currentTool: entry.currentTool ?? null,
@@ -381,6 +435,35 @@ async function createWorktree(cwd: string, jobId: string): Promise<{ path: strin
 		throw new Error("git worktree add failed: " + (res.stderr || res.stdout).trim());
 	}
 	return { path: base, branch };
+}
+
+/**
+ * Look at a worktree before it is removed.
+ *
+ * A worker may have committed nothing and still leave uncommitted edits,
+ * untracked files or stashes behind. Those are the worker's output, so the
+ * worktree is only safe to remove when the checkout is clean.
+ */
+async function inspectWorktree(path: string): Promise<{
+	exists: boolean;
+	clean: boolean;
+	changes: string[];
+}> {
+	if (!existsSync(path)) return { exists: false, clean: true, changes: [] };
+	const res = await git(path, ["status", "--porcelain"]);
+	if (res.code !== 0) {
+		// An unreadable status means the state is unknown, so it is not clean.
+		return {
+			exists: true,
+			clean: false,
+			changes: [(res.stderr || res.stdout || "git status failed").trim()],
+		};
+	}
+	const changes = res.stdout
+		.split("\n")
+		.map(l => l.trim())
+		.filter(l => l.length > 0);
+	return { exists: true, clean: changes.length === 0, changes };
 }
 
 // ---------------------------------------------------------------------------
@@ -586,6 +669,7 @@ async function spawnWorker(params: SpawnParams): Promise<Job> {
 		worktreePath: null,
 		worktreeBranch: null,
 		worktreeOrigin: null,
+		worktreeDirty: null,
 		cancelled: false,
 		lastActivityAt: Date.now(),
 		currentTool: null,
@@ -710,8 +794,8 @@ async function spawnWorker(params: SpawnParams): Promise<Job> {
 	// running worker with no pane, and a restart could not re-attach to it.
 	persistRegistry();
 
-	// An isolated worktree is released once its pane closes.
-	if (job.worktreePath && job.worktreeOrigin) reapWorktree(job, job.worktreeOrigin);
+	// The isolated worktree stays. It is the worker's checkout and holds
+	// whatever it produced; wezterm_worker_cleanup releases it later.
 
 	return job;
 }
@@ -760,6 +844,9 @@ async function resumeWorker(
 		finishedAt: null,
 		result: null,
 		error: null,
+		// The resumed worker works in the same checkout, so the dirty state of
+		// the previous run says nothing about this one.
+		worktreeDirty: null,
 		cancelled: false,
 		lastActivityAt: Date.now(),
 		currentTool: null,
@@ -860,8 +947,10 @@ function stopMonitor(jobId: string): void {
  *
  * The pane is closed *after* the result is captured, because the transcript is
  * the result source and the worker process stops writing once its pane dies.
- * An isolated worktree is released afterwards, since the worker's own process
- * holds that directory open.
+ *
+ * The isolated worktree is never removed here. A worker that committed or
+ * edited something owns that output, so the checkout survives the worker and
+ * is released only by wezterm_worker_cleanup.
  */
 async function finalizeJob(
 	job: Job,
@@ -883,14 +972,16 @@ async function finalizeJob(
 		job.paneClosed = true;
 	}
 
-	// The worktree could not be removed while the worker held it open. Now
-	// that the pane is gone the checkout can be released.
-	if (job.worktreePath && job.worktreeOrigin) {
-		const out = await removeWorktree(job.worktreeOrigin, job.worktreePath);
-		if (out.removed) {
-			job.worktreePath = null;
-			job.worktreeBranch = null;
-		}
+	// The isolated worktree is deliberately kept. A finished worker may have
+	// left commits, uncommitted edits or untracked files behind, and those are
+	// the worker's output. Removing the checkout here would destroy them.
+	// wezterm_worker_cleanup releases it, and only when the checkout is clean.
+	//
+	// The dirty state is recorded now, so the status tool can say whether the
+	// kept worktree still holds something worth looking at.
+	if (job.worktreePath) {
+		const state = await inspectWorktree(job.worktreePath);
+		job.worktreeDirty = state.exists ? !state.clean : null;
 	}
 
 	persistRegistry();
@@ -901,19 +992,15 @@ async function finalizeJob(
  *
  * The worker's pane keeps the directory open, so the removal only succeeds
  * after that pane is gone. Returns the removal outcome instead of throwing.
+ *
+ * The directory is never deleted behind git's back: when git refuses, the
+ * worktree stays and the caller reports why. Removing the branch is a
+ * separate decision and is never taken here.
  */
 async function removeWorktree(cwd: string, path: string): Promise<{ removed: boolean; error: string | null }> {
 	const res = await git(cwd, ["worktree", "remove", "--force", path]);
 	if (res.code === 0) return { removed: true, error: null };
-	// Fall back to a plain directory delete when git refuses (e.g. the branch
-	// was already checked out elsewhere or the metadata is stale).
-	try {
-		rmSync(path, { recursive: true, force: true });
-		if (!existsSync(path)) return { removed: true, error: null };
-	} catch (e) {
-		return { removed: false, error: e instanceof Error ? e.message : String(e) };
-	}
-	return { removed: false, error: (res.stderr || res.stdout).trim() };
+	return { removed: false, error: (res.stderr || res.stdout).trim() || "exit code " + res.code };
 }
 
 async function paneExists(paneId: number): Promise<boolean> {
@@ -964,35 +1051,6 @@ async function paneTail(paneId: number, lines: number): Promise<string> {
 }
 
 /**
- * Reap an isolated worktree once its pane is closed.
- *
- * The worker's OMP process holds the worktree directory open, so the worktree
- * can only be removed after the user closes the pane. This reaper waits for
- * that, then releases the checkout.
- *
- * `originCwd` is the repository the worktree was created from, not the
- * worktree itself: `git worktree remove` must not run from inside the
- * directory it is deleting.
- */
-function reapWorktree(job: Job, originCwd: string): void {
-	if (!job.worktreePath) return;
-	const path = job.worktreePath;
-	const paneId = job.paneId;
-	const timer = setInterval(() => {
-		void (async () => {
-			if (paneId !== null && (await paneExists(paneId))) return;
-			const out = await removeWorktree(originCwd, path);
-			if (out.removed) {
-				clearInterval(timer);
-				REAPERS.delete(job.id);
-			}
-		})();
-	}, 5000);
-	timer.unref?.();
-	REAPERS.set(job.id, timer);
-}
-
-/**
  * Poll the worker session file until its turn completes, then report back.
  * `notify` delivers the result into the main session.
  *
@@ -1006,7 +1064,7 @@ function monitorJob(job: Job, notify: (job: Job) => void): void {
 	const cap = job.timeoutMs;
 	const idleCap = job.idleTimeoutMs;
 	const startupGraceMs = 45_000;
-	const timer = setInterval(() => {
+	const timer = startManagedInterval(() => {
 		if (job.status !== "running" && job.status !== "queued") {
 			stopMonitor(job.id);
 			return;
@@ -1091,8 +1149,6 @@ function monitorJob(job: Job, notify: (job: Job) => void): void {
 			notify(job);
 		})();
 	}, CONFIG.pollMs);
-	// Never keep the host process alive because of the poller.
-	timer.unref?.();
 	MONITORS.set(job.id, timer);
 }
 
@@ -1129,9 +1185,13 @@ interface ZodLike {
 	object: (shape: Record<string, unknown>) => unknown;
 }
 
-interface ExtensionApi {
+interface ExtensionAPI {
 	registerTool: (def: unknown) => void;
 	registerCommand: (name: string, def: unknown) => void;
+	/** Register an event handler. */
+	on: (event: string, handler: (event: unknown, ctx: EventCtx) => void | Promise<void>) => void;
+	/** Label shown by the host for this extension. */
+	setLabel?: (label: string) => void;
 	logger: { info: (m: string) => void; warn: (m: string) => void; error: (m: string) => void };
 	/**
 	 * Inject a message into the session.
@@ -1159,9 +1219,23 @@ interface ToolCtx {
 	cwd: string;
 }
 
-export default function weztermWorkerExtension(pi: ExtensionApi) {
+/**
+ * The context an event handler receives.
+ *
+ * `setInterval` is the host's managed timer: the callback runs with the same
+ * isolation as a handler dispatch, so a throw is logged and reported instead
+ * of tearing the session down.
+ */
+interface EventCtx {
+	cwd?: string;
+	setInterval: (fn: () => void, ms: number) => NodeJS.Timeout;
+	clearTimer?: (timer: NodeJS.Timeout) => void;
+}
+
+export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	CONFIG = loadConfig();
 	mkdirSync(CONFIG.stateDir, { recursive: true });
+	pi.setLabel?.("WezTerm Workers");
 
 	const z = pi.zod;
 	const optional = (fn: () => ZodSchema) => fn().optional();
@@ -1210,25 +1284,57 @@ export default function weztermWorkerExtension(pi: ExtensionApi) {
 	// Re-attach to workers that were still running when the previous OMP
 	// process ended. The registry on disk is the only way to find them, so a
 	// restart does not lose a running worker.
+	//
+	// This runs on `session_start`, not in the factory: the host throws
+	// `ExtensionRuntimeNotInitializedError` when an action method is called
+	// during extension load. The registry itself is read eagerly, because the
+	// status tool must list the finished workers straight away.
 	const restored = loadRegistry();
 	for (const job of restored.finished) {
 		JOBS.set(job.id, job);
 	}
-	for (const job of restored.alive) {
-		JOBS.set(job.id, job);
-		// A monitor only makes sense while the pane still exists. A pane that
-		// was closed by the user ends the worker instead of hanging forever.
-		void (async () => {
+
+	pi.on("session_start", async (_event, ctx) => {
+		// Managed timers: a poll that throws must not tear the session down.
+		useTimerHost({
+			setInterval: (fn, ms) => {
+				const handle = ctx.setInterval(fn, ms);
+				handle.unref?.();
+				return handle;
+			},
+		});
+
+		for (const job of restored.alive) {
+			JOBS.set(job.id, job);
+			// A monitor only makes sense while the pane still exists. A pane
+			// that was closed by the user ends the worker instead of hanging
+			// forever.
 			if (job.paneId === null || (await paneExists(job.paneId))) {
 				monitorJob(job, deliver);
-				return;
+				continue;
 			}
 			job.status = "failed";
 			job.error = "Worker pane was closed before this session re-attached";
 			job.finishedAt = Date.now();
 			persistRegistry();
-		})();
-	}
+		}
+	});
+
+	pi.on("session_shutdown", () => {
+		for (const timer of MONITORS.values()) clearInterval(timer);
+		MONITORS.clear();
+	});
+
+	// Report a failed poll through the host logger, so a broken worker poll
+	// is visible instead of silently swallowed.
+	const drainErrors = () => {
+		while (EXTENSION_ERRORS.length > 0) {
+			const message = EXTENSION_ERRORS.shift();
+			if (message) pi.logger?.error?.("[wezterm-worker] " + message);
+		}
+	};
+	pi.on("tool_result", drainErrors);
+	pi.on("session_end", drainErrors);
 
 	// -----------------------------------------------------------------------
 	// wezterm_spawn_worker
@@ -1395,6 +1501,9 @@ export default function weztermWorkerExtension(pi: ExtensionApi) {
 				steers: j.steers,
 				timeoutMs: j.timeoutMs,
 				paneClosed: j.paneClosed,
+				worktreePath: j.worktreePath,
+				worktreeBranch: j.worktreeBranch,
+				worktreeDirty: j.worktreeDirty,
 				error: j.error,
 			}));
 			const text = rows
@@ -1413,6 +1522,10 @@ export default function weztermWorkerExtension(pi: ExtensionApi) {
 							: null,
 						r.currentTool ? `  running   : ${r.currentTool}` : null,
 						`  turns     : ${r.turns}${r.steers > 0 ? ` (${r.steers} steering message(s))` : ""}`,
+						r.worktreePath
+							? `  worktree  : ${r.worktreePath} (branch ${r.worktreeBranch ?? "-"})` +
+								(r.worktreeDirty === true ? " [has uncommitted changes]" : "")
+							: null,
 						r.error ? `  error     : ${r.error}` : null,
 					]
 						.filter((line): line is string => line !== null)
@@ -1746,14 +1859,23 @@ export default function weztermWorkerExtension(pi: ExtensionApi) {
 		label: "Clean Up WezTerm Worker",
 		description:
 			"Release the resources of a finished worker: remove its isolated git worktree and " +
-			"delete its transcript directory. Does not touch other workers or user panes.",
+			"delete its transcript directory. A worktree with uncommitted changes is kept " +
+			"unless force is set, so the work of the worker is never thrown away. " +
+			"Does not touch other workers or user panes.",
 		parameters: z.object({
 			workerId: z.string().describe("Id of the worker to clean up."),
+			force: z
+				.boolean()
+				.optional()
+				.describe(
+					"Remove the worktree even when it holds uncommitted changes or untracked files. " +
+						"Without this the worktree is kept and the changes are reported.",
+				),
 		}),
 		loadMode: "essential",
 		async execute(
 			_id: string,
-			params: { workerId: string },
+			params: { workerId: string; force?: boolean },
 			_signal: unknown,
 			_onUpdate: unknown,
 			_ctx: unknown,
@@ -1776,17 +1898,47 @@ export default function weztermWorkerExtension(pi: ExtensionApi) {
 				};
 			}
 			const notes: string[] = [];
+			let keptWorktree: string | null = null;
+			let keptChanges: string[] = [];
 			if (job.worktreePath) {
 				if (job.paneId !== null && (await paneExists(job.paneId))) {
 					notes.push("worktree kept: close pane " + job.paneId + " first, it holds the directory");
+					keptWorktree = job.worktreePath;
 				} else {
-					const origin = job.worktreeOrigin ?? job.cwd;
-					const out = await removeWorktree(origin, job.worktreePath);
-					notes.push(
-						out.removed
-							? "worktree removed: " + job.worktreePath
-							: "worktree NOT removed (" + (out.error ?? "unknown") + "): " + job.worktreePath,
-					);
+					// Never throw away work. A checkout with uncommitted edits,
+					// untracked files or stashes holds the worker's output, so
+					// it survives unless the caller forces the removal.
+					const state = await inspectWorktree(job.worktreePath);
+					if (!state.exists) {
+						notes.push("worktree already gone: " + job.worktreePath);
+					} else if (!state.clean && !params.force) {
+						keptWorktree = job.worktreePath;
+						keptChanges = state.changes;
+						notes.push(
+							"worktree kept: it has uncommitted changes (" +
+								state.changes.length +
+								"). Keep it, or pass force to discard them.",
+						);
+						for (const change of state.changes) notes.push("  " + change);
+					} else {
+						const origin = job.worktreeOrigin ?? job.cwd;
+						const out = await removeWorktree(origin, job.worktreePath);
+						if (out.removed) {
+							notes.push("worktree removed: " + job.worktreePath);
+							if (job.worktreeBranch) {
+								notes.push(
+									"branch kept (commits made by the worker survive): " + job.worktreeBranch,
+								);
+							}
+							job.worktreePath = null;
+							job.worktreeBranch = null;
+						} else {
+							notes.push(
+								"worktree NOT removed (" + (out.error ?? "unknown") + "): " + job.worktreePath,
+							);
+							keptWorktree = job.worktreePath;
+						}
+					}
 				}
 			}
 			try {
@@ -1795,9 +1947,16 @@ export default function weztermWorkerExtension(pi: ExtensionApi) {
 			} catch (e) {
 				notes.push("transcript directory NOT removed: " + String(e));
 			}
+			persistRegistry();
 			return {
 				content: [{ type: "text", text: "Cleanup for worker " + job.id + ":\n- " + notes.join("\n- ") }],
-				details: { workerId: job.id, notes },
+				details: {
+					workerId: job.id,
+					notes,
+					keptWorktree,
+					keptChanges,
+					worktreeRemoved: job.worktreePath === null,
+				},
 			};
 		},
 	});
