@@ -78,6 +78,20 @@ echo "==> Linking $REPO_ROOT_WIN into the OMP plugin registry"
 # linker then silently skips the install. A relative path has no such clash.
 (cd "$REPO_ROOT" && "$OMP_BIN" plugin link ".")
 
+# Install the companion skill. The skill carries the operating knowledge that
+# is not in the extension: how to deliver Enter to a pane, how to relocate a
+# session, and the Windows shell traps. A copy in the agent skills directory
+# is picked up on the next session start.
+SKILL_SRC="$REPO_ROOT/skills/wezterm-omp-pane-ops/SKILL.md"
+SKILL_DIR="$AGENT_DIR/skills/wezterm-omp-pane-ops"
+if [ -f "$SKILL_SRC" ]; then
+	mkdir -p "$SKILL_DIR"
+	cp "$SKILL_SRC" "$SKILL_DIR/SKILL.md"
+	echo "==> Installed skill: $SKILL_DIR/SKILL.md"
+else
+	echo "==> Skill source not found, skipped: $SKILL_SRC" >&2
+fi
+
 if [ "$WRITE_CONFIG" -eq 1 ]; then
 	if [ -f "$CONFIG_FILE" ]; then
 		echo "==> Config already exists, left untouched: $CONFIG_FILE"

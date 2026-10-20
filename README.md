@@ -31,9 +31,10 @@ cd D:/repos/omp-wezterm-worker
 "C:/Program Files/Git/bin/bash.exe" scripts/install.sh
 ```
 
-The script links the repo into the OMP plugin registry (`omp plugin link`) and
-writes a default config to `~/.omp/agent/wezterm-worker.json`. Start a new OMP
-session and the tools are live.
+The script links the repo into the OMP plugin registry (`omp plugin link`),
+writes a default config to `~/.omp/agent/wezterm-worker.json`, and installs the
+companion skill to `~/.omp/agent/skills/wezterm-omp-pane-ops/SKILL.md`. Start a
+new OMP session and the tools are live.
 
 > **Run the scripts from Git Bash, not WSL.** Under WSL, `omp` on PATH is the
 > Linux build and the script would modify the wrong OMP installation. The
@@ -55,8 +56,8 @@ Environment overrides: `OMP_BIN`, `OMP_AGENT_DIR`.
 "C:/Program Files/Git/bin/bash.exe" scripts/uninstall.sh
 ```
 
-Removes the plugin link, the config file and the runtime state directory. No
-core OMP file is touched.
+Removes the plugin link, the config file, the runtime state directory and the
+installed skill. No core OMP file is touched.
 
 ## Moving an OMP session into a project
 
@@ -250,27 +251,42 @@ plugin did not create. Panes belonging to the user are never touched.
 
 ## Known limitations
 
-- `wezterm cli send-text` sends **text**, not key events, so a running worker's
-  TUI cannot be driven from outside. The task is passed as an argv argument
-  instead, which means the worker cannot be re-prompted after it finishes
-  without opening the pane.
+- A worker can be steered **while it runs** (`wezterm_worker_steer`), but not
+  after it finishes — a completed worker has no live composer to type into.
 - `omp --cwd` inside the home directory auto-switches to a temp directory, so a
   worker needs a real repository path.
 - `isolated: true` needs a git repository. On Windows, `git worktree add` can
   fall back to a plain checkout when block cloning is unavailable.
+- The extension module loads at OMP startup. A newly added module is not
+  picked up by `/reload-plugins`; restart OMP.
+
+## The companion skill
+
+`skills/wezterm-omp-pane-ops/SKILL.md` is installed to
+`~/.omp/agent/skills/wezterm-omp-pane-ops/SKILL.md` by `scripts/install.sh`.
+
+It carries the operating knowledge this README cannot state: how to deliver an
+Enter key to a WezTerm pane (`send-text` pastes by default, and a paste never
+submits), how to relocate a session transcript, and the Windows shell traps
+(`bash` on PATH is WSL, path forms, relative plugin linking). The skill is
+model-invoked, so an agent reaches for it on its own when a task involves a
+pane or a session move.
 
 ## Repository layout
 
 ```text
 omp-wezterm-worker/
 ├── extensions/
-│   └── wezterm-worker.ts        the extension (5 tools)
+│   └── wezterm-worker.ts        the extension (7 tools)
 ├── scripts/
 │   ├── _paths.sh                shared Windows-path helpers
-│   ├── install.sh               link the plugin + write the config
-│   ├── uninstall.sh             unlink + remove the config and state
+│   ├── install.sh               link the plugin + write the config + install the skill
+│   ├── uninstall.sh             unlink + remove the config, state and skill
 │   ├── move-session.sh          relocate an OMP session into a project
 │   └── move-session.ts          the move helper extension it loads
+├── skills/
+│   └── wezterm-omp-pane-ops/
+│       └── SKILL.md             operating knowledge for the model
 ├── config/
 │   └── wezterm-worker.example.json
 ├── package.json                 omp/pi manifest: omp.extensions

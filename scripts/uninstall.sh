@@ -74,6 +74,14 @@ else
 	rm -rf "$PLUGIN_DIR/node_modules/$PKG_NAME" 2>/dev/null || true
 fi
 
+SKILL_DIR="$AGENT_DIR/skills/wezterm-omp-pane-ops"
+if [ -d "$SKILL_DIR" ]; then
+	echo "==> Removing skill $SKILL_DIR"
+	rm -rf "$SKILL_DIR"
+else
+	echo "==> No skill at $SKILL_DIR"
+fi
+
 if [ "$KEEP_CONFIG" -eq 0 ]; then
 	if [ -f "$CONFIG_FILE" ]; then
 		echo "==> Removing $CONFIG_FILE"
