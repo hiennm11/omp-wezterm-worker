@@ -282,7 +282,10 @@ whatever the agent is doing, so it must not be used for a result.
 **The pane is closed when the worker finishes.** Reading the result must come
 first: the transcript is the result source and the worker stops writing once
 its pane is gone. `closePaneOnFinish: false` keeps the pane for inspection,
-but finished panes accumulate.
+but finished panes accumulate. A deadline (`timeoutMs`, `idleTimeoutMs`) still
+closes the pane, because the worker is still running and the job is `failed`,
+so `wezterm_worker_cancel` refuses it. If the close fails, the job `error`
+says that the worker may still run.
 
 **The registry is a file, not just a map.** `stateDir/registry.json` holds
 every worker, written atomically (temp file plus rename). A new OMP process

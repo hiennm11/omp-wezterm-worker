@@ -93,9 +93,9 @@ export function observeTranscript(job: Job, now: number): SessionSummary | null 
 export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => void): void {
 	rt.stopMonitor(job.id);
 
-	const end = (status: JobStatus, error: string | null, result: string | null) => {
+	const end = (status: JobStatus, error: string | null, result: string | null, stopWorker = false) => {
 		void (async () => {
-			await finalizeJob(rt, job, status, error, result);
+			await finalizeJob(rt, job, status, error, result, stopWorker);
 			notify(job);
 		})();
 	};
@@ -107,7 +107,7 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 		}
 		const now = Date.now();
 		const deadline = deadlineMessage(job, now);
-		if (deadline) return end("failed", deadline, null);
+		if (deadline) return end("failed", deadline, null, true);
 
 		const summary = observeTranscript(job, now);
 		if (summary === null) {

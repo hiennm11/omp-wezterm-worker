@@ -6,7 +6,7 @@
 
 import { rmSync } from "node:fs";
 
-import { isActive, type Job } from "../lib/job.ts";
+import { activeSharers, isActive, type Job } from "../lib/job.ts";
 import { paneExists } from "../lib/pane.ts";
 import type { WorkerRuntime } from "../lib/runtime.ts";
 import { inspectWorktree, removeWorktree } from "../lib/worktree.ts";
@@ -98,6 +98,16 @@ export function registerCleanupTool({ pi, rt }: ToolDeps): void {
 				return reply(
 					`Worker ${job.id} is still ${job.status}. Cancel it first.`,
 					{ workerId: job.id, status: job.status },
+					true,
+				);
+			}
+			const sharers = activeSharers(rt.jobs.values(), job);
+			if (sharers.length > 0) {
+				const ids = sharers.map((other) => other.id);
+				return reply(
+					`Worker ${job.id} shares its transcript and worktree with active worker ${ids.join(", ")}. ` +
+						"Cancel that worker first.",
+					{ workerId: job.id, activeSharers: ids },
 					true,
 				);
 			}

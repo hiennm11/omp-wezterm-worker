@@ -68,6 +68,18 @@ export function isActive(job: Job): boolean {
 	return job.status === "running" || job.status === "queued";
 }
 
+/**
+ * The active workers, other than `job`, that use the same session directory.
+ *
+ * A resume copies the job, so the resumed worker shares the transcript and the
+ * worktree of the old one. Release those only when this list is empty.
+ */
+export function activeSharers(jobs: Iterable<Job>, job: Job): Job[] {
+	return [...jobs].filter(
+		(other) => other.id !== job.id && isActive(other) && other.sessionDir === job.sessionDir,
+	);
+}
+
 /** Mark a worker failed. The caller persists the registry. */
 export function failJob(job: Job, reason: string): void {
 	job.status = "failed";

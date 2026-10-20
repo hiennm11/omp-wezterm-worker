@@ -22,6 +22,11 @@ import { inspectWorktree } from "./worktree.ts";
  * is the result source and the worker process stops writing once its pane
  * dies.
  *
+ * `stopWorker` is for a worker that is still running, such as one that hit a
+ * deadline. Closing its pane is the only way to stop it, so it closes the pane
+ * even when `closePaneOnFinish` is false. That flag only keeps the pane of a
+ * worker that is done.
+ *
  * The isolated worktree is never removed here. A worker that committed or
  * edited something owns that output, so the checkout survives the worker and
  * is released only by wezterm_worker_cleanup.
@@ -32,6 +37,7 @@ export async function finalizeJob(
 	status: JobStatus,
 	error: string | null,
 	result: string | null,
+	stopWorker = false,
 ): Promise<void> {
 	job.status = status;
 	job.error = error;
@@ -41,10 +47,18 @@ export async function finalizeJob(
 
 	// Close the pane this worker created. Only this pane id, never a sweep
 	// over the pane list, so panes belonging to the user are never touched.
-	// The cancel path already closed it, hence the paneClosed guard.
-	if (job.paneId !== null && job.closePaneOnFinish && !job.paneClosed) {
-		await killPane(rt, job.paneId);
-		job.paneClosed = true;
+	// The cancel path already closed it, hence the paneClosed guard. A failed
+	// kill leaves the flag false, so the status tool still shows the pane.
+	if (job.paneId !== null && (job.closePaneOnFinish || stopWorker) && !job.paneClosed) {
+		const failure = await killPane(rt, job.paneId);
+		job.paneClosed = failure === null;
+		if (failure !== null && stopWorker) {
+			// The job is no longer active, so cancel refuses it. The error is
+			// the only place that says the process may still run.
+			job.error = [error, `The worker may still run: its pane did not close (${failure}).`]
+				.filter((part) => part !== null)
+				.join(" ");
+		}
 	}
 
 	// Record the dirty state now, so the status tool can say whether the kept

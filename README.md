@@ -242,7 +242,11 @@ for a host that does not expose `sendUserMessage`.
 pane open by default, and those panes accumulate. `closePaneOnFinish` closes
 the pane after the result is read — the transcript is the result source, and
 the worker stops writing once its pane is gone. Set `closePaneOnFinish: false`
-per spawn or in the config to keep the pane for inspection.
+per spawn or in the config to keep the pane for inspection. That flag keeps the
+pane of a worker that is done. A worker that passes its `timeoutMs` or
+`idleTimeoutMs` deadline is still running, so its pane is closed anyway.
+Closing the pane is the only way to stop it. If the close fails, the `error` of
+the job says that the worker may still run.
 
 **The registry survives a restart.** Every worker is written to
 `stateDir/registry.json` (atomic write: temp file plus rename). A new OMP
