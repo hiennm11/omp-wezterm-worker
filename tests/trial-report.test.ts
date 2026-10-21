@@ -6,7 +6,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { usageReport } from "../extensions/lib/usage.ts";
-import { renderTrialReport, type ScenarioResult, type TrialRun, trialPassed } from "../tools/trial-report.ts";
+import {
+	renderTrialReport,
+	type ScenarioResult,
+	type TrialRun,
+	trialPassed,
+} from "../tooling/trial-report.ts";
 
 /** A run with one scenario and the given checks. */
 function runWith(checks: ScenarioResult["checks"]): TrialRun {

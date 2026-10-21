@@ -18,8 +18,8 @@
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
-		"ste100": "node tools/ste100-cli.ts",
-		"trial": "node tools/trial.ts",
+		"ste100": "node tooling/ste100-cli.ts",
+		"trial": "node tooling/trial.ts",
 		"typecheck": "tsc --noEmit -p tsconfig.json",
 		"check": "npm run lint && npm run typecheck && npm run ste100 && npm run test"
 	},

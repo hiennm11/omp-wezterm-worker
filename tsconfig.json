@@ -10,5 +10,5 @@
 		"strict": true,
 		"types": ["node"]
 	},
-	"include": ["extensions/**/*.ts", "tools/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"]
+	"include": ["extensions/**/*.ts", "tooling/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"]
 }

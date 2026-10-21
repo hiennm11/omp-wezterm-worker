@@ -412,7 +412,7 @@ omp-wezterm-worker/
 ├── skills/
 │   └── wezterm-omp-pane-ops/
 │       └── SKILL.md             operating knowledge for the model
-├── tools/
+├── tooling/
 │   ├── ste100.ts                the Simplified Technical English checker
 │   ├── ste100-cli.ts            the checker command line
 │   ├── trial.ts                 the Windows trial runner
@@ -520,9 +520,19 @@ account never appears in the report.
 
 Every document that an agent reads is written in Simplified Technical English.
 The `npm run ste100` command scores each one and fails below 80. The checker
-lives in `tools/ste100.ts`, so the standard is a measured result and not a
+lives in `tooling/ste100.ts`, so the standard is a measured result and not a
 claim. The glossary in `GLOSSARY.md` and the decisions in `docs/adr/` carry the
 same standard, because the orchestrator and the workers read them both.
+
+### The directories that OMP scans
+
+OMP loads every module of `tools/`, `commands/`, `rules/`, `prompts/`,
+`agents/` and `hooks/` inside a plugin package as a custom tool. It imports
+the module and runs it when the plugin loads.
+
+The scripts of this repository live in `tooling/` and `scripts/`. The test
+`no script sits in a directory that OMP scans as a tool` holds that rule. See
+`docs/adr/0008-scripts-live-outside-the-omp-tool-directories.md`.
 
 ## License
 

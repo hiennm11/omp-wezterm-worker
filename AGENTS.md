@@ -10,6 +10,9 @@ These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
 - Put worker behaviour in `extensions/lib/`. Put one tool in one module in `extensions/worker-tools/`.
 - Keep `extensions/wezterm-worker.ts` as wiring only. It holds no worker logic.
 - Never import the entry or `worker-tools/` from `lib/`. The dependency points one way.
+- Put the scripts of the repository in `tooling/` or `scripts/`. Never put a script in
+  `tools/`, `commands/`, `rules/`, `prompts/`, `agents/` or `hooks/`. OMP imports every
+  module of these directories as a custom tool and runs it when the plugin loads.
 
 ## Dependencies
 
@@ -48,7 +51,7 @@ These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
 ## Documents
 
 - Keep each document that an agent reads at a score of 80 or more. Run `npm run ste100`.
-- Add a new agent document to `CHECKED_DOCUMENTS` in `tools/ste100-cli.ts`.
+- Add a new agent document to `CHECKED_DOCUMENTS` in `tooling/ste100-cli.ts`.
 - Update the layout in `README.md` when you add or move a module.
 
 ## Before you report done

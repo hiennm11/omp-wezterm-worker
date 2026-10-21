@@ -26,6 +26,7 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0005-use-the-host-managed-timers.md",
 	"docs/adr/0006-stopped-means-confirmed.md",
 	"docs/adr/0007-limits-and-usage-enforced-in-code.md",
+	"docs/adr/0008-scripts-live-outside-the-omp-tool-directories.md",
 	"docs/trials/windows-trial.md",
 ];
 

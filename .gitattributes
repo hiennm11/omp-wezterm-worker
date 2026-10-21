@@ -1,0 +1,4 @@
+# Keep the line endings the same in the working tree and in the repository.
+# The formatter of Biome uses CRLF on Windows, and a file with LF endings
+# fails the format check on every other file that uses CRLF.
+* text=auto eol=crlf

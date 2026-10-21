@@ -2,7 +2,7 @@
  * The Windows trial report.
  *
  * The renderer has no I/O, so a unit test can check the text it produces.
- * The runner in `tools/trial.ts` collects the facts and calls this module.
+ * The runner in `tooling/trial.ts` collects the facts and calls this module.
  */
 
 import { combineReports, formatUsage, type UsageReport } from "../extensions/lib/usage.ts";

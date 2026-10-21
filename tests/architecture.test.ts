@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { test } from "node:test";
 
 const ROOT = join(import.meta.dirname, "..");
 const MAX_LINES = 350;
-const SOURCE_DIRS = ["extensions", "tools", "tests", "scripts"];
+const SOURCE_DIRS = ["extensions", "tooling", "tests", "scripts"];
 
 /** Every TypeScript file under the directory, as a path relative to the root. */
 function sourceFiles(dir: string): string[] {
@@ -67,4 +67,23 @@ test("the entry holds the only runtime", () => {
 		.filter((path) => path !== "extensions/lib/runtime.ts")
 		.filter((path) => /\bcreateRuntime\(/.test(read(path)));
 	assert.deepEqual(creators, ["extensions/wezterm-worker.ts"]);
+});
+
+/**
+ * The directory names that OMP scans inside a plugin package.
+ *
+ * OMP loads every module of these directories as a custom tool. A script that
+ * is not a tool must not live there, because OMP runs it at load time.
+ */
+const OMP_SCANNED_DIRS = ["tools", "commands", "rules", "prompts", "agents", "hooks"];
+
+test("no script sits in a directory that OMP scans as a tool", () => {
+	const offenders = OMP_SCANNED_DIRS.filter((dir) => existsSync(join(ROOT, dir))).map(
+		(dir) => `${dir}/ holds ${sourceFiles(dir).join(", ")}`,
+	);
+	assert.deepEqual(
+		offenders,
+		[],
+		"OMP imports every module of these directories as a custom tool. Move the scripts to tooling/ or scripts/.",
+	);
 });

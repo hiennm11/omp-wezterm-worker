@@ -184,6 +184,17 @@ A newly added extension module is **not** loaded into a running session by
 `/reload-plugins`. A restart is required. Edit-then-reload leaves the agent
 running the old code while the file on disk says otherwise.
 
+## The directories that OMP scans in a plugin
+
+OMP loads every module of `tools/`, `commands/`, `rules/`, `prompts/`,
+`agents/` and `hooks/` inside a plugin package as a custom tool. It imports
+the module and runs it when the plugin loads.
+
+A script in one of these directories runs at every start of OMP. A script that
+starts real workers leaves panes behind and makes the startup slow. Put a
+script in `tooling/` or `scripts/` instead. The log of OMP shows the failure
+as `Custom tool load failed`, and the script runs before the message appears.
+
 ## The OMP extension API surface
 
 The runtime API of an omp extension, verified against omp 18.12.3 on Windows:

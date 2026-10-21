@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { OUTSIDE, PROJECT_ROOT, redactHome, replaceRoots, reportPath } from "../tools/trial-paths.ts";
+import { OUTSIDE, PROJECT_ROOT, redactHome, replaceRoots, reportPath } from "../tooling/trial-paths.ts";
 
 test("a path under the project becomes a relative path", () => {
 	assert.equal(reportPath(join(PROJECT_ROOT, "docs", "trials")), "docs/trials");
