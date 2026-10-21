@@ -249,7 +249,7 @@ spawn ──> running ──> completed ──> (pane closed) ──> resume ─
              │                                            ▲
              ├──> failed / cancelled ────────────────────┘
              │
-             └──> OMP restarts ──> re-attached from registry.json
+             └──> OMP restarts ──> re-attached from lifecycle.db
 ```
 
 **The worker reports its own task state.** The worker gets the tool
@@ -286,18 +286,19 @@ pane of a worker that is done. A worker that passes its `timeoutMs` or
 `idleTimeoutMs` deadline is still running, so the extension stops it. The stop
 counts only after the pane list shows the pane gone. See "Cancellation safety".
 
-**The registry survives a restart.** Every worker is written to
-`stateDir/registry.json` (atomic write: temp file plus rename). A new OMP
-process reads that file on startup, so `wezterm_worker_status` still lists
-workers that were running when the previous process ended, and the extension
-re-attaches a monitor to any whose pane is still alive. A worker whose pane
-was closed while OMP was down is marked `failed`.
-
 **The lifecycle database holds the supervision records.** The state directory
 holds `lifecycle.db`, a SQLite database through `node:sqlite`. It holds the
-ownership, the launch attempts, the shared resources, the execution ledger,
-the worker events, and the owner dispositions. The old `registry.json` is
-migrated into it once, and the file stays on disk as evidence.
+worker runs, the ownership, the launch attempts, the shared resources, the
+execution ledger, the worker events, and the owner dispositions.
+
+A new OMP process reads the database on startup, so `wezterm_worker_status`
+still lists workers that were running when the previous process ended, and the
+extension re-attaches a monitor to any whose pane is still alive. A worker
+whose pane was closed while OMP was down is marked `failed`.
+
+The old `registry.json` is migrated into the database once. The file stays on
+disk as evidence. The extension never writes it again, so two processes cannot
+lose one another's records.
 
 **A launch that lost its receipt does not start a second worker.** A crash
 between the pane creation and the receipt leaves a launch attempt without a
@@ -368,8 +369,8 @@ needed.
 | `omp` binary missing or not runnable | Spawn fails immediately with the underlying spawn error. No empty pane is left behind. |
 | Worker dies during startup (bad model, crash) | The pane disappears with no transcript; the monitor marks the worker `failed` after a 45 s grace period and delivers the failure. |
 | Worker exceeds `timeoutMs` | The extension stops the worker. When the pane list shows the pane gone, the worker is marked `failed` with a timeout message. Until then it stays `running` with a `stop` reason. |
-| User closes the worker pane | The worker stays in the registry; the isolated worktree (if any) is kept. |
-| OMP restarts while a worker runs | The worker is re-read from `registry.json` and re-monitored if its pane is still alive. |
+| User closes the worker pane | The worker stays in the database; the isolated worktree (if any) is kept. |
+| OMP restarts while a worker runs | The worker is re-read from `lifecycle.db` and re-monitored if its pane is still alive. |
 | OMP restarts after the user closed the pane | The worker is marked `failed` with "Worker pane was closed before this session re-attached". A worker with a pending stop gets the status of that stop. |
 | The pane list cannot be read | The pane state is unknown. It is never treated as gone. A stop stays unconfirmed, and the startup check does not fail the worker. |
 | A launch breaks a limit | The spawn or the resume is refused with an error that names the rule. No worker and no pane are created. |
@@ -393,8 +394,8 @@ also retries on every poll. See `docs/adr/0006-stopped-means-confirmed.md`.
 - A worker can be steered **while it runs** (`wezterm_worker_steer`). A worker
   that already finished is continued with `wezterm_worker_resume`, which
   reopens it in a new pane from its transcript.
-- The registry is per-process in memory and mirrored to `registry.json`. A
-  worker spawned in one OMP process is visible in another through the file, but
+- The worker records are per-process in memory and stored in `lifecycle.db`. A
+  worker spawned in one OMP process is visible in another through the database, but
   a **result** is only delivered to the process that spawned it.
 - `omp --cwd` inside the home directory auto-switches to a temp directory, so a
   worker needs a real repository path.
@@ -428,7 +429,7 @@ omp-wezterm-worker/
 │   ├── lib/                     the worker lifecycle, with no tool schema
 │   │   ├── config.ts            the config file and the defaults
 │   │   ├── job.ts               the worker record and its run state
-│   │   ├── registry.ts          the registry file
+│   │   ├── runs.ts              the worker runs in the database
 │   │   ├── transcript.ts        reading a worker's transcript
 │   │   ├── calls.ts             the tool calls of a transcript, paired by id
 │   │   ├── cycle.ts             the instruction cycle of a worker
@@ -526,9 +527,11 @@ so the suite needs no build step and no test framework.
 
 | Command | What it does |
 |---|---|
-| `npm test` | Run every test, one file at a time. The integration tests spawn a real worker in a real pane. |
-| `npm run test:unit` | Run only the tests that need no worker. |
+| `npm test` | Run every test. The integration tests spawn a real worker in a real pane. |
+| `npm run test:unit` | Run only the tests that need no worker. They run in parallel. |
 | `npm run test:integration` | Run only the tests that spawn a real worker. |
+| `npm run test:integration:panes` | Run only the integration tests that read the pane list. They run one at a time. |
+| `npm run test:integration:free` | Run the integration tests that do not read the pane list. They run in parallel. |
 | `npm run lint` | Check the format and the lint rules. |
 | `npm run lint:fix` | Apply the fixes that Biome can apply. |
 | `npm run ste100` | Score every agent-facing document. The score must reach 80. |
@@ -539,9 +542,9 @@ so the suite needs no build step and no test framework.
 The integration tests need `omp` and `wezterm` on PATH. Without them the tests
 report that they cannot run. They never report a pass they did not observe.
 
-The tests run one file at a time. Two workers that run at the same time share
-one WezTerm window, so a test that counts the panes would see the panes of
-the other test.
+The tests run the unit files in parallel. The integration files that read the
+WezTerm pane list run one at a time, because a test that counts the panes
+would see the panes of the other test.
 
 ### The essential tests
 
