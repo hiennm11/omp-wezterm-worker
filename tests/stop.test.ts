@@ -63,7 +63,17 @@ function fake(listReply: string | number): Fake {
 	const rt = createRuntime(exec);
 	rt.config.stateDir = stateDir;
 	rt.stopConfirm = { attempts: 2, intervalMs: 1 };
-	return { rt, list, kill, cleanup: () => rmSync(stateDir, { recursive: true, force: true }) };
+	return {
+		rt,
+		list,
+		kill,
+		cleanup: () => {
+			rt.db?.close();
+			rt.db = null;
+			rt.closeDb();
+			rmSync(stateDir, { recursive: true, force: true });
+		},
+	};
 }
 
 test("a cancel ends the worker when the pane list shows the pane gone", async () => {

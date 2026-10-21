@@ -24,17 +24,26 @@
 
 import { mkdirSync } from "node:fs";
 
-import { loadConfig } from "./lib/config.ts";
+import { lastGuidance, loadConfig } from "./lib/config.ts";
 import { createDeliver } from "./lib/deliver.ts";
 import type { ExtensionAPI } from "./lib/host.ts";
 import { settleDetachedJob } from "./lib/lifecycle.ts";
 import { startRequest } from "./lib/limits.ts";
+import { migrateRegistry } from "./lib/migrate.ts";
 import { monitorJob } from "./lib/monitor.ts";
 import { paneState } from "./lib/pane.ts";
+import { findLiveWorkers } from "./lib/process-table.ts";
+import { reconcileAttempts } from "./lib/recovery.ts";
+import { detectRole, ownSessionDir } from "./lib/role.ts";
 import { createRuntime } from "./lib/runtime.ts";
+import { registerWorkerBootstrap } from "./lib/worker-bootstrap.ts";
+import { registerAckTool } from "./worker-tools/ack.ts";
 import { registerCancelTool } from "./worker-tools/cancel.ts";
 import { registerCleanupTool } from "./worker-tools/cleanup.ts";
 import { registerPeekTool } from "./worker-tools/peek.ts";
+import { registerReleaseTool } from "./worker-tools/release.ts";
+import { registerReportTool } from "./worker-tools/report.ts";
+import { registerResolveTool } from "./worker-tools/resolve.ts";
 import { registerResultTool } from "./worker-tools/result.ts";
 import { registerResumeTool } from "./worker-tools/resume.ts";
 import { registerRosterCommand } from "./worker-tools/roster.ts";
@@ -53,6 +62,22 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	rt.config = loadConfig();
 	mkdirSync(rt.config.stateDir, { recursive: true });
 	pi.setLabel?.("WezTerm Workers");
+	// A setting that the new release refuses must not pass without a word.
+	if (lastGuidance) pi.logger?.warn?.(`[wezterm-worker] ${lastGuidance}`);
+
+	// The worker bootstrap decides the role of this process. A worker loads
+	// the same extension, so the extension must give it only the report tool.
+	// The role comes from the session directory of the process.
+	const sessionDir = ownSessionDir();
+	const role = detectRole(sessionDir);
+
+	if (role.role === "worker") {
+		// The worker gets the report tool and nothing else. The bootstrap
+		// exposes the tools that the worker modules registered.
+		registerReportTool({ pi, rt, deliver: () => {} });
+		registerWorkerBootstrap(rt);
+		return;
+	}
 
 	const deps = { pi, rt, deliver: createDeliver(pi, rt) };
 
@@ -73,6 +98,26 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			},
 		};
 
+		// The migration runs once. The old registry file stays on disk.
+		const db = rt.openDb();
+		const migration = migrateRegistry(db, rt.config.stateDir, 0);
+		if (migration.failure?.kind === "malformed") {
+			pi.logger?.error?.(`[wezterm-worker] The registry file was not migrated: ${migration.failure.detail}`);
+		}
+
+		// The recovery reconciles the attempts that a crash left open. It
+		// never sends a launch command again.
+		const workers = await findLiveWorkers(rt);
+		const outcomes = reconcileAttempts(db, workers, Date.now());
+		for (const outcome of outcomes) {
+			if (outcome.kind === "unresolved") {
+				pi.logger?.warn?.(
+					`[wezterm-worker] The launch of worker ${outcome.jobId} stayed uncertain. ` +
+						"The worker may still run. Resolve it with wezterm_worker_resolve.",
+				);
+			}
+		}
+
 		for (const job of restored.alive) {
 			rt.jobs.set(job.id, job);
 			// A monitor only makes sense while the pane still exists. A pane
@@ -90,6 +135,9 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	pi.on("session_shutdown", () => {
 		for (const timer of rt.monitors.values()) clearInterval(timer);
 		rt.monitors.clear();
+		// The database holds a file lock. The handle must close, or the state
+		// directory cannot be removed while the process lives.
+		rt.closeDb();
 	});
 
 	// A user prompt starts a new request. A worker result does not fire `input`.
@@ -107,11 +155,14 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 
 	registerSpawnTool(deps);
 	registerStatusTool(deps);
+	registerAckTool(deps);
 	registerSteerTool(deps);
 	registerPeekTool(deps);
 	registerResultTool(deps);
 	registerResumeTool(deps);
 	registerCancelTool(deps);
 	registerCleanupTool(deps);
+	registerResolveTool(deps);
+	registerReleaseTool(deps);
 	registerRosterCommand(deps);
 }

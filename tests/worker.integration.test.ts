@@ -54,7 +54,9 @@ test("the worker lifecycle, with a real worker", {
 	try {
 		// --- spawn ---
 		const spawned = await host.call("wezterm_spawn_worker", {
-			task: "Reply with the single word PONG and nothing else.",
+			task:
+				"Reply with the single word PONG and nothing else. " +
+				"Then report the task as completed with the result PONG, using wezterm_worker_report.",
 			cwd: repo,
 			label: "integration",
 		});
@@ -110,7 +112,9 @@ test("the worker lifecycle, with a real worker", {
 		// --- the worker can be resumed and answers the new message ---
 		const resumed = await second.call("wezterm_worker_resume", {
 			workerId,
-			message: "Now reply with the single word RESUMED and nothing else.",
+			message:
+				"Now reply with the single word RESUMED and nothing else. " +
+				"Then report the task as completed with the result RESUMED, using wezterm_worker_report.",
 		});
 		const resumeDetails = resumed.details as { workerId?: string };
 		const resumedId = resumeDetails?.workerId ?? "";

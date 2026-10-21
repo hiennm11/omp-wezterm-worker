@@ -80,6 +80,10 @@ export function loadConfig(
 	env: NodeJS.ProcessEnv = process.env,
 ): WorkerConfig {
 	const cfg: WorkerConfig = { ...DEFAULT_CONFIG };
+	let guidance: string | null = null;
+	// The guidance belongs to the last load. A load without a problem clears
+	// the guidance of the load before it.
+	lastGuidance = null;
 	try {
 		if (existsSync(file)) {
 			const raw = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
@@ -98,6 +102,13 @@ export function loadConfig(
 			if (raw.placement === "split" || raw.placement === "tab") cfg.placement = raw.placement;
 			if (typeof raw.model === "string") cfg.model = raw.model;
 			if (Array.isArray(raw.tools)) cfg.tools = raw.tools.map(String);
+			// The idle deadline is gone. A worker is stopped by its reports
+			// and by its total deadline, never by silence. A nonzero value
+			// in an old config file is refused with guidance, not ignored.
+			if (typeof raw.idleTimeoutMs === "number" && raw.idleTimeoutMs !== 0) {
+				guidance = IDLE_TIMEOUT_GUIDANCE;
+				cfg.idleTimeoutMs = 0;
+			}
 		}
 	} catch {
 		// A malformed config file leaves the defaults in place.
@@ -106,5 +117,20 @@ export function loadConfig(
 	if (env.OMP_WORKER_OMP_BIN) cfg.ompBin = env.OMP_WORKER_OMP_BIN;
 	if (env.OMP_WORKER_WEZTERM_BIN) cfg.weztermBin = env.OMP_WORKER_WEZTERM_BIN;
 	if (env.OMP_WORKER_STATE_DIR) cfg.stateDir = env.OMP_WORKER_STATE_DIR;
+	if (guidance) lastGuidance = guidance;
 	return cfg;
 }
+
+/**
+ * The guidance that the last config load produced, or null.
+ *
+ * The extension reports the guidance through the host logger. A setting that
+ * the new release refuses must not pass without a word.
+ */
+export let lastGuidance: string | null = null;
+
+/** The guidance for a config file that holds a nonzero idle deadline. */
+export const IDLE_TIMEOUT_GUIDANCE =
+	"The setting idleTimeoutMs is gone. A worker is stopped by its reports and by timeoutMs, " +
+	"never by silence. Set idleTimeoutMs to 0 or remove it. " +
+	"See docs/adr/0009-recoverable-omp-supervision.md.";

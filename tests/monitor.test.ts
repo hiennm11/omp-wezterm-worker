@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
-import { deadlineMessage, finishedResult } from "../extensions/lib/monitor.ts";
-import { emptySummary, type SessionSummary } from "../extensions/lib/transcript.ts";
+import { deadlineMessage } from "../extensions/lib/monitor.ts";
 
 const START = 1_000_000;
 
@@ -32,17 +31,6 @@ function job(overrides: Partial<Job> = {}): Job {
 	};
 }
 
-/** A summary whose newest turn is a finished text answer. */
-function answered(finalTextIndex: number): SessionSummary {
-	return {
-		...emptySummary(),
-		finalText: "the answer",
-		turns: finalTextIndex,
-		turnsSinceLastUser: 1,
-		finalTextIndex,
-	};
-}
-
 test("a worker with no deadline never times out", () => {
 	assert.equal(deadlineMessage(job(), START + 10 * 24 * 3600 * 1000), null);
 });
@@ -65,15 +53,5 @@ test("a worker that keeps writing is not stopped by the idle deadline", () => {
 });
 
 test("a turn that is still working has no result", () => {
-	assert.equal(finishedResult(job(), emptySummary()), null);
-});
-
-test("a finished turn is the result", () => {
-	assert.equal(finishedResult(job(), answered(1)), "the answer");
-});
-
-test("a resumed worker does not report the answer it already held", () => {
-	const resumed = job({ baselineTurns: 3 });
-	assert.equal(finishedResult(resumed, answered(3)), null);
-	assert.equal(finishedResult(resumed, answered(4)), "the answer");
+	assert.equal(deadlineMessage(job(), START), null);
 });

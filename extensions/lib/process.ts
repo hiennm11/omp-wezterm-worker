@@ -13,12 +13,18 @@ export interface RunResult {
 	stderr: string;
 }
 
-export type RunFn = (bin: string, args: string[], cwd?: string) => Promise<RunResult>;
+export type RunFn = (
+	bin: string,
+	args: string[],
+	cwd?: string,
+	env?: NodeJS.ProcessEnv,
+) => Promise<RunResult>;
 
-export const run: RunFn = (bin, args, cwd) => {
+export const run: RunFn = (bin, args, cwd, env) => {
 	const { promise, resolve: settle } = Promise.withResolvers<RunResult>();
 	const child = spawn(bin, args, {
 		cwd,
+		env: env ? { ...process.env, ...env } : process.env,
 		windowsHide: true,
 		stdio: ["ignore", "pipe", "pipe"],
 	});

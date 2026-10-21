@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { DEFAULT_CONFIG, loadConfig } from "../extensions/lib/config.ts";
+import { DEFAULT_CONFIG, lastGuidance, loadConfig } from "../extensions/lib/config.ts";
 
 /** Write a config file and return its path. */
 function configFile(content: unknown): string {
@@ -33,7 +33,7 @@ test("the file overrides the defaults", () => {
 		tools: ["read", "grep"],
 		pollMs: 500,
 		timeoutMs: 1000,
-		idleTimeoutMs: 2000,
+		idleTimeoutMs: 0,
 		isolated: true,
 		closePaneOnFinish: false,
 		maxActiveWorkers: 4,
@@ -49,7 +49,7 @@ test("the file overrides the defaults", () => {
 	assert.deepEqual(cfg.tools, ["read", "grep"]);
 	assert.equal(cfg.pollMs, 500);
 	assert.equal(cfg.timeoutMs, 1000);
-	assert.equal(cfg.idleTimeoutMs, 2000);
+	assert.equal(cfg.idleTimeoutMs, 0);
 	assert.equal(cfg.isolated, true);
 	assert.equal(cfg.closePaneOnFinish, false);
 	assert.equal(cfg.maxActiveWorkers, 4);
@@ -86,4 +86,17 @@ test("the tools list is a list of strings", () => {
 	const file = configFile({ tools: ["read", 7, true] });
 	const cfg = loadConfig(file, {});
 	assert.deepEqual(cfg.tools, ["read", "7", "true"]);
+});
+
+test("a nonzero idle deadline is refused with guidance", () => {
+	const file = configFile({ idleTimeoutMs: 2000 });
+	const cfg = loadConfig(file, {});
+	assert.equal(cfg.idleTimeoutMs, 0, "the idle deadline does not run");
+	assert.match(lastGuidance ?? "", /idleTimeoutMs is gone/);
+});
+
+test("a zero idle deadline gives no guidance", () => {
+	const file = configFile({ idleTimeoutMs: 0 });
+	loadConfig(file, {});
+	assert.equal(lastGuidance, null);
 });

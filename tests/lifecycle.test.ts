@@ -35,14 +35,15 @@ function runningJob(): Job {
 
 async function finalizeWith(exec: RunFn, overrides: Partial<Job> = {}): Promise<Job> {
 	const stateDir = mkdtempSync(join(tmpdir(), "wz-lifecycle-"));
+	const rt = createRuntime(exec);
+	rt.config.stateDir = stateDir;
 	try {
-		const rt = createRuntime(exec);
-		rt.config.stateDir = stateDir;
 		const job = { ...runningJob(), ...overrides };
 		rt.jobs.set(job.id, job);
 		await finalizeJob(rt, job, "completed", null, "done");
 		return job;
 	} finally {
+		rt.closeDb();
 		rmSync(stateDir, { recursive: true, force: true });
 	}
 }
@@ -77,12 +78,12 @@ test("a finished worker keeps its pane when closePaneOnFinish is false", async (
 test("the monitor kills the pane of a worker that passes its deadline when closePaneOnFinish is false", async () => {
 	const calls: string[][] = [];
 	const stateDir = mkdtempSync(join(tmpdir(), "wz-lifecycle-"));
+	const exec: RunFn = async (_bin, args) => {
+		calls.push(args);
+		return { code: 0, stdout: args.includes("list") ? "[]" : "", stderr: "" };
+	};
+	const rt = createRuntime(exec);
 	try {
-		const exec: RunFn = async (_bin, args) => {
-			calls.push(args);
-			return { code: 0, stdout: args.includes("list") ? "[]" : "", stderr: "" };
-		};
-		const rt = createRuntime(exec);
 		rt.stopConfirm = { attempts: 2, intervalMs: 1 };
 		rt.config.stateDir = stateDir;
 		let tick: () => void = () => {};
@@ -108,6 +109,7 @@ test("the monitor kills the pane of a worker that passes its deadline when close
 		assert.equal(kills(calls), 1);
 		assert.equal(job.paneClosed, true);
 	} finally {
+		rt.closeDb();
 		rmSync(stateDir, { recursive: true, force: true });
 	}
 });

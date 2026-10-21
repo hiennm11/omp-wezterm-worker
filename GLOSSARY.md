@@ -47,6 +47,7 @@ _Avoid_: Log, history, session file
 **Turn**:
 One assistant message. A turn that issues a tool call is not the end of the
 worker's work; only a text-only turn concludes it.
+The missing report rule uses the instruction cycle instead of the turn.
 _Avoid_: Message, response, step
 
 **Delivery**:
@@ -86,3 +87,95 @@ _Avoid_: Session, conversation, turn
 The tokens a worker used, summed from its transcript and the transcripts of
 its subagents. A missing value is `unknown`, never an estimate.
 _Avoid_: Consumption, cost, billing
+
+## Agreed supervision terms
+
+These terms describe the next release. The current runtime does not yet enforce them.
+
+**Task state**:
+The worker's declared condition: working, waiting, needs input, or completed.
+A missing or invalid declaration leaves the task state unknown.
+_Avoid_: Pane state, process health
+
+**Supervision owner**:
+The main session with exclusive authority to control a worker and deliver its events.
+_Avoid_: Watcher, daemon, recipient
+
+**Takeover**:
+An explicit transfer of supervision to a different main session after the previous owner releases authority or exits.
+_Avoid_: Resume, restart
+
+**Worker event**:
+A result, input request, or intervention condition that the main session must handle.
+_Avoid_: Task, turn, notification text
+
+**Handling acknowledgement**:
+The main session's record that it handled a worker event and chose a disposition.
+Receipt or inspection alone is not handling acknowledgement.
+_Avoid_: Delivery, acceptance
+
+**Result acceptance**:
+The main session's decision that a worker result meets its requirements.
+_Avoid_: Task completion, delivery
+
+**External wait**:
+A declared pause for a named dependency whose change the worker can observe.
+_Avoid_: Stall, task completion
+
+**Pending worker event**:
+A worker event that remains unhandled and still requires action from the main session.
+_Avoid_: Unread message, undelivered result
+
+**Execution loss**:
+The confirmed end of a worker's execution without evidence that settles its task outcome.
+_Avoid_: Task failure, completion
+
+**Legacy result**:
+A saved answer whose completion used the earlier text-only rule and remains unverified.
+_Avoid_: Explicit completion, accepted result
+
+**Report**:
+The state that a worker declares through its own tool. It is the only evidence that the owner accepts.
+_Avoid_: Answer, message, result
+
+**Execution condition**:
+What the supervisor knows about the execution of a worker: it started, it runs, it stopped, it is lost, or its health is unknown.
+_Avoid_: Task state, worker state
+
+**Instruction cycle**:
+One stretch of worker work that starts at the task instruction or a steering input.
+It ends at a terminal assistant boundary with no open tool call.
+_Avoid_: Turn, assistant message, step
+
+**Execution record**:
+A durable row that holds one unit of worker execution, its start evidence, and its settlement evidence.
+A record that never settles keeps an unknown state.
+_Avoid_: Tool call, task, background job
+
+**Resource group**:
+The shared transcript directory and worktree that two runs of one task use.
+_Avoid_: Session directory, worktree, task
+
+**Launch attempt**:
+One attempt to start a worker, with its own identity and reservation state.
+_Avoid_: Launch, spawn, request
+
+**Unresolved launch**:
+A launch attempt that a crash left without a receipt. It keeps its capacity and waits for the owner.
+_Avoid_: Failed launch, lost worker, uncertain launch
+
+**Owner resolution**:
+The owner's record of an unknown task outcome. It does not create a worker completion report.
+_Avoid_: Acknowledgement, report, result acceptance
+
+**Disposing**:
+The state of a resource group whose deletion started. It refuses every new run against it.
+_Avoid_: Deleted, cleaned, closed
+
+**Release**:
+The end of the supervision of a task. The worker keeps running and the authority moves to another session.
+_Avoid_: Cancel, stop, close
+
+**Drain**:
+The wait for the external actions that a release started before it gives the authority away.
+_Avoid_: Wait, flush, cleanup

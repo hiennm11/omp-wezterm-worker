@@ -84,14 +84,20 @@ confirm the picker.
 |---|---|
 | `wezterm_spawn_worker` | Start a worker. Returns worker id, pane id, tab id, cwd, transcript path. Does not wait. |
 | `wezterm_worker_status` | List workers, or inspect one by id. Shows lifecycle state, elapsed time, idle time, the tool running right now, turn count, steering count, the tokens used, and a pending stop. |
+| `wezterm_worker_ack` | Record that you handled a worker event. A delivery does not prove that you handled it. |
 | `wezterm_worker_steer` | Send a new instruction into a **running** worker. It arrives as a follow-up user message and the worker keeps going. |
 | `wezterm_worker_peek` | Show the last visible lines of a worker's pane. A debug aid for a worker that looks stuck. |
 | `wezterm_worker_result` | Read a finished worker's final assistant text. |
 | `wezterm_worker_resume` | Reopen a **finished** worker in a new pane, continuing its transcript, optionally with a follow-up instruction. |
 | `wezterm_worker_cancel` | Cancel a worker and close **only** the pane that worker created. The cancel counts only after the pane list shows the pane gone. A worker whose stop is not confirmed stays `running`, and the tool accepts it again. |
 | `wezterm_worker_cleanup` | Release a finished worker's transcript directory and its isolated worktree. A worktree with uncommitted changes is kept unless `force` is set. |
+| `wezterm_worker_release` | Stop the supervision of a worker and give the authority away. The worker keeps running. |
+| `wezterm_worker_resolve` | Settle an unknown worker outcome. It records what you confirmed. It does not create a worker completion report. |
 
 `/wezterm-workers` prints the roster in the TUI.
+
+The worker reports its own task state through `wezterm_worker_report`. That
+tool is worker-only. The main session never gets it.
 
 ## Usage
 
@@ -246,6 +252,25 @@ spawn ──> running ──> completed ──> (pane closed) ──> resume ─
              └──> OMP restarts ──> re-attached from registry.json
 ```
 
+**The worker reports its own task state.** The worker gets the tool
+`wezterm_worker_report`. That tool is worker-only. A main session never gets
+it, and a worker never gets the tools of the main session.
+
+The worker reports `working`, `waiting`, `needs_input`, or `completed`. A
+completed report carries the result of the task. The report is the only
+evidence that the supervisor accepts. Answer text, pane text, and transcript
+growth prove nothing.
+
+The rule for a missing report counts one **instruction cycle**, not one
+assistant message. A cycle starts at the task instruction or at a steering
+input. It ends at a terminal assistant boundary with no open tool call. A
+report inside the cycle satisfies the rule. A working report followed by a
+verified idle worker is a separate condition.
+
+A completion report is refused while a tool call or a background execution
+has no settlement evidence. The supervisor cannot see every detached
+process, so it does not claim that it can.
+
 **The result wakes the main agent.** The finished result is delivered with
 `pi.sendUserMessage(text, { triggerTurn: true })`, which lands the text in the
 session as a user message and starts a new turn. The agent acts on a finished
@@ -268,10 +293,29 @@ workers that were running when the previous process ended, and the extension
 re-attaches a monitor to any whose pane is still alive. A worker whose pane
 was closed while OMP was down is marked `failed`.
 
+**The lifecycle database holds the supervision records.** The state directory
+holds `lifecycle.db`, a SQLite database through `node:sqlite`. It holds the
+ownership, the launch attempts, the shared resources, the execution ledger,
+the worker events, and the owner dispositions. The old `registry.json` is
+migrated into it once, and the file stays on disk as evidence.
+
+**A launch that lost its receipt does not start a second worker.** A crash
+between the pane creation and the receipt leaves a launch attempt without a
+receipt. The recovery finds the live worker by its command line. A worker
+that is not found leaves the attempt unresolved. The attempt keeps its
+capacity, and the owner settles it with `wezterm_worker_resolve`. The
+extension never sends the launch command again.
+
 **A finished worker can be resumed.** `wezterm_worker_resume` starts a new
 `omp --resume <transcript>` in a fresh pane, so the worker comes back with its
 whole history and can be given a follow-up instruction. This is the only way
 to continue a worker that already completed — steering needs a live pane.
+
+**A resumed worker shares the resources of its source run.** The transcript
+directory and the worktree belong to a resource group. The resume reserves the
+group before it reads the baseline and before it starts a pane. A resume
+fails while another run holds the group, and it fails while the previous pane
+of the group lives or its health is unknown.
 
 A resumed transcript already holds a finished turn, so the extension records
 how many assistant turns the transcript had when the worker started. Only a
@@ -386,6 +430,11 @@ omp-wezterm-worker/
 │   │   ├── job.ts               the worker record and its run state
 │   │   ├── registry.ts          the registry file
 │   │   ├── transcript.ts        reading a worker's transcript
+│   │   ├── calls.ts             the tool calls of a transcript, paired by id
+│   │   ├── cycle.ts             the instruction cycle of a worker
+│   │   ├── report-model.ts      the report that a worker sends
+│   │   ├── report-store.ts      the reports of a session directory
+│   │   ├── report-decision.ts   the decision that the reports produce
 │   │   ├── usage.ts             the measured token usage of a worker
 │   │   ├── runtime.ts           the shared state and the services (the test seam)
 │   │   ├── process.ts           running a child process
@@ -397,11 +446,29 @@ omp-wezterm-worker/
 │   │   ├── monitor.ts           watching a worker and the deadline rules
 │   │   ├── lifecycle.ts         finishing and cancelling a worker
 │   │   ├── steer.ts             steering a running worker
-│   │   └── deliver.ts           delivering a result to the main session
+│   │   ├── deliver.ts           delivering a result to the main session
+│   │   ├── db.ts                the lifecycle database
+│   │   ├── migrate.ts           the one-time migration of the old registry
+│   │   ├── ownership.ts         the ownership of a task and its release
+│   │   ├── attempts.ts          the launch attempts and the capacity
+│   │   ├── groups.ts            the resources that two runs share
+│   │   ├── executions.ts        the execution ledger of a run
+│   │   ├── events.ts            the worker events and their handling
+│   │   ├── resolution.ts        the owner resolution of an unknown outcome
+│   │   ├── delivery.ts          the delivery attempts of a pending event
+│   │   ├── stop-intent.ts       the stop intents of a run
+│   │   ├── recovery.ts          the recovery of the stored records
+│   │   ├── correlation.ts       finding a live worker by its command line
+│   │   ├── process-table.ts     reading the process table of the machine
+│   │   ├── role.ts              the role of a process, main or worker
+│   │   ├── bootstrap-prompt.ts  the reporting contract of a worker
+│   │   ├── worker-context.ts    the run context of a worker
+│   │   └── worker-bootstrap.ts  the tools of a worker process
 │   └── worker-tools/            one module for each tool
 │       ├── kit.ts               the shared reply and the worker lookup
 │       ├── spawn.ts, status.ts, steer.ts, peek.ts
 │       ├── result.ts, resume.ts, cancel.ts, cleanup.ts
+│       ├── report.ts, ack.ts, release.ts, resolve.ts
 │       └── roster.ts            the /wezterm-workers command
 ├── scripts/
 │   ├── _paths.sh                shared Windows-path helpers
@@ -441,7 +508,8 @@ omp-wezterm-worker/
 │   └── worktree.integration.test.ts  the worktree of a real worker
 ├── docs/
 │   ├── adr/                     the decisions and their reasons
-│   └── trials/                  the record of the Windows trials
+│   ├── trials/                  the record of the Windows trials
+│   └── plans/                   the proposed implementation plans
 ├── config/
 │   └── wezterm-worker.example.json
 ├── AGENTS.md                    the rules for work in this repository

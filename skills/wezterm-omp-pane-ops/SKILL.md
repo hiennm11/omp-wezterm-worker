@@ -279,6 +279,7 @@ spawn ──> running ──> completed ──> (pane closed) ──> resume ─
              ├──> failed / cancelled ────────────────────┘
              │
              └──> OMP restarts ──> re-attached from registry.json
+                             └──> launch attempt unresolved ──> owner resolves
 ```
 
 Four behaviours that are easy to get wrong:
@@ -305,11 +306,30 @@ survived the previous process, and the extension re-monitors any whose pane is
 still alive. A worker whose pane was closed while OMP was down is marked
 `failed`.
 
+**The worker reports its own task state.** The worker gets the tool
+`wezterm_worker_report`. That tool is worker-only. The main session never
+gets it, and a worker never gets the tools of the main session.
+
+A report is the only evidence that the supervisor accepts. Answer text, pane
+text, and transcript growth prove nothing. The launch appends a system
+prompt that states the reporting contract, and the launch sets
+`OMP_WORKER_SESSION_DIR` so the worker process knows that it is a worker.
+A WezTerm pane inherits the environment of the process that started it.
+
+**A launch that lost its receipt does not start a second worker.** A crash
+between the pane creation and the receipt leaves a launch attempt without a
+receipt. The recovery finds the live worker by its command line, which
+carries the `--session-dir` of the worker. A worker that is not found leaves
+the attempt unresolved. The attempt keeps its capacity, and the owner settles
+it with `wezterm_worker_resolve`. The extension never sends the launch
+command again.
+
 **A finished worker is continued with `--resume`, not with steering.**
 Steering needs a live pane, and a completed worker has none.
 `wezterm_worker_resume` starts `omp --resume <transcript>` in a fresh pane,
 so the worker returns with its whole history and accepts a follow-up
-instruction.
+instruction. The resumed run shares the transcript and the worktree of its
+source run, so a resource group keeps a second writer out.
 
 **Completion is counted from the newest user message.** A resumed transcript
 already holds a finished turn, so a completion check over the absolute counts
@@ -375,8 +395,11 @@ From the official extension docs (`can1357/oh-my-pi` → `docs/extensions.md`):
 The repository holds a glossary at `GLOSSARY.md`. It defines the terms of
 this domain: **worker**, **result**, **preamble**, **turn**, **steering
 message**, **resume**, **transcript**, **delivery**, **registry**,
-**worktree**. Use these words. A term with a second name makes the next
-reader guess.
+**worktree**. It also defines the supervision terms: **report**, **task
+state**, **execution condition**, **instruction cycle**, **execution
+record**, **resource group**, **launch attempt**, **unresolved launch**,
+**owner resolution**, **release**, **drain**. Use these words. A term with a
+second name makes the next reader guess.
 
 Two terms cause the most confusion:
 

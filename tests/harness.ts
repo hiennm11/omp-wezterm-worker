@@ -6,10 +6,12 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { listSessionFiles } from "../extensions/lib/transcript.ts";
+
+export { answerAfterLastUser, readTranscript, type TranscriptMessage } from "./transcript-helpers.ts";
+
 import extension from "../extensions/wezterm-worker.ts";
 
 export interface ToolResult {
@@ -83,6 +85,30 @@ export function closePane(paneId: number): void {
 		});
 	} catch {
 		/* the pane may already be gone */
+	}
+}
+
+/**
+ * True while a worker process still runs.
+ *
+ * A worker process holds its working directory open. The test waits for the
+ * process to end, so the directory can be removed on Windows.
+ */
+export function workerProcessesRunning(): boolean {
+	try {
+		const out = execFileSync(
+			"powershell",
+			[
+				"-NoProfile",
+				"-Command",
+				"(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--session-dir*' }).Count",
+			],
+			{ encoding: "utf8", windowsHide: true },
+		);
+		return Number.parseInt(out.trim(), 10) > 0;
+	} catch {
+		// A process table that cannot be read means unknown, not running.
+		return false;
 	}
 }
 
@@ -174,6 +200,11 @@ export function createHost(options: { stateDir?: string; cwd: string }): TestHos
 			const panes = [...host.panes];
 			host.panes.clear();
 			await closePanesAndWait(panes);
+			// The worker process needs a moment to end after its pane closed.
+			await waitFor(() => !workerProcessesRunning(), 30_000, 250);
+			// The shutdown handler closes the database handle. Windows cannot
+			// remove a file that a process holds open.
+			await host.fire("session_shutdown", sessionContext(options.cwd));
 			removeDir(stateDir);
 		},
 	};
@@ -263,74 +294,6 @@ export function detailBoolean(details: unknown, field: string): boolean | null {
 	if (!(field in record)) return null;
 	const value = record[field];
 	return typeof value === "boolean" ? value : null;
-}
-
-/** One message from a worker transcript. */
-export interface TranscriptMessage {
-	role: "user" | "assistant" | "toolResult";
-	text: string;
-	toolCalls: string[];
-}
-
-/**
- * Read the messages of a worker's transcript in order.
- *
- * The transcript is the worker's record, so it is the evidence for what the
- * worker did and when.
- */
-export function readTranscript(sessionDir: string): TranscriptMessage[] {
-	const files = listSessionFiles(sessionDir);
-	if (files.length === 0) return [];
-	const messages: TranscriptMessage[] = [];
-	for (const line of readFileSync(files[0], "utf8").split("\n")) {
-		if (!line.trim()) continue;
-		let entry: {
-			type?: string;
-			message?: { role?: string; content?: Array<{ type?: string; text?: string; name?: string }> };
-		};
-		try {
-			entry = JSON.parse(line) as typeof entry;
-		} catch {
-			continue;
-		}
-		if (entry.type !== "message" || !entry.message) continue;
-		const role = entry.message.role;
-		if (role !== "user" && role !== "assistant" && role !== "toolResult") continue;
-		const blocks = Array.isArray(entry.message.content) ? entry.message.content : [];
-		messages.push({
-			role,
-			text: blocks
-				.filter((b) => b.type === "text")
-				.map((b) => b.text ?? "")
-				.join(""),
-			toolCalls: blocks.filter((b) => b.type === "toolCall").map((b) => b.name ?? "?"),
-		});
-	}
-	return messages;
-}
-
-/**
- * The answer a worker gave after its last user message.
- *
- * A steering message arrives as a user message. The answer that follows it
- * is the answer to that message.
- */
-export function answerAfterLastUser(messages: TranscriptMessage[]): string | null {
-	let index = -1;
-	for (let i = messages.length - 1; i >= 0; i--) {
-		if (messages[i].role === "user") {
-			index = i;
-			break;
-		}
-	}
-	if (index < 0) return null;
-	for (let i = index + 1; i < messages.length; i++) {
-		const message = messages[i];
-		if (message.role === "assistant" && message.text && message.toolCalls.length === 0) {
-			return message.text;
-		}
-	}
-	return null;
 }
 
 /** Wait for a condition. Returns false when the condition never holds. */

@@ -8,6 +8,7 @@
 import { failJob, type Job, type JobStatus, type PendingStop } from "./job.ts";
 import { closePaneConfirmed, killPane } from "./pane.ts";
 import type { WorkerRuntime } from "./runtime.ts";
+import { confirmStopIntent, failStopIntent, recordStopIntent } from "./stop-intent.ts";
 import { inspectWorktree } from "./worktree.ts";
 
 /**
@@ -80,16 +81,23 @@ export async function stopJob(
 	try {
 		job.pendingStop = { status, error, failure: job.pendingStop?.failure ?? null };
 		rt.persist();
+		// The intent is stored before the destructive command runs. A crash
+		// after the command leaves a pending intent, and a recovered owner
+		// reconciles it before it steers, resumes, or cleans up.
+		const intentId = `stop-${job.id}`;
+		recordStopIntent(rt.openDb(), intentId, job.id, status, error, Date.now());
 		// Kill only the pane this extension created. Never touch other panes.
 		const failure = job.paneId === null ? null : await closePaneConfirmed(rt, job.paneId);
 		if (failure === null) {
 			// finalizeJob must not close the pane a second time.
 			job.paneClosed = true;
 			job.pendingStop = null;
+			confirmStopIntent(rt.openDb(), intentId, Date.now());
 			await finalizeJob(rt, job, status, error, job.result);
 			return { stopped: true, error: null };
 		}
 		job.pendingStop.failure = failure;
+		failStopIntent(rt.openDb(), intentId, Date.now());
 		rt.persist();
 		return { stopped: false, error: failure };
 	} finally {

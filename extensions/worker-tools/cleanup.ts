@@ -6,6 +6,8 @@
 
 import { rmSync } from "node:fs";
 
+import { pendingEvents } from "../lib/events.ts";
+import { clearDisposing, markDisposing, readGroup } from "../lib/groups.ts";
 import { activeSharers, isActive, type Job } from "../lib/job.ts";
 import { paneState } from "../lib/pane.ts";
 import type { WorkerRuntime } from "../lib/runtime.ts";
@@ -121,14 +123,66 @@ export function registerCleanupTool({ pi, rt }: ToolDeps): void {
 					true,
 				);
 			}
+
+			// The cleanup deletes the transcript and the worktree. The resource
+			// group knows whether a run still holds them. The check uses the
+			// stored records, not a scan of the process-local worker map.
+			const db = rt.openDb();
+			const groupId = `grp-${job.id}`;
+			const group = readGroup(db, groupId);
+			if (group) {
+				if (group.executionState === "unknown") {
+					return reply(
+						`The state of the resources of worker ${job.id} is unknown. Resolve the worker first.`,
+						{ workerId: job.id, resourceGroup: groupId, executionState: group.executionState },
+						true,
+					);
+				}
+				if (group.executionHolder !== null && group.executionHolder !== job.id) {
+					return reply(
+						`The resources of worker ${job.id} are used by run ${group.executionHolder}. Cancel that run first.`,
+						{ workerId: job.id, resourceGroup: groupId, executionHolder: group.executionHolder },
+						true,
+					);
+				}
+				if (group.disposing) {
+					return reply(
+						`The resources of worker ${job.id} are already being deleted.`,
+						{ workerId: job.id, resourceGroup: groupId, disposing: true },
+						true,
+					);
+				}
+			}
+
+			// A pending actionable event blocks the cleanup. The owner handles
+			// the event or discards it before the resources go.
+			const pending = pendingEvents(db).filter((event) => event.runId === job.id);
+			if (pending.length > 0) {
+				const ids = pending.map((event) => event.id);
+				return reply(
+					`Worker ${job.id} has ${ids.length} unhandled event(s): ${ids.join(", ")}. ` +
+						"Handle them before the cleanup.",
+					{ workerId: job.id, pendingEvents: ids },
+					true,
+				);
+			}
+
+			// The marker stays until the deletion finishes. A crash during the
+			// deletion leaves the group disposing, and the recovery reconciles it.
+			markDisposing(db, groupId, Date.now());
 			const outcome = await releaseWorktree(rt, job, params.force === true);
 			const notes = [...outcome.notes];
+			let removed = true;
 			try {
 				rmSync(job.sessionDir, { recursive: true, force: true });
 				notes.push(`transcript directory removed: ${job.sessionDir}`);
 			} catch (e) {
+				removed = false;
 				notes.push(`transcript directory NOT removed: ${String(e)}`);
 			}
+			// The marker stays while the deletion is unfinished. A crash during
+			// the deletion leaves the group disposing for the recovery.
+			if (removed) clearDisposing(db, groupId, Date.now());
 			rt.persist();
 			return reply(`Cleanup for worker ${job.id}:\n- ${notes.join("\n- ")}`, {
 				workerId: job.id,

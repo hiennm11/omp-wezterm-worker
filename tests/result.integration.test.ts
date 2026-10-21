@@ -31,7 +31,9 @@ test("the result tool returns the worker's answer", {
 
 	try {
 		const spawned = await host.call("wezterm_spawn_worker", {
-			task: "Reply with the single word PONG and nothing else.",
+			task:
+				"Reply with the single word PONG and nothing else. " +
+				"Then report the task as completed with the result PONG, using wezterm_worker_report.",
 			cwd: repo,
 			label: "result",
 		});

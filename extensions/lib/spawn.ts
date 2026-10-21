@@ -8,8 +8,10 @@
 
 import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
-
+import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
+import { bootstrapPromptFile, writeBootstrapPrompt } from "./bootstrap-prompt.ts";
 import type { Placement } from "./config.ts";
+import { createGroup, reserveExecution, setGroupWorktree } from "./groups.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { finalizeJob } from "./lifecycle.ts";
 import { launchPane } from "./pane.ts";
@@ -17,6 +19,7 @@ import { describeFailure } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { listSessionFiles, summarizeSession } from "./transcript.ts";
 import { readUsageTotals } from "./usage.ts";
+import { writeRunContext } from "./worker-context.ts";
 import { createWorktree } from "./worktree.ts";
 
 export interface SpawnParams {
@@ -43,6 +46,11 @@ export interface SpawnParams {
  */
 function ompArgv(job: Job, resumeFile: string | null, trailing: string | undefined): string[] {
 	const args = ["--no-title", "--cwd", job.cwd, "--session-dir", job.sessionDir];
+	// The worker reports its task state. The prompt tells it how. Without the
+	// prompt the worker never reports, and the supervisor cannot tell a
+	// finished task from a silent one.
+	const prompt = bootstrapPromptFile(job.sessionDir);
+	if (existsSync(prompt)) args.push("--append-system-prompt", prompt);
 	if (resumeFile) args.push("--resume", resumeFile);
 	if (job.model) args.push("--model", job.model);
 	if (job.tools?.length) args.push("--tools", job.tools.join(","));
@@ -91,6 +99,22 @@ export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promi
 
 	mkdirSync(job.sessionDir, { recursive: true });
 
+	// The run context binds the worker to its run. The worker bootstrap reads
+	// this file, so a report from the worker names the run that produced it.
+	const groupId = `grp-${jobId}`;
+	writeRunContext(job.sessionDir, { runId: jobId, sourceRunId: null, resourceGroup: groupId });
+	// The worker gets the reporting contract. The file stays as the evidence
+	// of the contract that the worker received.
+	writeBootstrapPrompt(job.sessionDir);
+
+	// The launch attempt keeps the state of the window between the pane
+	// creation and the receipt. A crash in that window leaves an attempt
+	// without a receipt, and the recovery looks for the worker.
+	const db = rt.openDb();
+	createGroup(db, groupId, job.sessionDir, Date.now());
+	const attemptId = `att-${jobId}`;
+	reserveAttempt(db, attemptId, jobId, Date.now());
+
 	// Optional git worktree isolation so parallel workers never share a checkout.
 	if (params.isolated ?? config.isolated) {
 		try {
@@ -100,16 +124,28 @@ export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promi
 			job.worktreeOrigin = job.cwd;
 			job.cwd = wt.path;
 		} catch (e) {
+			markUnused(db, attemptId, Date.now());
 			await finalizeJob(rt, job, "failed", e instanceof Error ? e.message : String(e), null);
 			return job;
 		}
 	}
+	setGroupWorktree(db, groupId, job.worktreePath, job.worktreeOrigin, job.worktreeBranch, Date.now());
 
-	const failure = await launchPane(rt, job, ompArgv(job, null, job.task));
+	// The attempt is issued before the command runs. A crash after the
+	// command leaves an issued attempt, and the recovery finds the worker.
+	markIssued(db, attemptId, Date.now());
+	// The worker process needs to know that it is a worker. The environment
+	// variable names its session directory, and the run context in that
+	// directory names the run.
+	const failure = await launchPane(rt, job, ompArgv(job, null, job.task), {
+		OMP_WORKER_SESSION_DIR: job.sessionDir,
+	});
 	if (failure) {
+		markUnused(db, attemptId, Date.now());
 		await finalizeJob(rt, job, "failed", failure, null);
 		return job;
 	}
+	attachAttempt(db, attemptId, job.paneId ?? -1, job.sessionFile, null, Date.now());
 
 	// Persist again now that the pane id is known. The first write happened
 	// before the pane existed, so without this the registry would record a
@@ -152,8 +188,8 @@ export async function resumeWorker(
 		return failed;
 	}
 
-	// The resumed worker works in the same checkout, so the dirty state of
-	// the previous run says nothing about this one. freshRunState resets it.
+	// The resumed worker works in the same checkout, so the dirty state of the
+	// previous run says nothing about this one. freshRunState resets it.
 	const job: Job = {
 		...source,
 		id: jobId,
@@ -161,6 +197,30 @@ export async function resumeWorker(
 		placement: params.placement ?? source.placement,
 		...freshRunState(Date.now()),
 	};
+
+	// The resumed run shares the transcript and the worktree of its source
+	// run. It reserves the group before it reads the baseline and before it
+	// starts a pane, so a cleanup cannot delete the resources under it.
+	const db = rt.openDb();
+	const groupId = `grp-${source.id}`;
+	const reservation = reserveExecution(db, groupId, jobId, Date.now());
+	if (!reservation.granted) {
+		const failed: Job = {
+			...job,
+			status: "failed",
+			error: reservation.reason,
+			finishedAt: Date.now(),
+		};
+		rt.jobs.set(jobId, failed);
+		return failed;
+	}
+
+	// The run context names the new run and keeps the group of the source.
+	writeRunContext(job.sessionDir, {
+		runId: jobId,
+		sourceRunId: source.id,
+		resourceGroup: groupId,
+	});
 	rt.jobs.set(jobId, job);
 
 	// The transcript already holds the earlier turns. Record how many, so the
@@ -186,12 +246,19 @@ export async function resumeWorker(
 	// The task is not repeated: the transcript already holds it. A follow-up
 	// message restarts the turn; without one the worker opens on its
 	// transcript and waits.
-	const failure = await launchPane(rt, job, ompArgv(job, sessionFile, params.message));
+	const attemptId = `att-${jobId}`;
+	reserveAttempt(db, attemptId, jobId, Date.now());
+	markIssued(db, attemptId, Date.now());
+	const failure = await launchPane(rt, job, ompArgv(job, sessionFile, params.message), {
+		OMP_WORKER_SESSION_DIR: job.sessionDir,
+	});
 	if (failure) {
+		markUnused(db, attemptId, Date.now());
 		job.status = "failed";
 		job.error = failure;
 		job.finishedAt = Date.now();
 	}
+	attachAttempt(db, attemptId, job.paneId ?? -1, job.sessionFile, null, Date.now());
 	rt.persist();
 	return job;
 }

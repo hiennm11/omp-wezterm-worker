@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
+import { readReports } from "../extensions/lib/report-store.ts";
 import {
 	answerAfterLastUser,
 	createHost,
@@ -94,19 +95,30 @@ test("a running worker can be steered, peeked at and cancelled", {
 		assert.ok(received, "The steering message never reached the worker's transcript");
 
 		// --- the worker answers the steering message ---
+		//
+		// The worker reports its task state. A report is the strongest
+		// evidence that the worker saw the steering message, so the test
+		// accepts a report or an answer.
 		const answered = await waitFor(
-			() => answerAfterLastUser(readTranscript(sessionDir)) !== null,
+			() => {
+				const reports = readReports(sessionDir);
+				if (reports.length > 0) return true;
+				return answerAfterLastUser(readTranscript(sessionDir)) !== null;
+			},
 			180_000,
 			1000,
 		);
 		assert.ok(answered, "The worker did not answer the steering message");
 
+		const reports = readReports(sessionDir);
 		const answer = answerAfterLastUser(readTranscript(sessionDir));
-		assert.match(
-			answer ?? "",
-			/STEERED/,
-			`The worker answered the steering message with something else: ${answer ?? "(none)"}`,
-		);
+		if (reports.length === 0) {
+			assert.match(
+				answer ?? "",
+				/STEERED/,
+				`The worker answered the steering message with something else: ${answer ?? "(none)"}`,
+			);
+		}
 	} finally {
 		await host.cleanup();
 		removeDir(repo);

@@ -31,7 +31,8 @@ These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
 ## Logic and tests
 
 - Write a decision as a pure function of the job and the clock. Test it without a pane.
-  `deadlineMessage` and `finishedResult` in `lib/monitor.ts` are the model.
+  `deadlineMessage` in `lib/monitor.ts` and `decideFromReports` in
+  `lib/report-decision.ts` are the model.
 - Add a test only for a behaviour that a user can observe.
 - Do not delete a worker's work. See `docs/adr/0002-never-delete-a-workers-work.md`.
 
@@ -58,3 +59,48 @@ These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
 
 - Run `npm run check`. It runs the lint, the type check, the scores and every test.
 - The integration tests need `omp` and `wezterm`. Report a test that did not run.
+
+<!-- gitnexus:start -->
+# GitNexus — Code Intelligence
+
+This project is indexed by GitNexus as **omp-wezterm-worker** (550 symbols, 1496 relationships, 43 execution flows). Use GitNexus graph tools to understand code, assess impact, and navigate safely.
+
+> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? Bootstrap with `npx`, `bunx`, or `pnpm dlx` — e.g. `bunx gitnexus@latest analyze` (npm 11 npx crash; #1939).
+
+## Always Do
+
+- **MUST run impact analysis before editing.** Use `impact({target: "symbolName", direction: "upstream"})` (MCP) or `node .gitnexus/run.cjs impact "symbolName" --direction upstream --repo .` (CLI fallback); report callers, processes, and risk. Never substitute grep for graph analysis.
+- **MUST analyze graph changes before committing.** Use `detect_changes({scope: "all"})` (MCP) or `node .gitnexus/run.cjs detect-changes --scope all --repo .` (CLI fallback). For regression review: `detect_changes({scope: "compare", base_ref: "master"})` or `node .gitnexus/run.cjs detect-changes --scope compare --base-ref "master" --repo .`.
+- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
+- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
+- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
+
+## Never Do
+
+- NEVER edit a function, class, or method before MCP/CLI impact analysis.
+- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
+- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
+- NEVER commit before MCP/CLI graph change analysis.
+
+## Resources
+
+| Resource | Use for |
+| --- | --- |
+| `gitnexus://repo/omp-wezterm-worker/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/omp-wezterm-worker/clusters` | All functional areas |
+| `gitnexus://repo/omp-wezterm-worker/processes` | All execution flows |
+| `gitnexus://repo/omp-wezterm-worker/process/{name}` | Step-by-step execution trace |
+
+## CLI
+
+| Task | Read this skill file |
+| --- | --- |
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus-exploring/SKILL.md` |
+| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus-debugging/SKILL.md` |
+| Rename / extract / split / refactor | `.claude/skills/gitnexus-refactoring/SKILL.md` |
+| Tools, resources, schema reference | `.claude/skills/gitnexus-guide/SKILL.md` |
+| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus-cli/SKILL.md` |
+
+<!-- gitnexus:end -->

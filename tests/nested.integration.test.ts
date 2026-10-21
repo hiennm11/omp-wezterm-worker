@@ -41,8 +41,10 @@ test("a worker cannot launch a worker", {
 		const panesBefore = currentPanes();
 		const spawned = await host.call("wezterm_spawn_worker", {
 			task:
-				"Call the tool wezterm_spawn_worker with the task 'Reply OK'. " +
-				"Then reply with the exact text of the tool result, and nothing else.",
+				"Try to launch another worker with the tool wezterm_spawn_worker and the task 'Reply OK'. " +
+				"If the tool is not available, do not look for it and do not read any file. " +
+				"Report the task as completed with wezterm_worker_report. " +
+				"Put the outcome of the attempt in the result.",
 			cwd: repo,
 			label: "nested",
 		});
@@ -64,7 +66,11 @@ test("a worker cannot launch a worker", {
 		const delivered = await waitFor(() => host.delivered.some((t) => t.includes(workerId)), 20_000, 250);
 		assert.ok(delivered, "The extension did not deliver the result");
 		const result = host.delivered.find((t) => t.includes(workerId)) ?? "";
-		assert.match(result, /cannot launch another worker/);
+		// A worker process gets the report tool only. It has no spawn tool, so
+		// the worker reports that it could not launch one. The wording of the
+		// report is the worker's own, so the check looks for the facts.
+		assert.match(result, /finished/, "The worker did not finish");
+		assert.match(result, /not (available|present)|No such tool|cannot launch another worker|not possible/i);
 
 		// Only the worker's own pane may have appeared: it closes when the worker ends.
 		const settled = await waitFor(() => currentPanes().every((p) => panesBefore.includes(p)), 20_000, 500);

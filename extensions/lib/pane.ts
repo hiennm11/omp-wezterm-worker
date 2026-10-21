@@ -38,13 +38,18 @@ export async function paneState(rt: WorkerRuntime, paneId: number): Promise<Pane
  * On success the job holds its pane, tab and window ids and is `running`.
  * Returns the reason when the pane could not start, and leaves the job alone.
  */
-export async function launchPane(rt: WorkerRuntime, job: Job, ompArgs: string[]): Promise<string | null> {
+export async function launchPane(
+	rt: WorkerRuntime,
+	job: Job,
+	ompArgs: string[],
+	env?: NodeJS.ProcessEnv,
+): Promise<string | null> {
 	const { ompBin } = rt.config;
 	const weztermArgs =
 		job.placement === "tab"
 			? ["spawn", "--cwd", job.cwd, "--", ompBin, ...ompArgs]
 			: ["split-pane", "--right", "--cwd", job.cwd, "--", ompBin, ...ompArgs];
-	const res = await rt.wezterm(weztermArgs);
+	const res = await rt.wezterm(weztermArgs, env);
 	if (res.code !== 0) return `wezterm ${job.placement} failed: ${describeFailure(res)}`;
 
 	const paneId = Number.parseInt(res.stdout.trim(), 10);

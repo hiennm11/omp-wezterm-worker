@@ -10,6 +10,7 @@
  * does not expose `sendUserMessage`. See docs/adr/0004.
  */
 
+import { beginDelivery, markSent, markUncertain } from "./delivery.ts";
 import type { ExtensionAPI } from "./host.ts";
 import type { Job } from "./job.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -58,10 +59,26 @@ export function createDeliver(pi: ExtensionAPI, rt: WorkerRuntime): (job: Job) =
 			worker: jobUsage(job),
 			request: requestUsage(rt.jobs, rt.requestLaunches),
 		});
-		if (typeof pi.sendUserMessage === "function") {
-			pi.sendUserMessage(text, { triggerTurn: true });
-			return;
+		// The delivery attempt is recorded before the message goes out. The
+		// attempt keeps the event identity and the owner generation. A
+		// settled attempt and an uncertain attempt stay distinct from a
+		// handling acknowledgement.
+		const db = rt.openDb();
+		const attemptId = `del-${job.id}-${Date.now()}`;
+		beginDelivery(db, attemptId, job.id, rt.ownerGeneration, Date.now());
+		try {
+			if (typeof pi.sendUserMessage === "function") {
+				pi.sendUserMessage(text, { triggerTurn: true });
+				markSent(db, attemptId, "sendUserMessage", Date.now());
+				return;
+			}
+			pi.sendMessage(text, { deliverAs: "steer", triggerTurn: true, attribution: "agent" });
+			markSent(db, attemptId, "sendMessage", Date.now());
+		} catch (e) {
+			// The host refused the message. The event stays pending, and the
+			// attempt stays uncertain.
+			markUncertain(db, attemptId, e instanceof Error ? e.message : String(e), Date.now());
+			throw e;
 		}
-		pi.sendMessage(text, { deliverAs: "steer", triggerTurn: true, attribution: "agent" });
 	};
 }

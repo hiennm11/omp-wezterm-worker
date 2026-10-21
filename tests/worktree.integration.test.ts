@@ -56,7 +56,8 @@ test("the worktree survives the worker and cleanup keeps the changes", {
 		const spawned = await host.call("wezterm_spawn_worker", {
 			task:
 				"Create a file named worker-output.txt in the current working directory. " +
-				"Put the word DONE in it. Use the write tool. Then stop.",
+				"Put the word DONE in it. Use the write tool. " +
+				"Then report the task as completed with wezterm_worker_report.",
 			cwd: repo,
 			isolated: true,
 			label: "worktree",

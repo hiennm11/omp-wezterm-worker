@@ -10,12 +10,15 @@ import { createHost, sessionContext } from "./harness.ts";
 const EXPECTED_TOOLS = [
 	"wezterm_spawn_worker",
 	"wezterm_worker_status",
+	"wezterm_worker_ack",
 	"wezterm_worker_steer",
 	"wezterm_worker_peek",
 	"wezterm_worker_result",
 	"wezterm_worker_resume",
 	"wezterm_worker_cancel",
 	"wezterm_worker_cleanup",
+	"wezterm_worker_resolve",
+	"wezterm_worker_release",
 ];
 
 test("the extension registers every tool that the agent needs", async () => {

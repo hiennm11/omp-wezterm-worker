@@ -8,11 +8,17 @@
 
 import { statSync } from "node:fs";
 
+import { readCallLedger } from "./calls.ts";
+import { type CycleState, needsIntervention, readCycleState } from "./cycle-state.ts";
+import { createEvent, eventKey, resolveObsoleteEvent } from "./events.ts";
+import { outstandingExecutions } from "./executions.ts";
 import { isActive, type Job, type JobStatus, type PendingStop } from "./job.ts";
 import { finalizeJob, stopJob } from "./lifecycle.ts";
 import { paneState } from "./pane.ts";
+import { completionBlocker, decideFromReports } from "./report-decision.ts";
+import { readReports } from "./report-store.ts";
 import type { WorkerRuntime } from "./runtime.ts";
-import { isTurnComplete, listSessionFiles, type SessionSummary, summarizeSession } from "./transcript.ts";
+import { listSessionFiles, type SessionSummary, summarizeSession } from "./transcript.ts";
 
 /**
  * How long a worker may take to write its first transcript line before the
@@ -35,19 +41,6 @@ export function deadlineMessage(job: Job, now: number): string | null {
 		return `Worker produced no activity for ${Math.round(job.idleTimeoutMs / 1000)}s and was stopped`;
 	}
 	return null;
-}
-
-/**
- * The result of a worker that finished its own turn, or null while it works.
- *
- * A resumed worker opens on a transcript that already holds a finished turn.
- * Only a turn beyond the baseline counts as this worker's own result,
- * otherwise the previous answer is delivered as the new one.
- */
-export function finishedResult(job: Job, summary: SessionSummary): string | null {
-	if (!isTurnComplete(summary)) return null;
-	if (summary.finalTextIndex <= job.baselineTurns) return null;
-	return summary.finalText ?? "";
 }
 
 /**
@@ -92,6 +85,9 @@ export function observeTranscript(job: Job, now: number): SessionSummary | null 
  */
 export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => void): void {
 	rt.stopMonitor(job.id);
+	// The cycle state of each watched worker. It holds the time when the
+	// cycle closed, so the settling time can be measured.
+	const cycleStates = new Map<string, CycleState>();
 
 	const end = (status: JobStatus, error: string | null, result: string | null) => {
 		void (async () => {
@@ -144,10 +140,82 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 			return;
 		}
 
-		const finalText = finishedResult(job, summary);
-		if (finalText === null) return;
-		end("completed", null, finalText);
+		// A text-only turn does not end the worker. The report decides. The
+		// report tick runs beside this one and reads the reports.
+	};
+
+	/**
+	 * The tick that reads the reports of a worker.
+	 *
+	 * A report is the only evidence that proves a task state. The text of a
+	 * turn proves nothing. A worker that reports completion finishes, and a
+	 * worker that reports nothing keeps running until its deadline.
+	 */
+	const reportTick = () => {
+		if (!isActive(job)) {
+			rt.stopMonitor(job.id);
+			return;
+		}
+		if (rt.stopping.has(job.id)) return;
+		const now = Date.now();
+		if (job.pendingStop) return stop(job.pendingStop.status, job.pendingStop.error);
+		const deadline = deadlineMessage(job, now);
+		if (deadline) return stop("failed", deadline);
+
+		const file = job.sessionFile ?? listSessionFiles(job.sessionDir)[0];
+		if (!file) return;
+		const ledger = readCallLedger(file);
+		const reports = readReports(job.sessionDir, job.id);
+		const decision = decideFromReports(ledger, reports);
+		const db = rt.openDb();
+
+		// The cycle must hold at its terminal boundary before the supervisor
+		// asks the owner for help. The worker writes its report in the turn
+		// that follows its answer.
+		const cycle = readCycleState(ledger, cycleStates.get(job.id) ?? null, now);
+		cycleStates.set(job.id, cycle);
+		const settled = needsIntervention(cycle, decision.state !== "unknown", now);
+
+		// The events keep their identity. The key joins the run, the cycle
+		// and the condition, so a recovery finds the event that exists.
+		const condition = settled ? decision.condition : null;
+		if (condition) {
+			const key = eventKey(job.id, decision.evidenceId, condition);
+			createEvent(
+				db,
+				`ev-${job.id}-${decision.evidenceId}-${condition}`,
+				key,
+				job.id,
+				condition,
+				condition,
+				null,
+				true,
+				now,
+			);
+		} else {
+			// A later valid report resolves the event that the condition
+			// created. The history of the event stays.
+			resolveObsoleteEvent(
+				db,
+				job.id,
+				decision.evidenceId,
+				"missing_report",
+				"The worker reported its task state.",
+				now,
+			);
+		}
+
+		// A completion report ends the worker. The outstanding execution rows
+		// of the run can block it.
+		if (decision.state === "completed") {
+			const rows = outstandingExecutions(db, job.id);
+			const unknown = rows.filter((row) => row.state === "unknown").length;
+			const blocker = completionBlocker(rows.length - unknown, unknown);
+			if (blocker) return;
+			end("completed", null, decision.result ?? "");
+		}
 	};
 
 	rt.monitors.set(job.id, rt.startInterval(tick, rt.config.pollMs));
+	rt.monitors.set(`${job.id}:reports`, rt.startInterval(reportTick, rt.config.pollMs));
 }
