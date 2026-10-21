@@ -8,11 +8,13 @@
 
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
+import { openDatabase } from "../extensions/lib/db.ts";
+import { loadRuns } from "../extensions/lib/runs.ts";
 import { readUsageTotals } from "../extensions/lib/usage.ts";
 import { createHost, removeDir, sessionContext, waitFor } from "./harness.ts";
 
@@ -91,12 +93,10 @@ test("the worker lifecycle, with a real worker", {
 		const paneGone = await waitFor(() => !currentPanes().includes(paneId), 20_000, 500);
 		assert.ok(paneGone, "The worker pane is still open after the worker finished");
 
-		// --- the registry records the worker ---
-		const registry = JSON.parse(readFileSync(join(stateDir, "registry.json"), "utf8")) as {
-			jobs: Array<{ id: string; paneId: number | null; status: string }>;
-		};
-		const entry = registry.jobs.find((j) => j.id === workerId);
-		assert.ok(entry, "The registry does not hold the worker");
+		// --- the database records the worker ---
+		const recorded = loadRuns(openDatabase(join(stateDir, "lifecycle.db")));
+		const entry = [...recorded.finished, ...recorded.alive].find((j) => j.id === workerId);
+		assert.ok(entry, "The database does not hold the worker");
 		assert.equal(entry?.paneId, paneId);
 		assert.equal(entry?.status, "completed");
 
@@ -106,7 +106,7 @@ test("the worker lifecycle, with a real worker", {
 		const listed = await second.call("wezterm_worker_status", {});
 		assert.ok(
 			host.text(listed).includes(workerId) || second.text(listed).includes(workerId),
-			"A new process does not list the worker from the registry",
+			"A new process does not list the worker from the database",
 		);
 
 		// --- the worker can be resumed and answers the new message ---

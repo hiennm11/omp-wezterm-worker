@@ -89,22 +89,29 @@ export function closePane(paneId: number): void {
 }
 
 /**
- * True while a worker process still runs.
+ * True while a worker process of the given directories still runs.
  *
  * A worker process holds its working directory open. The test waits for the
  * process to end, so the directory can be removed on Windows.
+ *
+ * The check looks at the whole process table. A worker of another test that
+ * never ended must not keep this test waiting, so the check names the
+ * directories of this test.
  */
-export function workerProcessesRunning(): boolean {
+export function workerProcessesRunning(directories: Iterable<string> = []): boolean {
+	const dirs = [...directories];
+	if (dirs.length === 0) return false;
 	try {
-		const out = execFileSync(
-			"powershell",
-			[
-				"-NoProfile",
-				"-Command",
-				"(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--session-dir*' }).Count",
-			],
-			{ encoding: "utf8", windowsHide: true },
-		);
+		const patterns = dirs.map((d) => `'-${d.replace(/'/g, "''")}'`);
+		const script =
+			"$dirs = @(" +
+			patterns.join(",") +
+			"); (Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--session-dir*' -and " +
+			"($dirs | Where-Object { $_.CommandLine -like ('*' + $_ + '*') } | Select-Object -First 1) }).Count";
+		const out = execFileSync("powershell", ["-NoProfile", "-Command", script], {
+			encoding: "utf8",
+			windowsHide: true,
+		});
 		return Number.parseInt(out.trim(), 10) > 0;
 	} catch {
 		// A process table that cannot be read means unknown, not running.
@@ -201,7 +208,9 @@ export function createHost(options: { stateDir?: string; cwd: string }): TestHos
 			host.panes.clear();
 			await closePanesAndWait(panes);
 			// The worker process needs a moment to end after its pane closed.
-			await waitFor(() => !workerProcessesRunning(), 30_000, 250);
+			// The wait names the session directory of this test, so a worker of
+			// another test cannot hold this test up.
+			await waitFor(() => !workerProcessesRunning([join(stateDir, "sessions")]), 30_000, 250);
 			// The shutdown handler closes the database handle. Windows cannot
 			// remove a file that a process holds open.
 			await host.fire("session_shutdown", sessionContext(options.cwd));

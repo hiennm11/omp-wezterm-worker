@@ -150,6 +150,7 @@ Use SQLite through node:sqlite for lifecycle records, ownership, launch reservat
 Use transactions instead of whole-registry replacement. Keep ownership checks and writes in the same transaction.
 Require runtime support and fail clearly when it is absent. Never fall back to writable JSON storage.
 Import the old registry once and preserve it as migration evidence.
+The extension never writes the old registry file again. Two processes cannot lose one another's records.
 Do not support concurrent writes from an older plugin version after migration.
 The built-in SQLite API is experimental in Node 22.19.0. This release accepts that runtime constraint.
 

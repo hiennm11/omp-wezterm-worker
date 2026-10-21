@@ -57,6 +57,7 @@ _Avoid_: Notification, callback, push
 
 **Registry**:
 The file that records every worker, so a worker survives an OMP restart.
+The new release keeps the records in a database. The old file stays as evidence.
 _Avoid_: Index, cache, state
 
 **Worktree**:

@@ -121,6 +121,7 @@ Replace whole-registry writes in registry.ts and runtime.ts with transactional s
 Add focused lib modules for database setup, migration, and transactional records as responsibility requires.
 Add the run model, event model, and ownership generation to job.ts or focused domain modules.
 Remove writable JSON persistence after migration. Keep no dual-write path.
+The old registry file stays on disk as the evidence of the migration.
 
 Verify SQLite inside the actual OMP extension host, not only the standalone Node executable.
 Verify access to a stable main session identity and the worker launch context in that host.

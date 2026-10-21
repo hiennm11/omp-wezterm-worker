@@ -299,12 +299,17 @@ closes the pane, because the worker is still running. The job ends as `failed`
 only after the pane list shows the pane gone. Until then the job stays
 `running` with a `stop` reason, and `wezterm_worker_cancel` accepts it again.
 
-**The registry is a file, not just a map.** `stateDir/registry.json` holds
-every worker, written atomically (temp file plus rename). A new OMP process
-reads it at startup, so `wezterm_worker_status` still lists workers that
-survived the previous process, and the extension re-monitors any whose pane is
-still alive. A worker whose pane was closed while OMP was down is marked
-`failed`.
+**The lifecycle database holds the worker records.** `stateDir/lifecycle.db` is
+a SQLite database through `node:sqlite`. It holds every worker, the ownership,
+the launch attempts, the shared resources, the execution ledger, and the
+events. A new OMP process reads it at startup, so `wezterm_worker_status` still
+lists workers that survived the previous process, and the extension re-monitors
+any whose pane is still alive. A worker whose pane was closed while OMP was
+down is marked `failed`.
+
+The old `stateDir/registry.json` is migrated once. The file stays on disk as
+evidence. The extension never writes it again, because two processes that
+wrote the same file lost one another's records.
 
 **The worker reports its own task state.** The worker gets the tool
 `wezterm_worker_report`. That tool is worker-only. The main session never

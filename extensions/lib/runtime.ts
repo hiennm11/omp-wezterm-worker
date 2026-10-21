@@ -13,7 +13,7 @@ import { DEFAULT_CONFIG, type WorkerConfig } from "./config.ts";
 import { databaseFile, type LifecycleDb, openDatabase } from "./db.ts";
 import type { Job } from "./job.ts";
 import { type RunFn, type RunResult, run } from "./process.ts";
-import { loadRegistry, persistRegistry } from "./registry.ts";
+import { loadRuns, persistRuns } from "./runs.ts";
 
 /**
  * Managed timers.
@@ -192,10 +192,10 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 			return `wz-${Date.now().toString(36)}-${sequence.toString(36)}`;
 		},
 		persist() {
-			persistRegistry(rt.config.stateDir, rt.jobs.values());
+			persistRuns(rt.openDb(), rt.jobs.values());
 		},
 		readRegistry() {
-			return loadRegistry(rt.config.stateDir);
+			return loadRuns(rt.openDb());
 		},
 		openDb() {
 			// The state directory can change when a test host replaces it. A
