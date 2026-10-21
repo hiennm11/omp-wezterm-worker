@@ -435,6 +435,7 @@ omp-wezterm-worker/
 │   ├── ste100.test.ts           the checker and the document scores
 │   ├── trial-report.test.ts     the text of the Windows trial report
 │   ├── trial-paths.test.ts      the paths that the report hides
+│   ├── registration.test.ts     the tools that the extension registers
 │   ├── worker.integration.test.ts    a real worker in a real pane
 │   ├── nested.integration.test.ts    the launch limits with a real worker
 │   └── worktree.integration.test.ts  the worktree of a real worker
@@ -497,6 +498,7 @@ test.
 | `live-worker.integration.test.ts` | A running worker can be steered, peeked at and cancelled. A steering message reaches the worker. A cancel closes only the pane that the extension created. A worker past its deadline is stopped and its pane is confirmed closed. |
 | `trial-report.test.ts` | The report names a failing check. A check detail stays on one line. The report holds no path of the machine. |
 | `trial-paths.test.ts` | A path under the project becomes a relative path. A path outside it becomes a placeholder. The name of the user never appears. |
+| `registration.test.ts` | The extension registers the eight tools that the agent needs. It registers the roster command. |
 
 The integration tests run a real `omp` worker in a real WezTerm pane. They
 take about a minute each.

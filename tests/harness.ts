@@ -39,6 +39,8 @@ export interface TestHost {
 	handlers: EventHandler[];
 	delivered: string[];
 	labels: string[];
+	/** The names of the slash commands that the extension registered. */
+	commands: string[];
 	stateDir: string;
 	/** The panes that this host created. */
 	panes: Set<number>;
@@ -130,6 +132,7 @@ export function createHost(options: { stateDir?: string; cwd: string }): TestHos
 		handlers: [],
 		delivered: [],
 		labels: [],
+		commands: [],
 		stateDir,
 		panes: new Set(),
 		workers: new Set(),
@@ -179,7 +182,9 @@ export function createHost(options: { stateDir?: string; cwd: string }): TestHos
 		registerTool(def: ToolDef) {
 			host.tools.set(def.name, def);
 		},
-		registerCommand() {},
+		registerCommand(name: string) {
+			host.commands.push(name);
+		},
 		on(event: string, handler: (event: unknown, ctx: unknown) => void | Promise<void>) {
 			host.handlers.push({ event, handler });
 		},
