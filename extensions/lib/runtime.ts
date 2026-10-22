@@ -250,10 +250,14 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 			}, ms);
 		},
 		stopMonitor(jobId) {
-			const timer = rt.monitors.get(jobId);
-			if (timer) {
+			/* A worker has two polls: the transcript poll and the report
+			   poll. Both must stop, or the report poll of a finished
+			   worker keeps reading the reports of a run that ended. */
+			for (const key of [jobId, `${jobId}:reports`]) {
+				const timer = rt.monitors.get(key);
+				if (!timer) continue;
 				clearInterval(timer);
-				rt.monitors.delete(jobId);
+				rt.monitors.delete(key);
 			}
 		},
 	};
