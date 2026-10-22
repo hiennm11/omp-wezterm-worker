@@ -42,6 +42,18 @@ test("a Vietnamese text is skipped", () => {
 	assert.equal(result.findings.length, 0);
 });
 
+test("an English text with a Vietnamese name is not skipped", () => {
+	const result = checkComms(`Ask Trần Minh Hiền to review. ${LONG_SENTENCE}`, "task", ENFORCE);
+	assert.equal(result.verdict, "fail");
+	assert.ok(result.score < 80);
+});
+
+test("an English text with one accented letter is not skipped", () => {
+	const result = checkComms(`Meet at the café. ${LONG_SENTENCE}`, "task", ENFORCE);
+	assert.equal(result.verdict, "fail");
+	assert.ok(result.score < 80);
+});
+
 test("the off mode returns off", () => {
 	const result = checkComms(LONG_SENTENCE, "task", OFF);
 	assert.equal(result.verdict, "off");

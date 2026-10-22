@@ -295,7 +295,7 @@ The setting `commsStandard` holds the mode and the minimum score:
 | Field | Values | Meaning |
 |---|---|---|
 | `mode` | `off`, `warn`, `enforce` | What the check does with a low score. |
-| `minScore` | 0 to 100 | The score that a text must reach. |
+| `minScore` | 0 to 100 | The score that a text must reach. A value outside the range is refused. The default of 80 is used, and the extension reports the refusal. |
 
 | Mode | A task or a steering message | A result |
 |---|---|---|
@@ -304,8 +304,13 @@ The setting `commsStandard` holds the mode and the minimum score:
 | `enforce` | The text is refused, and the refusal names the findings. | The text is saved, and the reply carries a warning. |
 
 The reply of every checked tool carries the score and the findings in
-`details.commsCheck`. A text that is not English is skipped, because the
-checker cannot score it. A text with fewer than three words is skipped too.
+`details.commsCheck`. A text that is mostly Vietnamese is skipped, because the
+checker cannot score it. The check skips a text when more than 5 percent of its
+letters carry a Vietnamese diacritic. A text with fewer than three words is
+skipped too.
+
+A Vietnamese text that holds no diacritic is scored as English, because the
+check has no other signal.
 
 The extension needs no external script. The checker sits in
 `extensions/lib/ste100.ts` and runs inside the extension.
@@ -654,7 +659,7 @@ test.
 | Test | The behaviour it protects |
 |---|---|
 | `transcript.test.ts` | A preamble is not the result. A new user message resets the counts. A resumed worker reports only a turn beyond its baseline. |
-| `config.test.ts` | The environment wins over the file. A value of the wrong type leaves the default. A malformed file leaves the defaults. |
+| `config.test.ts` | The environment wins over the file. A value of the wrong type leaves the default. A malformed file leaves the defaults. A nonzero idle deadline is refused with guidance. A score outside the range is refused with guidance. The settings function refuses a score outside the range. The settings function keeps a wrong mode and a wrong score type. Two problems in one file give both guidance messages. |
 | `registry.test.ts` | A running worker with a pane comes back as alive. A job of the wrong shape does not break the load. The write is atomic. |
 | `stop.test.ts` | A cancel ends a worker only when the pane list shows the pane gone. An unreadable pane list does not count as a closed pane. An unconfirmed stop leaves the worker running, and a retry ends it. |
 | `steer.test.ts` | A steer call sends the instruction once. The transcript confirms the delivery. An unrelated message does not confirm it. An old message with the same text does not confirm it. An unconfirmed delivery is not sent again. |
@@ -664,7 +669,7 @@ test.
 | `usage.test.ts` | A number comes only from a transcript. A model call without usage makes the count partial. A transcript without usage shows unknown. A resumed worker counts only what came after the resume. The request total adds the workers of the request. |
 | `nested.integration.test.ts` | A real worker cannot launch a worker and opens no pane. A second spawn is refused while one worker is active. |
 | `ste100.test.ts` | Each agent-facing document reaches the required score. |
-| `comms-check.test.ts` | A clean text passes the communication check. A long sentence warns. A Vietnamese text is skipped. The off mode returns off. The warn mode and the enforce mode give different verdicts. The reporting contract reaches the required score. |
+| `comms-check.test.ts` | A clean text passes the communication check. A long sentence warns. A Vietnamese text is skipped. An English text with a Vietnamese name is not skipped. An English text with one accented letter is not skipped. The off mode returns off. The warn mode and the enforce mode give different verdicts. The reporting contract reaches the required score. |
 | `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
 | `result.integration.test.ts` | The result tool returns the answer of a finished worker. |

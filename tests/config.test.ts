@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { DEFAULT_CONFIG, lastGuidance, loadConfig } from "../extensions/lib/config.ts";
+import { DEFAULT_CONFIG, lastGuidance, loadConfig, readCommsStandard } from "../extensions/lib/config.ts";
 
 /** Write a config file and return its path. */
 function configFile(content: unknown): string {
@@ -99,4 +99,41 @@ test("a zero idle deadline gives no guidance", () => {
 	const file = configFile({ idleTimeoutMs: 0 });
 	loadConfig(file, {});
 	assert.equal(lastGuidance, null);
+});
+
+test("a score outside the range is refused with guidance", () => {
+	const high = configFile({ commsStandard: { mode: "enforce", minScore: 150 } });
+	const highCfg = loadConfig(high, {});
+	assert.equal(highCfg.commsStandard.minScore, 80);
+	assert.equal(highCfg.commsStandard.mode, "enforce");
+	assert.match(lastGuidance ?? "", /minScore/);
+	const low = configFile({ commsStandard: { minScore: -1 } });
+	const lowCfg = loadConfig(low, {});
+	assert.equal(lowCfg.commsStandard.minScore, 80);
+	assert.match(lastGuidance ?? "", /minScore/);
+});
+
+test("the settings function refuses a score outside the range", () => {
+	const guidance: string[] = [];
+	const settings = readCommsStandard({ mode: "enforce", minScore: 150 }, guidance);
+	assert.equal(settings.minScore, 80);
+	assert.equal(settings.mode, "enforce");
+	assert.equal(guidance.length, 1);
+	assert.match(guidance[0], /minScore/);
+});
+
+test("the settings function keeps a wrong mode and a wrong score type", () => {
+	const guidance: string[] = [];
+	const settings = readCommsStandard({ mode: "loud", minScore: "80" }, guidance);
+	assert.equal(settings.mode, DEFAULT_CONFIG.commsStandard.mode);
+	assert.equal(settings.minScore, DEFAULT_CONFIG.commsStandard.minScore);
+	assert.deepEqual(guidance, []);
+});
+
+test("two problems in one file give both guidance messages", () => {
+	const file = configFile({ idleTimeoutMs: 2000, commsStandard: { minScore: 150 } });
+	loadConfig(file, {});
+	const guidance = lastGuidance ?? "";
+	assert.match(guidance, /idleTimeoutMs is gone/);
+	assert.match(guidance, /minScore/);
 });

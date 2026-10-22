@@ -77,17 +77,31 @@ export function defaultConfigFile(): string {
  * The communication settings of a config file.
  *
  * A missing or malformed value leaves the default in place. A wrong mode or a
- * wrong score cannot break the extension.
+ * wrong score cannot break the extension. A score outside the range of 0 to
+ * 100 is refused. The default is used, and the guidance is collected.
+ *
+ * The caller gives the list that holds the guidance. A refusal must never
+ * pass without a word, so every caller must pass a list.
  */
-export function readCommsStandard(value: unknown): CommsSettings {
+export function readCommsStandard(value: unknown, guidance: string[]): CommsSettings {
 	const fallback = DEFAULT_CONFIG.commsStandard;
 	if (typeof value !== "object" || value === null) return fallback;
 	const raw = value as Record<string, unknown>;
 	const mode = raw.mode;
 	const minScore = raw.minScore;
+	let score = fallback.minScore;
+	if (typeof minScore === "number" && Number.isFinite(minScore)) {
+		if (minScore >= MIN_SCORE_LOW && minScore <= MIN_SCORE_HIGH) {
+			score = minScore;
+		} else {
+			// A score of 150 refuses every text. The default is used instead,
+			// and the user learns about the refusal.
+			guidance.push(MIN_SCORE_GUIDANCE);
+		}
+	}
 	return {
 		mode: mode === "off" || mode === "warn" || mode === "enforce" ? mode : fallback.mode,
-		minScore: typeof minScore === "number" && Number.isFinite(minScore) ? minScore : fallback.minScore,
+		minScore: score,
 	};
 }
 
@@ -106,7 +120,7 @@ export function loadConfig(
 	env: NodeJS.ProcessEnv = process.env,
 ): WorkerConfig {
 	const cfg: WorkerConfig = { ...DEFAULT_CONFIG };
-	let guidance: string | null = null;
+	const guidance: string[] = [];
 	// The guidance belongs to the last load. A load without a problem clears
 	// the guidance of the load before it.
 	lastGuidance = null;
@@ -128,12 +142,12 @@ export function loadConfig(
 			if (raw.placement === "split" || raw.placement === "tab") cfg.placement = raw.placement;
 			if (typeof raw.model === "string") cfg.model = raw.model;
 			if (Array.isArray(raw.tools)) cfg.tools = raw.tools.map(String);
-			cfg.commsStandard = readCommsStandard(raw.commsStandard);
+			cfg.commsStandard = readCommsStandard(raw.commsStandard, guidance);
 			// The idle deadline is gone. A worker is stopped by its reports
 			// and by its total deadline, never by silence. A nonzero value
 			// in an old config file is refused with guidance, not ignored.
 			if (typeof raw.idleTimeoutMs === "number" && raw.idleTimeoutMs !== 0) {
-				guidance = IDLE_TIMEOUT_GUIDANCE;
+				guidance.push(IDLE_TIMEOUT_GUIDANCE);
 				cfg.idleTimeoutMs = 0;
 			}
 		}
@@ -144,7 +158,8 @@ export function loadConfig(
 	if (env.OMP_WORKER_OMP_BIN) cfg.ompBin = env.OMP_WORKER_OMP_BIN;
 	if (env.OMP_WORKER_WEZTERM_BIN) cfg.weztermBin = env.OMP_WORKER_WEZTERM_BIN;
 	if (env.OMP_WORKER_STATE_DIR) cfg.stateDir = env.OMP_WORKER_STATE_DIR;
-	if (guidance) lastGuidance = guidance;
+	// A file can hold more than one problem. Every message reaches the user.
+	if (guidance.length > 0) lastGuidance = guidance.join(" ");
 	return cfg;
 }
 
@@ -161,3 +176,14 @@ export const IDLE_TIMEOUT_GUIDANCE =
 	"The setting idleTimeoutMs is gone. A worker is stopped by its reports and by timeoutMs, " +
 	"never by silence. Set idleTimeoutMs to 0 or remove it. " +
 	"See docs/adr/0009-recoverable-omp-supervision.md.";
+
+/** The lowest score that the communication check accepts. */
+export const MIN_SCORE_LOW = 0;
+
+/** The highest score that the communication check accepts. */
+export const MIN_SCORE_HIGH = 100;
+
+/** The guidance for a config file that holds a score outside the range. */
+export const MIN_SCORE_GUIDANCE =
+	"The setting commsStandard.minScore must be a number from 0 to 100. " +
+	"A score of 150 refuses every text. The default of 80 is used instead.";
