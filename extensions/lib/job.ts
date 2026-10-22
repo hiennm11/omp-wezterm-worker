@@ -68,7 +68,13 @@ export interface Job {
 	 * A resumed worker reports only what came after it.
 	 */
 	usageBaseline: UsageTotals | null;
-	/** Number of steering messages sent into this worker. */
+	/**
+	 * Number of steering messages this worker took.
+	 *
+	 * An OMP worker counts only the instructions that its transcript
+	 * confirmed. A native worker counts the instructions that its bridge
+	 * queued.
+	 */
 	steers: number;
 	/** Size of the transcript at the last observation, used to detect activity. */
 	lastTranscriptSize: number;

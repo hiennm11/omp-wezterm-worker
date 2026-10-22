@@ -69,13 +69,23 @@ test("a running worker can be steered, peeked at and cancelled", {
 		assert.ok(host.text(peeked).length > 0, "The peek tool returned nothing. The pane holds text.");
 
 		// --- steer reaches the worker ---
+		//
+		// The tool sends the instruction once. It reports a confirmed
+		// delivery only when the transcript records the instruction. A
+		// worker that is busy can leave the delivery unconfirmed, and the
+		// tool then says so. The test reads the transcript below, so the
+		// receipt is proved there and not by the reply of the tool.
 		const steered = await host.call("wezterm_worker_steer", {
 			workerId,
 			message: "Stop counting. Reply with the word STEERED and nothing else.",
 		});
-		assert.equal(steered.isError, undefined, `The steer tool failed: ${host.text(steered)}`);
-		assert.match(host.text(steered), /Sent to worker/);
-		assert.equal(detailNumber(steered.details, "steers"), 1);
+		const confirmed = steered.isError === undefined;
+		if (confirmed) {
+			assert.match(host.text(steered), /Sent to worker/);
+			assert.equal(detailNumber(steered.details, "steers"), 1);
+		} else {
+			assert.match(host.text(steered), /Could not confirm the instruction/);
+		}
 
 		// --- the worker receives the steering message ---
 		//

@@ -90,13 +90,14 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 			const steered = await steerWorker(rt, job, paneId, params.message);
 			if (!steered.ok) {
 				return reply(
-					`Could not send to worker ${job.id}: ${steered.error ?? "unknown error"}`,
+					`Could not confirm the instruction to worker ${job.id}: ${steered.error ?? "unknown error"}`,
 					{
 						workerId: job.id,
 						status: job.status,
 						paneId,
 						error: steered.error,
 						attempts: steered.attempts,
+						delivered: false,
 					},
 					true,
 				);
@@ -112,6 +113,7 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 					paneId,
 					steers: job.steers,
 					attempts: steered.attempts,
+					delivered: true,
 				},
 			);
 		},
