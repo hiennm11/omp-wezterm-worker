@@ -1,18 +1,23 @@
 # WezTerm Pane Workers
 
-An OMP extension that runs an independent OMP session inside a WezTerm pane or
-tab, so the user watches a long task live while the main agent keeps working.
+An OMP extension that runs an independent worker session inside a WezTerm pane
+or tab, so the user watches a long task live while the main agent keeps
+working. The worker runs in OMP, in Claude Code CLI, or in Codex CLI.
 
 ## Language
 
 **Worker**:
-An independent OMP process that runs a task in a WezTerm pane and reports one
-result back. It does not inherit the main conversation.
+An independent CLI session that runs a task in a WezTerm pane and reports to a
+main session. It does not inherit the main conversation.
 _Avoid_: Agent, subtask, background job
 
 **Main session**:
-The OMP session that spawned the worker and receives its result.
+The OMP session that spawned the worker and receives its events.
 _Avoid_: Parent session, host session
+
+**Worker backend**:
+The CLI that executes the worker: OMP, Claude Code CLI, or Codex CLI.
+_Avoid_: Model, provider, agent type
 
 **Task**:
 The self-contained instruction a worker receives. It is the worker's entire
@@ -20,8 +25,8 @@ input; the worker never sees the main conversation.
 _Avoid_: Prompt, request, job
 
 **Result**:
-The final answer a worker produces, taken from the last text-only assistant
-message of its transcript.
+The final task answer carried by a valid completion report for the current run
+and instruction cycle.
 _Avoid_: Output, reply, response
 
 **Preamble**:
@@ -180,3 +185,34 @@ _Avoid_: Cancel, stop, close
 **Drain**:
 The wait for the external actions that a release started before it gives the authority away.
 _Avoid_: Wait, flush, cleanup
+
+**Native bridge**:
+The transport that connects a native worker to the main session. It carries the observations of the worker and the commands of the owner.
+_Avoid_: Plugin, adapter, socket
+
+**Session-scoped mod**:
+The Claude Code plugin that a worker session loads. It lives in the session directory of the worker and holds the report tool.
+_Avoid_: Extension, plugin directory, hook
+
+**Accepted input**:
+An instruction that the native program accepted. It is not yet a delivered input.
+_Avoid_: Received message, queued message, receipt
+
+**Delivered input**:
+An accepted instruction that the native program carried into a cycle.
+_Avoid_: Accepted input, processed message
+
+**Permission request**:
+A native request for the person to allow a call. The person answers it in the pane.
+_Avoid_: Approval, tool check, dialog
+
+**Native cycle**:
+The native turn that carries one instruction. A cycle starts at the accepted instruction and ends when its turn ends.
+
+**Measured usage**:
+The token counts that the native program reported for its turns. A count that the program did not report stays missing.
+_Avoid_: Estimated cost, token estimate, zero usage
+
+**Pending event**:
+An event of a worker that nobody handled yet. The status tool lists it, and the owner acknowledges it with its event id.
+_Avoid_: Open event, unread event, notification

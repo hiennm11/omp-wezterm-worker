@@ -1,0 +1,5 @@
+{
+	"name": "wezterm-worker",
+	"version": "0.1.0",
+	"description": "The report and command bridge of a WezTerm Claude Code worker."
+}

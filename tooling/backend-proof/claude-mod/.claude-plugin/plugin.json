@@ -1,0 +1,6 @@
+{
+	"name": "wezterm-worker-proof",
+	"version": "0.1.0",
+	"description": "Proof plugin for the OMP multi-backend worker contract. It observes one native session and records its events.",
+	"author": { "name": "omp-wezterm-worker" }
+}

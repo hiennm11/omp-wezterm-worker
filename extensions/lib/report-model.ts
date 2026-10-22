@@ -15,6 +15,14 @@ export const REPORT_STATES: ReportState[] = ["working", "waiting", "needs_input"
 export interface WorkerReport {
 	/** The run that produced the report. */
 	runId: string;
+	/**
+	 * The instruction cycle that produced the report.
+	 *
+	 * A report of a cycle that is not the current cycle proves nothing. A
+	 * backend that cannot name its cycle sends null, and the supervisor then
+	 * accepts the report only when the run holds one cycle.
+	 */
+	cycleId?: string | null;
 	/** The state that the report declares. */
 	state: ReportState;
 	/** The result of the task, for a completed report. */

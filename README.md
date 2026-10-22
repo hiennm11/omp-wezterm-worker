@@ -117,12 +117,36 @@ Then keep working; the result arrives on its own.
 | `task` | string | Required. Self-contained instructions. The worker sees **only** this text. |
 | `cwd` | string | Absolute path. Defaults to the calling session's cwd. |
 | `label` | string | Human label; shown in the pane tab title. |
+| `backend` | `"omp"` \| `"claude"` \| `"codex"` | The CLI that runs the worker. Defaults to `omp`. The extension never falls back to another backend. |
 | `model` | string | Optional model selector, e.g. `omniroute/minimax/MiniMax-M3.1-Flash`. Omit for omp's default. |
-| `tools` | string[] | Optional tool list, e.g. `["read","grep","glob"]`. Omit for the default set. |
+| `tools` | string[] | Optional tool list, e.g. `["read","grep","glob"]`. Omit for the default set. An OMP worker only. |
 | `placement` | `"split"` \| `"tab"` | `split` splits the current pane; `tab` opens a new tab. |
 | `isolated` | boolean | Run in a dedicated `git worktree` so parallel workers never edit the same checkout. |
 | `timeoutMs` | number | Deadline for this worker. `0` means **no deadline**. Defaults to the configured `timeoutMs` (30 min). |
 | `closePaneOnFinish` | boolean | Close the worker's pane when it finishes. Defaults to the config value (`true`). Set `false` to leave the pane open for inspection. |
+
+### The Claude Code backend
+
+A spawn that names `backend: "claude"` runs a real interactive Claude Code
+session in the pane. The session loads a session-scoped mod that carries the
+report tool and the command bridge.
+
+| Rule | Behavior |
+|---|---|
+| The configuration of the user | The session keeps the settings, the credentials, the MCP servers and the permission rules of the user. The extension never changes a global setting. |
+| The model | An omitted model uses the default of Claude Code. A named model is passed through unchanged. |
+| The tool list | A spawn with `tools` and a native backend is refused before the launch. |
+| The deadline | A native worker takes the `timeoutMs` and the `closePaneOnFinish` of its spawn, the same way an OMP worker does. |
+| The report | The mod binds the report to the run id and to the native turn id. A report of an earlier turn cannot finish newer work. |
+| The steering | A steering instruction goes through the bridge. The native session queues it, and a running tool is not interrupted. |
+| The permission | A permission request raises an event for the owner. The person answers it in the pane. A steering instruction is refused while the request is open. |
+| The events | The status tool lists the events that wait for the owner. The owner acknowledges each one with its event id. |
+| The usage | The native CLI reports the usage of a turn when the turn ends. A run waits for the end of its turn, so the measured counts survive the end of the run. The usage of a request adds the native workers to the OMP ones. |
+| The activity | A native worker writes no OMP transcript. Its activity comes from the native observations, so the idle deadline never stops a worker that is still working. |
+| The resume | A resume reuses the native session id. The worker comes back with its history and a new run id. |
+| The stop | The stop closes the pane of the worker only, and it confirms that the pane is gone. |
+
+The Codex backend is not implemented. A spawn that names it is refused.
 
 ### Long tasks
 
@@ -428,6 +452,7 @@ omp-wezterm-worker/
 │   ├── wezterm-worker.ts        the entry: wires the runtime, the events and the tools
 │   ├── lib/                     the worker lifecycle, with no tool schema
 │   │   ├── config.ts            the config file and the defaults
+│   │   ├── backend.ts           the CLI that runs a worker
 │   │   ├── job.ts               the worker record and its run state
 │   │   ├── runs.ts              the worker runs in the database
 │   │   ├── transcript.ts        reading a worker's transcript
@@ -435,6 +460,7 @@ omp-wezterm-worker/
 │   │   ├── cycle.ts             the instruction cycle of a worker
 │   │   ├── report-model.ts      the report that a worker sends
 │   │   ├── report-store.ts      the reports of a session directory
+│   │   ├── report-binding.ts    the binding of a report to a run and a cycle
 │   │   ├── report-decision.ts   the decision that the reports produce
 │   │   ├── usage.ts             the measured token usage of a worker
 │   │   ├── runtime.ts           the shared state and the services (the test seam)
@@ -443,6 +469,16 @@ omp-wezterm-worker/
 │   │   ├── pane.ts              the WezTerm panes
 │   │   ├── worktree.ts          the isolated git worktree
 │   │   ├── spawn.ts             starting and resuming a worker
+│   │   ├── spawn-claude.ts      starting a Claude Code worker
+│   │   ├── resume-claude.ts     resuming a Claude Code worker
+│   │   ├── claude-session.ts    the Claude Code session of a worker
+│   │   ├── claude-bridge.ts     the loopback bridge of a native worker
+│   │   ├── claude-run-state.ts  the native state of a Claude Code run
+│   │   ├── native-events.ts     the events of a native run
+│   │   ├── native-usage.ts      the measured usage of a native run
+│   │   ├── native-usage-report.ts the usage report of a native run
+│   │   ├── bridge-handover.ts   the handover of a bridge to a new owner
+│   │   ├── steer-native.ts      steering a worker that runs a native backend
 │   │   ├── limits.ts            the launch limits and the nested-worker rule
 │   │   ├── monitor.ts           watching a worker and the deadline rules
 │   │   ├── lifecycle.ts         finishing and cancelling a worker
@@ -465,6 +501,11 @@ omp-wezterm-worker/
 │   │   ├── bootstrap-prompt.ts  the reporting contract of a worker
 │   │   ├── worker-context.ts    the run context of a worker
 │   │   └── worker-bootstrap.ts  the tools of a worker process
+│   ├── claude-mod/              the session-scoped mod of a Claude Code worker
+│   │   ├── .claude-plugin/
+│   │   │   └── plugin.json      the manifest of the mod
+│   │   └── hooks/
+│   │       └── register.js      the report tool and the command bridge
 │   └── worker-tools/            one module for each tool
 │       ├── kit.ts               the shared reply and the worker lookup
 │       ├── spawn.ts, status.ts, steer.ts, peek.ts
@@ -489,7 +530,9 @@ omp-wezterm-worker/
 │   ├── trial-scenarios.ts       the four scenarios of the trial
 │   ├── trial-scenario.ts        the helpers of the scenarios
 │   ├── trial-tasks.ts           the task texts of the trial
-│   └── trial-fixture.ts         the repository that the trial workers use
+│   ├── trial-fixture.ts         the repository that the trial workers use
+│   ├── backend-proof.ts         the compatibility probe of the native backends
+│   └── backend-proof/           the modules of the probe
 ├── tests/
 │   ├── harness.ts               a test host for the extension
 │   ├── transcript.test.ts       reading a transcript
@@ -504,13 +547,22 @@ omp-wezterm-worker/
 │   ├── trial-report.test.ts     the text of the Windows trial report
 │   ├── trial-paths.test.ts      the paths that the report hides
 │   ├── registration.test.ts     the tools that the extension registers
+│   ├── backend.test.ts          the backend of a run and the report binding
+│   ├── claude-run-state.test.ts the native state of a Claude Code run
+│   ├── spawn-backend.test.ts    the refusals of a spawn with a native backend
+│   ├── native-usage.test.ts     the measured usage of a native run
+│   ├── correlation.test.ts      finding a native worker in the process table
+│   ├── pending-events.test.ts   the events that wait for the owner
+│   ├── bridge-handover.test.ts  the handover of a bridge to a new owner
 │   ├── worker.integration.test.ts    a real worker in a real pane
 │   ├── nested.integration.test.ts    the launch limits with a real worker
-│   └── worktree.integration.test.ts  the worktree of a real worker
+│   ├── worktree.integration.test.ts  the worktree of a real worker
+│   └── native-worktree.integration.test.ts  the worktree of a real native worker
 ├── docs/
 │   ├── adr/                     the decisions and their reasons
 │   ├── trials/                  the record of the Windows trials
-│   └── plans/                   the proposed implementation plans
+│   ├── plans/                   the proposed implementation plans
+│   └── backend-proof-evidence.md  what the compatibility probe observed
 ├── config/
 │   └── wezterm-worker.example.json
 ├── AGENTS.md                    the rules for work in this repository
@@ -536,6 +588,8 @@ so the suite needs no build step and no test framework.
 | `npm run lint:fix` | Apply the fixes that Biome can apply. |
 | `npm run ste100` | Score every agent-facing document. The score must reach 80. |
 | `npm run trial` | Run the Windows trial with real workers. It writes `docs/trials/windows-trial.md`. |
+| `npm run proof:claude` | Run the compatibility probe against a real Claude Code session. It needs an evidence directory. |
+| `npm run smoke:claude` | Run the smoke test of the Claude Code backend. It starts a real session, reports, resumes and steers. |
 | `npm run typecheck` | Type check the extension, the tools and the tests. |
 | `npm run check` | Run the lint, the type check, the scores and the tests. |
 
@@ -570,6 +624,9 @@ test.
 | `trial-report.test.ts` | The report names a failing check. A check detail stays on one line. The report holds no path of the machine. |
 | `trial-paths.test.ts` | A path under the project becomes a relative path. A path outside it becomes a placeholder. The name of the user never appears. |
 | `registration.test.ts` | The extension registers the eight tools that the agent needs. It registers the roster command. |
+| `backend.test.ts` | A run without a backend field is an OMP run. A backend that is not implemented is refused, and the extension never falls back. A report of an earlier cycle cannot finish newer work. |
+| `claude-run-state.test.ts` | A native turn starts the cycle. A call settles only when the same call settles. A permission request holds the completion. An accepted instruction blocks the completion until its cycle carries it. |
+| `spawn-backend.test.ts` | A spawn with an unknown backend is refused. A spawn with a backend that is not implemented is refused, and the extension never falls back. A spawn with a tool list and a native backend is refused before the launch. |
 
 The integration tests run a real `omp` worker in a real WezTerm pane. They
 take about a minute each.

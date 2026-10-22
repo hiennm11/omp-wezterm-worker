@@ -5,6 +5,11 @@
  * agent cancels it. All three go through `finalizeJob`.
  */
 
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { clearHandover } from "./bridge-handover.ts";
+import type { BridgeState } from "./claude-bridge.ts";
 import { failJob, type Job, type JobStatus, type PendingStop } from "./job.ts";
 import { closePaneConfirmed, killPane } from "./pane.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -59,7 +64,43 @@ export async function finalizeJob(
 		job.worktreeDirty = state.exists ? !state.clean : null;
 	}
 
+	// The bridge of a native worker belongs to this run. It closes with the
+	// run, so the loopback port is released and no late observation of the
+	// dead session reaches the state.
+	const bridge = rt.bridges.get(job.id);
+	if (bridge) {
+		rt.bridges.delete(job.id);
+		await bridge.close();
+		writeBridgeLog(job.sessionDir, bridge);
+		/* The handover file names the bridge of this run. It goes with the
+		   run, so a worker that outlives the run finds no owner. */
+		clearHandover(job.sessionDir);
+	}
+	/* The run state holds the usage and the cycles of a native run. The
+	   job keeps a copy, so a finished run stays readable. */
+	const state = rt.claudeStates.get(job.id);
+	if (state) {
+		job.nativeUsage = { ...state.usage };
+		job.nativeCycles = state.cycles.length;
+	}
+	rt.claudeStates.delete(job.id);
+
 	rt.persist();
+}
+
+/**
+ * Save the record of a bridge beside the run.
+ *
+ * The record holds the observations of the run and the requests that the
+ * worker made. It is the evidence of what the native program sent.
+ */
+function writeBridgeLog(sessionDir: string, bridge: BridgeState): void {
+	const lines = bridge.observations.map((observation) => JSON.stringify(observation));
+	try {
+		writeFileSync(join(sessionDir, ".wezterm-worker-bridge.jsonl"), `${lines.join("\n")}\n`, "utf8");
+	} catch {
+		/* the record is a convenience, never a requirement */
+	}
 }
 
 /**

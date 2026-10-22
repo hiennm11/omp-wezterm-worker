@@ -6,7 +6,9 @@
  * registry as JSON and read back by a later process.
  */
 
+import type { WorkerBackend } from "./backend.ts";
 import type { Placement } from "./config.ts";
+import type { NativeTotals } from "./native-usage.ts";
 import type { UsageTotals } from "./usage.ts";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
@@ -78,6 +80,36 @@ export interface Job {
 	closePaneOnFinish: boolean;
 	/** Set once the pane has been closed by the extension. */
 	paneClosed: boolean;
+	/**
+	 * The CLI that runs the worker.
+	 *
+	 * A run that the database holds without this field is an OMP run. The
+	 * migration never guesses a different backend.
+	 */
+	backend?: WorkerBackend;
+	/**
+	 * The native session id of a native backend.
+	 *
+	 * A resume reuses this id, so the worker comes back with its history.
+	 * An OMP run has no native session id.
+	 */
+	nativeSessionId?: string | null;
+	/**
+	 * The measured usage of a native run.
+	 *
+	 * The run state holds the usage while the run lives. The job keeps a
+	 * copy, so the usage of a finished run stays readable after the run
+	 * state is released. An OMP run has no native usage.
+	 */
+	nativeUsage?: NativeTotals | null;
+	/**
+	 * The number of cycles a native run delivered.
+	 *
+	 * The run state holds the count while the run lives. The job keeps a
+	 * copy, so a finished run still shows how many turns it took. An OMP
+	 * run has no native cycle count.
+	 */
+	nativeCycles?: number;
 }
 
 /** A worker that has not finished yet. */
@@ -126,6 +158,8 @@ export type RunState = Pick<
 	| "steers"
 	| "lastTranscriptSize"
 	| "paneClosed"
+	| "nativeUsage"
+	| "nativeCycles"
 >;
 
 export function freshRunState(now: number): RunState {
@@ -149,5 +183,7 @@ export function freshRunState(now: number): RunState {
 		steers: 0,
 		lastTranscriptSize: 0,
 		paneClosed: false,
+		nativeUsage: null,
+		nativeCycles: 0,
 	};
 }

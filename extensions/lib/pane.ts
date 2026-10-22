@@ -5,6 +5,7 @@
  * panes to act on them, so a pane that belongs to the user is never touched.
  */
 
+import { backendLabel, readBackend } from "./backend.ts";
 import type { Job } from "./job.ts";
 import { delay, describeFailure } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -44,11 +45,26 @@ export async function launchPane(
 	ompArgs: string[],
 	env?: NodeJS.ProcessEnv,
 ): Promise<string | null> {
-	const { ompBin } = rt.config;
+	return launchProgram(rt, job, rt.config.ompBin, ompArgs, env);
+}
+
+/**
+ * Start a program in a new pane.
+ *
+ * The program is the binary that the backend selected. An OMP worker starts
+ * the omp binary, and a native worker starts the binary of its CLI.
+ */
+export async function launchProgram(
+	rt: WorkerRuntime,
+	job: Job,
+	binary: string,
+	args: string[],
+	env?: NodeJS.ProcessEnv,
+): Promise<string | null> {
 	const weztermArgs =
 		job.placement === "tab"
-			? ["spawn", "--cwd", job.cwd, "--", ompBin, ...ompArgs]
-			: ["split-pane", "--right", "--cwd", job.cwd, "--", ompBin, ...ompArgs];
+			? ["spawn", "--cwd", job.cwd, "--", binary, ...args]
+			: ["split-pane", "--right", "--cwd", job.cwd, "--", binary, ...args];
 	const res = await rt.wezterm(weztermArgs, env);
 	if (res.code !== 0) return `wezterm ${job.placement} failed: ${describeFailure(res)}`;
 
@@ -85,7 +101,8 @@ export async function launchPane(
 	// shares the user's tab, and renaming it would overwrite the title of
 	// whatever the user is running.
 	if (job.placement === "tab") {
-		await rt.wezterm(["set-tab-title", "--pane-id", String(paneId), `OMP worker ${job.id}`]);
+		const title = `${backendLabel(readBackend(job))} worker ${job.id}`;
+		await rt.wezterm(["set-tab-title", "--pane-id", String(paneId), title]);
 	}
 	return null;
 }

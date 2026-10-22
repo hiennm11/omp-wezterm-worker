@@ -2,12 +2,34 @@
  * wezterm_spawn_worker
  */
 
+import { randomUUID } from "node:crypto";
+import { resolve } from "node:path";
+
+import {
+	backendLabel,
+	backendRefusal,
+	KNOWN_BACKENDS,
+	readBackend,
+	type WorkerBackend,
+} from "../lib/backend.ts";
 import type { Placement } from "../lib/config.ts";
 import type { ToolCtx } from "../lib/host.ts";
 import { admitLaunch } from "../lib/limits.ts";
-import { monitorJob } from "../lib/monitor.ts";
+import { monitorJob, monitorNativeJob } from "../lib/monitor.ts";
 import { spawnWorker } from "../lib/spawn.ts";
+import { spawnClaudeWorker } from "../lib/spawn-claude.ts";
 import { refusalReply, reply, type ToolDeps } from "./kit.ts";
+
+/**
+ * The backend that a spawn names, or null when the name is unknown.
+ *
+ * An omitted name means OMP.
+ */
+function readBackendParam(value: string | undefined): WorkerBackend | null {
+	if (value === undefined) return "omp";
+	if (value === "omp" || value === "claude" || value === "codex") return value;
+	return null;
+}
 
 interface Params {
 	task: string;
@@ -15,6 +37,7 @@ interface Params {
 	label?: string;
 	model?: string;
 	tools?: string[];
+	backend?: string;
 	placement?: string;
 	isolated?: boolean;
 	timeoutMs?: number;
@@ -48,7 +71,18 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 			tools: z
 				.array(z.string())
 				.optional()
-				.describe("Tool list for the worker, e.g. ['read','grep','glob']. Omit for the default tool set."),
+				.describe(
+					"Tool list for the worker, e.g. ['read','grep','glob']. Omit for the default tool set. " +
+						"Only an OMP worker accepts it. A Claude Code or Codex worker refuses it.",
+				),
+			backend: z
+				.string()
+				.optional()
+				.describe(
+					"The CLI that runs the worker: 'omp' (default), 'claude' or 'codex'. " +
+						"A Claude worker runs a real Claude Code session in its pane. " +
+						"The extension never falls back to another backend.",
+				),
 			placement: z
 				.string()
 				.optional()
@@ -74,20 +108,55 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 		async execute(_id: string, params: Params, _signal: unknown, _onUpdate: unknown, ctx: ToolCtx) {
 			const placement: Placement =
 				params.placement === "tab" || params.placement === "split" ? params.placement : rt.config.placement;
+			const backend = readBackendParam(params.backend);
+			if (!backend) {
+				return reply(
+					`Unknown backend '${params.backend}'. Use one of: ${KNOWN_BACKENDS.join(", ")}.`,
+					{ backend: params.backend },
+					true,
+				);
+			}
+			/* A backend that is not implemented is refused. The extension
+			   never falls back to OMP, because that would run a different
+			   program than the user asked for. */
+			const refusal = backendRefusal(backend);
+			if (refusal) return reply(refusal, { backend }, true);
+			/* The tool list of an OMP worker has no meaning for a native
+			   backend. The refusal happens before the launch. */
+			if (backend !== "omp" && params.tools?.length) {
+				return reply(
+					`The tools parameter applies to an OMP worker only. A ${backendLabel(backend)} worker uses the tools of its own CLI.`,
+					{ backend },
+					true,
+				);
+			}
 			const admitted = admitLaunch(rt, ctx.sessionManager?.getSessionFile?.());
 			if ("refusal" in admitted) return refusalReply(admitted.refusal);
-			const job = await spawnWorker(rt, {
-				jobId: admitted.jobId,
-				task: params.task,
-				cwd: params.cwd || ctx.cwd,
-				label: params.label,
-				model: params.model,
-				tools: params.tools,
-				placement,
-				isolated: params.isolated,
-				timeoutMs: params.timeoutMs,
-				closePaneOnFinish: params.closePaneOnFinish,
-			});
+			const job =
+				backend === "claude"
+					? await spawnClaudeWorker(rt, {
+							jobId: admitted.jobId,
+							task: params.task,
+							cwd: resolve(params.cwd || ctx.cwd),
+							label: params.label,
+							model: params.model ?? null,
+							sessionId: randomUUID(),
+							isolated: params.isolated,
+							timeoutMs: params.timeoutMs,
+							closePaneOnFinish: params.closePaneOnFinish,
+						})
+					: await spawnWorker(rt, {
+							jobId: admitted.jobId,
+							task: params.task,
+							cwd: params.cwd || ctx.cwd,
+							label: params.label,
+							model: params.model,
+							tools: params.tools,
+							placement,
+							isolated: params.isolated,
+							timeoutMs: params.timeoutMs,
+							closePaneOnFinish: params.closePaneOnFinish,
+						});
 
 			if (job.status === "failed") {
 				return reply(
@@ -97,10 +166,14 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				);
 			}
 
-			monitorJob(rt, job, deliver);
+			/* A native backend reports through its own bridge. The
+			   supervisor reads the native state instead of the transcript. */
+			if (readBackend(job) === "omp") monitorJob(rt, job, deliver);
+			else monitorNativeJob(rt, job, deliver);
 
 			const lines = [
 				`Worker ${job.id} started in pane ${job.paneId}.`,
+				`backend: ${backendLabel(readBackend(job))}`,
 				`cwd: ${job.cwd}`,
 				job.model ? `model: ${job.model}` : null,
 				job.worktreePath ? `isolated worktree: ${job.worktreePath} (branch ${job.worktreeBranch})` : null,
@@ -115,6 +188,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				tabId: job.tabId,
 				windowId: job.windowId,
 				status: job.status,
+				backend: readBackend(job),
 				cwd: job.cwd,
 				transcriptDir: job.sessionDir,
 				worktreePath: job.worktreePath,

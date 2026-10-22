@@ -3,10 +3,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-
+import { applyObservation, createClaudeRunState } from "../extensions/lib/claude-run-state.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { finalizeJob } from "../extensions/lib/lifecycle.ts";
 import { monitorJob } from "../extensions/lib/monitor.ts";
+import { nativeJobUsageReport } from "../extensions/lib/native-usage-report.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { createRuntime } from "../extensions/lib/runtime.ts";
 
@@ -108,6 +109,71 @@ test("the monitor kills the pane of a worker that passes its deadline when close
 		assert.match(job.error ?? "", /timed out/);
 		assert.equal(kills(calls), 1);
 		assert.equal(job.paneClosed, true);
+	} finally {
+		rt.closeDb();
+		rmSync(stateDir, { recursive: true, force: true });
+	}
+});
+
+test("the measured usage of a native run stays readable after the run ends", async () => {
+	const stateDir = mkdtempSync(join(tmpdir(), "wz-lifecycle-usage-"));
+	const rt = createRuntime(async () => ({ code: 0, stdout: "", stderr: "" }));
+	rt.config.stateDir = stateDir;
+	try {
+		const job: Job = { ...runningJob(), backend: "claude" };
+		rt.jobs.set(job.id, job);
+
+		const state = createClaudeRunState(job.id);
+		applyObservation(state, {
+			backend: "claude",
+			runId: job.id,
+			sessionId: null,
+			source: "turn.complete",
+			payload: { usage: { input_tokens: 120, output_tokens: 30 } },
+		});
+		rt.claudeStates.set(job.id, state);
+
+		await finalizeJob(rt, job, "completed", null, "done");
+
+		assert.equal(rt.claudeStates.has(job.id), false);
+		const report = nativeJobUsageReport(job, null);
+		assert.equal(report.state, "measured");
+		assert.equal(report.totals?.turns.input, 120);
+		assert.equal(report.totals?.turns.output, 30);
+	} finally {
+		rt.closeDb();
+		rmSync(stateDir, { recursive: true, force: true });
+	}
+});
+
+test("the cycle count of a native run stays readable after the run ends", async () => {
+	const stateDir = mkdtempSync(join(tmpdir(), "wz-lifecycle-cycles-"));
+	const rt = createRuntime(async () => ({ code: 0, stdout: "", stderr: "" }));
+	rt.config.stateDir = stateDir;
+	try {
+		const job: Job = { ...runningJob(), backend: "claude" };
+		rt.jobs.set(job.id, job);
+
+		const state = createClaudeRunState(job.id);
+		applyObservation(state, {
+			backend: "claude",
+			runId: job.id,
+			sessionId: null,
+			source: "turn.start",
+			payload: { turnId: "turn-1" },
+		});
+		applyObservation(state, {
+			backend: "claude",
+			runId: job.id,
+			sessionId: null,
+			source: "turn.start",
+			payload: { turnId: "turn-2" },
+		});
+		rt.claudeStates.set(job.id, state);
+
+		await finalizeJob(rt, job, "completed", null, "done");
+
+		assert.equal(job.nativeCycles, 2);
 	} finally {
 		rt.closeDb();
 		rmSync(stateDir, { recursive: true, force: true });

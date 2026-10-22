@@ -16,3 +16,8 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+
+# The code index of GitNexus and the agent files that it writes
+.gitnexus/
+.claude/
+CLAUDE.md

@@ -2,9 +2,11 @@
  * wezterm_worker_steer
  */
 
+import { readBackend } from "../lib/backend.ts";
 import { isActive } from "../lib/job.ts";
 import { paneState } from "../lib/pane.ts";
 import { steerWorker } from "../lib/steer.ts";
+import { steerNative } from "../lib/steer-native.ts";
 import { findJob, reply, type ToolDeps } from "./kit.ts";
 
 export function registerSteerTool({ pi, rt }: ToolDeps): void {
@@ -41,6 +43,48 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 					`The pane of worker ${job.id} is gone. The worker process exited.`,
 					{ workerId: job.id, status: job.status, paneId },
 					true,
+				);
+			}
+			/* A native worker takes the instruction through its bridge. The
+			   native prompt API queues it, so a running tool is not
+			   interrupted. */
+			if (readBackend(job) !== "omp") {
+				const bridge = rt.bridges.get(job.id);
+				const state = rt.claudeStates.get(job.id);
+				if (!bridge || !state) {
+					return reply(
+						`Worker ${job.id} has no native bridge. Its process may have exited.`,
+						{ workerId: job.id, status: job.status, paneId },
+						true,
+					);
+				}
+				const outcome = await steerNative(bridge, state, params.message);
+				if (!outcome.ok) {
+					return reply(
+						`Could not send to worker ${job.id}: ${outcome.error ?? "unknown error"}`,
+						{
+							workerId: job.id,
+							status: job.status,
+							paneId,
+							error: outcome.error,
+							phase: outcome.phase,
+						},
+						true,
+					);
+				}
+				job.steers += 1;
+				job.lastActivityAt = Date.now();
+				rt.persist();
+				return reply(
+					`Queued for worker ${job.id} in pane ${paneId}:\n${params.message}\n\n` +
+						"The worker continues working; its final result is still delivered back automatically.",
+					{
+						workerId: job.id,
+						status: job.status,
+						paneId,
+						steers: job.steers,
+						phase: outcome.phase,
+					},
 				);
 			}
 			const steered = await steerWorker(rt, job, paneId, params.message);

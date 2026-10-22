@@ -16,7 +16,8 @@ export type EventCondition =
 	| "idle_after_working"
 	| "execution_loss"
 	| "unresolved_launch"
-	| "unknown_outcome";
+	| "unknown_outcome"
+	| "permission_request";
 
 /** One worker event. */
 export interface WorkerEvent {

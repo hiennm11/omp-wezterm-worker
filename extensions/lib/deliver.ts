@@ -10,11 +10,13 @@
  * does not expose `sendUserMessage`. See docs/adr/0004.
  */
 
+import { backendLabel, readBackend } from "./backend.ts";
 import { beginDelivery, markSent, markUncertain } from "./delivery.ts";
 import type { ExtensionAPI } from "./host.ts";
 import type { Job } from "./job.ts";
+import { nativeJobUsageReport, requestUsageOf } from "./native-usage-report.ts";
 import type { WorkerRuntime } from "./runtime.ts";
-import { formatUsage, jobUsage, requestUsage, type UsageReport } from "./usage.ts";
+import { formatUsage, jobUsage, type UsageReport } from "./usage.ts";
 
 /** The usage of the worker and of the request the worker belongs to. */
 export interface DeliveryUsage {
@@ -22,7 +24,7 @@ export interface DeliveryUsage {
 	request: UsageReport;
 }
 
-export function formatDelivery(job: Job, usage: DeliveryUsage): string {
+export function formatDelivery(job: Job, usage: DeliveryUsage, nativeCycles = 0): string {
 	const pending = job.pendingStop;
 	const header =
 		pending !== null
@@ -38,9 +40,10 @@ export function formatDelivery(job: Job, usage: DeliveryUsage): string {
 				: (job.error ?? job.status);
 	const meta = [
 		`cwd: ${job.cwd}`,
+		`backend: ${backendLabel(readBackend(job))}`,
 		job.model ? `model: ${job.model}` : null,
 		job.paneId !== null ? `pane: ${job.paneId}` : null,
-		job.turns > 0 ? `turns: ${job.turns}` : null,
+		job.turns > 0 ? `turns: ${job.turns}` : nativeCycles > 0 ? `turns: ${nativeCycles}` : null,
 		`tokens: ${formatUsage(usage.worker)}`,
 		job.steers > 0 ? `steers: ${job.steers}` : null,
 		job.worktreePath ? `worktree: ${job.worktreePath}` : null,
@@ -55,10 +58,25 @@ export function formatDelivery(job: Job, usage: DeliveryUsage): string {
 
 export function createDeliver(pi: ExtensionAPI, rt: WorkerRuntime): (job: Job) => void {
 	return (job) => {
-		const text = formatDelivery(job, {
-			worker: jobUsage(job),
-			request: requestUsage(rt.jobs, rt.requestLaunches),
-		});
+		/* A native worker reports its usage through its bridge. The OMP
+		   reader finds no transcript, so the native totals are the measured
+		   ones. */
+		const workerUsage =
+			readBackend(job) === "omp"
+				? jobUsage(job)
+				: nativeJobUsageReport(job, rt.claudeStates.get(job.id) ?? null);
+		/* A native worker counts its cycles in its own state. The job holds
+		   the count of a finished run. */
+		const nativeCycles =
+			readBackend(job) === "omp" ? 0 : (rt.claudeStates.get(job.id)?.cycles.length ?? job.nativeCycles ?? 0);
+		const text = formatDelivery(
+			job,
+			{
+				worker: workerUsage,
+				request: requestUsageOf(rt.jobs, rt.requestLaunches, rt.claudeStates),
+			},
+			nativeCycles,
+		);
 		// The delivery attempt is recorded before the message goes out. The
 		// attempt keeps the event identity and the owner generation. A
 		// settled attempt and an uncertain attempt stay distinct from a

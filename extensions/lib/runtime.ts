@@ -9,6 +9,8 @@
  * fake `exec` and needs no real process.
  */
 
+import type { BridgeState } from "./claude-bridge.ts";
+import type { ClaudeRunState } from "./claude-run-state.ts";
 import { DEFAULT_CONFIG, type WorkerConfig } from "./config.ts";
 import { databaseFile, type LifecycleDb, openDatabase } from "./db.ts";
 import type { Job } from "./job.ts";
@@ -150,6 +152,20 @@ export interface WorkerRuntime {
 	 * action that started before it.
 	 */
 	runAction: <T>(name: string, fn: () => Promise<T>) => Promise<T>;
+	/**
+	 * The bridges of the runs that talk to a native backend.
+	 *
+	 * A run with a native backend owns one bridge. The bridge holds the
+	 * observations of the run and the commands of the owner.
+	 */
+	readonly bridges: Map<string, BridgeState>;
+	/**
+	 * The native state of the runs that talk to Claude Code.
+	 *
+	 * A run with a Claude backend owns one state. The state holds the
+	 * current cycle, the open calls and the open permission requests.
+	 */
+	readonly claudeStates: Map<string, ClaudeRunState>;
 }
 
 export function createRuntime(exec: RunFn = run): WorkerRuntime {
@@ -172,6 +188,8 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 		ownerGeneration: 0,
 		role: "main",
 		pendingActions: new Set(),
+		bridges: new Map(),
+		claudeStates: new Map(),
 		async runAction<T>(name: string, fn: () => Promise<T>): Promise<T> {
 			rt.pendingActions.add(name);
 			try {

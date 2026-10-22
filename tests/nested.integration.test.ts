@@ -13,7 +13,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { createHost, currentPanes, detailString, removeDir, sessionContext, waitFor } from "./harness.ts";
+import {
+	createHost,
+	currentPanes,
+	detailNumber,
+	detailString,
+	removeDir,
+	sessionContext,
+	waitFor,
+} from "./harness.ts";
 
 function hasProgram(name: string): boolean {
 	const probe = spawnSync(name, ["--version"], { windowsHide: true, encoding: "utf8" });
@@ -36,6 +44,18 @@ test("a worker cannot launch a worker", {
 	const host = createHost({ stateDir, cwd: repo });
 	await host.fire("session_start", sessionContext(repo));
 	await host.fire("input", {});
+
+	/* The watcher records every pane that appears while the outer worker
+	   runs. A nested worker opens a pane of its own, even when it ends
+	   before the check runs.
+	   The interval polls the real WezTerm CLI. A fake clock cannot drive
+	   an external process, so the poll is the only way to see the pane. */
+	const panesDuringRun: number[] = [];
+	const watch = setInterval(() => {
+		for (const pane of currentPanes()) {
+			if (!panesDuringRun.includes(pane)) panesDuringRun.push(pane);
+		}
+	}, 250);
 
 	try {
 		const panesBefore = currentPanes();
@@ -66,16 +86,23 @@ test("a worker cannot launch a worker", {
 		const delivered = await waitFor(() => host.delivered.some((t) => t.includes(workerId)), 20_000, 250);
 		assert.ok(delivered, "The extension did not deliver the result");
 		const result = host.delivered.find((t) => t.includes(workerId)) ?? "";
-		// A worker process gets the report tool only. It has no spawn tool, so
-		// the worker reports that it could not launch one. The wording of the
-		// report is the worker's own, so the check looks for the facts.
 		assert.match(result, /finished/, "The worker did not finish");
-		assert.match(result, /not (available|present)|No such tool|cannot launch another worker|not possible/i);
 
-		// Only the worker's own pane may have appeared: it closes when the worker ends.
+		/* A worker process holds the report tool only. It has no spawn tool,
+		   so the nested launch never happens. A nested worker would open a
+		   pane of its own. The check watches the pane list while the outer
+		   worker runs, so a pane that opens and closes again is caught too.
+		   The pane of the outer worker is the one pane that may appear. */
+		const workerPane = detailNumber(spawned.details, "paneId");
+		assert.deepEqual(
+			panesDuringRun.filter((p) => !panesBefore.includes(p) && p !== workerPane),
+			[],
+			"The nested launch opened a pane",
+		);
 		const settled = await waitFor(() => currentPanes().every((p) => panesBefore.includes(p)), 20_000, 500);
 		assert.ok(settled, "The refused nested launch left a pane open");
 	} finally {
+		clearInterval(watch);
 		await host.cleanup();
 		removeDir(repo);
 	}

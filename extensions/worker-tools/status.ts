@@ -4,9 +4,13 @@
 
 import { statSync } from "node:fs";
 
+import { backendLabel, readBackend } from "../lib/backend.ts";
+import { pendingEvents, type WorkerEvent } from "../lib/events.ts";
 import { isActive, type Job, type JobStatus } from "../lib/job.ts";
+import { nativeJobUsageReport, requestUsageOf } from "../lib/native-usage-report.ts";
+import type { WorkerRuntime } from "../lib/runtime.ts";
 import { listSessionFiles, summarizeSession } from "../lib/transcript.ts";
-import { formatUsage, jobUsage, requestUsage, requestWorkerIds, type UsageReport } from "../lib/usage.ts";
+import { formatUsage, jobUsage, requestWorkerIds, type UsageReport } from "../lib/usage.ts";
 import { reply, type ToolDeps } from "./kit.ts";
 
 /**
@@ -37,6 +41,7 @@ interface StatusRow {
 	workerId: string;
 	label: string;
 	status: JobStatus;
+	backend: string;
 	paneId: number | null;
 	cwd: string;
 	model: string | null;
@@ -55,13 +60,22 @@ interface StatusRow {
 	worktreeDirty: boolean | null;
 	stop: string | null;
 	error: string | null;
+	/** The result of the task, for a finished worker. */
+	result: string | null;
+	/** The native state of the run, for a native worker. */
+	native: string | null;
 }
 
-function row(j: Job, now: number, usage: UsageReport): StatusRow {
+function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime): StatusRow {
+	const backend = readBackend(j);
+	/* A native worker reports its usage through its bridge. The OMP reader
+	   finds no transcript, so the native totals are the measured ones. */
+	const measured = backend === "omp" ? usage : nativeJobUsageReport(j, rt.claudeStates.get(j.id) ?? null);
 	return {
 		workerId: j.id,
 		label: j.label,
 		status: j.status,
+		backend: backendLabel(backend),
 		paneId: j.paneId,
 		cwd: j.cwd,
 		model: j.model,
@@ -69,8 +83,8 @@ function row(j: Job, now: number, usage: UsageReport): StatusRow {
 		elapsedMs: (j.finishedAt ?? now) - (j.startedAt ?? j.createdAt),
 		idleMs: j.finishedAt ? 0 : now - j.lastActivityAt,
 		currentTool: j.currentTool,
-		turns: j.turns,
-		usage,
+		turns: backend === "omp" ? j.turns : (rt.claudeStates.get(j.id)?.cycles.length ?? j.nativeCycles ?? 0),
+		usage: measured,
 		steers: j.steers,
 		timeoutMs: j.timeoutMs,
 		paneClosed: j.paneClosed,
@@ -84,13 +98,47 @@ function row(j: Job, now: number, usage: UsageReport): StatusRow {
 					? "in progress"
 					: `not confirmed (${j.pendingStop.failure}). Call wezterm_worker_cancel to retry.`,
 		error: j.error,
+		result: j.result,
+		native: nativeSummary(rt, j),
 	};
+}
+
+/**
+ * The native state of a run, for the status row.
+ *
+ * A native worker reports through its own bridge. The state names the
+ * current cycle, the open calls and the open permission requests.
+ */
+function nativeSummary(rt: WorkerRuntime, job: Job): string | null {
+	if (readBackend(job) === "omp") return null;
+	const state = rt.claudeStates.get(job.id);
+	if (!state) {
+		/* A finished native run holds no state. Its cycles and its reports
+		   stay on the job, so the summary still names them. */
+		if (job.nativeCycles === undefined) return "no native state";
+		return `${job.nativeCycles} cycle(s), finished`;
+	}
+	return (
+		`cycle ${state.currentCycleId ?? "-"}, ${state.openCalls.size} open call(s), ` +
+		`${state.openApprovals.size} open approval(s), ${state.reports.length} report(s)`
+	);
+}
+
+/**
+ * One event that waits for the owner.
+ *
+ * The line names the event id, the condition and the worker. The owner
+ * acknowledges the event with its id.
+ */
+function formatEvent(event: WorkerEvent): string {
+	return `  ${event.id}  ${event.condition}  (worker ${event.runId})`;
 }
 
 function formatRow(r: StatusRow): string {
 	return [
 		`${r.workerId}  ${r.status.toUpperCase()}`,
 		`  label      : ${r.label}`,
+		`  backend   : ${r.backend}`,
 		`  pane      : ${r.paneId === null ? "-" : r.paneClosed ? "(closed)" : r.paneId}`,
 		`  cwd       : ${r.cwd}`,
 		`  model     : ${r.model ?? "(default)"}`,
@@ -101,6 +149,8 @@ function formatRow(r: StatusRow): string {
 			? `  idle      : ${Math.round(r.idleMs / 1000)}s since last activity`
 			: null,
 		r.currentTool ? `  running   : ${r.currentTool}` : null,
+		r.result ? `  result    : ${r.result}` : null,
+		r.native ? `  native    : ${r.native}` : null,
 		`  turns     : ${r.turns}${r.steers > 0 ? ` (${r.steers} steering message(s))` : ""}`,
 		`  tokens    : ${formatUsage(r.usage)}`,
 		r.worktreePath
@@ -142,14 +192,19 @@ export function registerStatusTool({ pi, rt }: ToolDeps): void {
 			}
 			const now = Date.now();
 			for (const job of jobs) refreshActivity(job, now);
-			const rows = jobs.map((j) => row(j, now, jobUsage(j)));
-			const request = requestUsage(rt.jobs, rt.requestLaunches);
+			const rows = jobs.map((j) => row(j, now, jobUsage(j), rt));
+			const request = requestUsageOf(rt.jobs, rt.requestLaunches, rt.claudeStates);
 			const count = requestWorkerIds(rt.jobs, rt.requestLaunches).length;
+			/* An event that nobody handled waits for the owner. The owner
+			   finds it here, because the acknowledgement needs the event
+			   id, and the event id lives nowhere else. */
+			const events = pendingEvents(rt.openDb()).filter((event) => jobs.some((job) => job.id === event.runId));
 			const text =
 				rows.map(formatRow).join("\n\n") +
 				`\n\nThis request: ${formatUsage(request)} across ${count} worker(s). ` +
-				"The main session is not counted.";
-			return reply(text, { workers: rows, requestUsage: request });
+				"The main session is not counted." +
+				(events.length > 0 ? `\n\nEvents that wait for you:\n${events.map(formatEvent).join("\n")}` : "");
+			return reply(text, { workers: rows, requestUsage: request, events });
 		},
 	});
 }

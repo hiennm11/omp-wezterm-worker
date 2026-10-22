@@ -1,0 +1,4 @@
+{
+	"description": "The proof hooks module of the Claude backend",
+	"modules": ["./register.js"]
+}

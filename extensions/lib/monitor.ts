@@ -9,14 +9,16 @@
 import { statSync } from "node:fs";
 
 import { readCallLedger } from "./calls.ts";
+import { claudeBoundReport, claudeCompletionBlocker } from "./claude-run-state.ts";
 import { type CycleState, needsIntervention, readCycleState } from "./cycle-state.ts";
 import { createEvent, eventKey, resolveObsoleteEvent } from "./events.ts";
 import { outstandingExecutions } from "./executions.ts";
 import { isActive, type Job, type JobStatus, type PendingStop } from "./job.ts";
 import { finalizeJob, stopJob } from "./lifecycle.ts";
+import { recordNativeEvents } from "./native-events.ts";
 import { paneState } from "./pane.ts";
 import { completionBlocker, decideFromReports } from "./report-decision.ts";
-import { readReports } from "./report-store.ts";
+import { appendReport, readReports } from "./report-store.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { listSessionFiles, type SessionSummary, summarizeSession } from "./transcript.ts";
 
@@ -218,4 +220,96 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 
 	rt.monitors.set(job.id, rt.startInterval(tick, rt.config.pollMs));
 	rt.monitors.set(`${job.id}:reports`, rt.startInterval(reportTick, rt.config.pollMs));
+}
+
+/**
+ * Watch a worker that runs a native backend.
+ *
+ * A native worker reports through its own bridge. The supervisor reads the
+ * native state instead of the transcript. The report of the current cycle
+ * ends the worker, and the outstanding work blocks it.
+ */
+export function monitorNativeJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => void): void {
+	rt.stopMonitor(job.id);
+
+	const end = (status: JobStatus, error: string | null, result: string | null) => {
+		void (async () => {
+			await finalizeJob(rt, job, status, error, result);
+			notify(job);
+		})();
+	};
+
+	const stop = (status: PendingStop["status"], error: string) => {
+		void (async () => {
+			const hadFailure = job.pendingStop?.failure != null;
+			const outcome = await stopJob(rt, job, status, error);
+			if (outcome.stopped || !hadFailure) notify(job);
+		})();
+	};
+
+	const tick = () => {
+		if (!isActive(job)) {
+			rt.stopMonitor(job.id);
+			return;
+		}
+		if (rt.stopping.has(job.id)) return;
+		const now = Date.now();
+		if (job.pendingStop) return stop(job.pendingStop.status, job.pendingStop.error);
+		const deadline = deadlineMessage(job, now);
+		if (deadline) return stop("failed", deadline);
+
+		const state = rt.claudeStates.get(job.id);
+		if (!state) return;
+
+		/* A native worker writes no OMP transcript, so its activity comes
+		   from the native observations. Without this the idle deadline
+		   would stop a worker that is still working. */
+		job.lastActivityAt = state.lastActivityAt;
+
+		/* A permission request is a fact that the owner must know. The
+		   person answers it in the pane, so the request is raised as an
+		   event and it stays open until the request settles. */
+		recordNativeEvents(rt.openDb(), job.id, state, now);
+
+		const report = claudeBoundReport(state);
+		if (report?.state !== "completed") return;
+
+		/* The work that the worker still owes blocks the completion. */
+		const blocker = claudeCompletionBlocker(state);
+		if (blocker) return;
+
+		/* The report is the evidence of the completion. It stays beside the
+		   run, so a recovery and a later reader find it. */
+		persistNativeReport(job, report);
+		end("completed", null, report.result ?? "");
+	};
+
+	rt.monitors.set(job.id, rt.startInterval(tick, rt.config.pollMs));
+}
+
+/**
+ * Save the report of a native run beside the run.
+ *
+ * The report is the evidence of the completion. It lands in the same file
+ * that an OMP worker writes, so a later reader finds both in one place.
+ */
+function persistNativeReport(
+	job: Job,
+	report: { cycleId: string | null; state: string; result: string | null },
+): void {
+	if (report.state !== "completed") return;
+	try {
+		appendReport(job.sessionDir, {
+			runId: job.id,
+			cycleId: report.cycleId,
+			state: "completed",
+			result: report.result,
+			dependency: null,
+			resumeCondition: null,
+			needs: null,
+			detail: null,
+		});
+	} catch {
+		/* the completion still holds; the file is a convenience */
+	}
 }

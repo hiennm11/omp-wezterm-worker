@@ -2,10 +2,12 @@
  * wezterm_worker_resume
  */
 
+import { readBackend } from "../lib/backend.ts";
 import type { ToolCtx } from "../lib/host.ts";
 import { isActive } from "../lib/job.ts";
 import { admitLaunch } from "../lib/limits.ts";
-import { monitorJob } from "../lib/monitor.ts";
+import { monitorJob, monitorNativeJob } from "../lib/monitor.ts";
+import { resumeClaudeWorker } from "../lib/resume-claude.ts";
 import { resumeWorker } from "../lib/spawn.ts";
 import { findJob, refusalReply, reply, type ToolDeps } from "./kit.ts";
 
@@ -46,11 +48,32 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 			}
 			const admitted = admitLaunch(rt, ctx.sessionManager?.getSessionFile?.());
 			if ("refusal" in admitted) return refusalReply(admitted.refusal);
-			const resumed = await resumeWorker(rt, job, {
-				jobId: admitted.jobId,
-				message: params.message,
-				placement: params.placement === "tab" ? "tab" : "split",
-			});
+			/* A native worker resumes in the same native session. A run
+			   without a native session id cannot be resumed, because the
+			   extension never starts a different session behind the owner's
+			   back. */
+			const backend = readBackend(job);
+			const sessionId = job.nativeSessionId ?? null;
+			if (backend !== "omp" && !sessionId) {
+				return reply(
+					`Worker ${job.id} has no native session id. It cannot be resumed.`,
+					{ workerId: job.id, backend },
+					true,
+				);
+			}
+			const resumed =
+				backend === "omp"
+					? await resumeWorker(rt, job, {
+							jobId: admitted.jobId,
+							message: params.message,
+							placement: params.placement === "tab" ? "tab" : "split",
+						})
+					: await resumeClaudeWorker(rt, {
+							jobId: admitted.jobId,
+							source: job,
+							sessionId: sessionId as string,
+							message: params.message,
+						});
 			if (resumed.status === "failed") {
 				return reply(
 					`Could not resume worker: ${resumed.error ?? "unknown error"}`,
@@ -58,7 +81,9 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 					true,
 				);
 			}
-			monitorJob(rt, resumed, deliver);
+			/* A native worker reports through its own bridge. */
+			if (readBackend(resumed) === "omp") monitorJob(rt, resumed, deliver);
+			else monitorNativeJob(rt, resumed, deliver);
 			const transcript = resumed.sessionFile ?? resumed.sessionDir;
 			return reply(
 				`Worker ${job.id} resumed as ${resumed.id} in pane ${resumed.paneId}.\n` +
