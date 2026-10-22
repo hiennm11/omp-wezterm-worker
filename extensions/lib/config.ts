@@ -10,6 +10,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import type { CommsSettings } from "./comms-check.ts";
+
 export type Placement = "split" | "tab";
 
 export interface WorkerConfig {
@@ -33,6 +35,8 @@ export interface WorkerConfig {
 	maxActiveWorkers: number;
 	/** Refuse a launch after this many launches since the last user prompt. 0 means no limit. */
 	maxLaunchesPerRequest: number;
+	/** The settings of the communication check. */
+	commsStandard: CommsSettings;
 }
 
 export const DEFAULT_CONFIG: WorkerConfig = {
@@ -51,6 +55,7 @@ export const DEFAULT_CONFIG: WorkerConfig = {
 	closePaneOnFinish: true,
 	maxActiveWorkers: 3,
 	maxLaunchesPerRequest: 3,
+	commsStandard: { mode: "warn", minScore: 80 },
 };
 
 /** Static string-keyed table: config key -> the config field it overrides. */
@@ -66,6 +71,24 @@ const CONFIG_BOOLEAN_KEYS = ["isolated", "closePaneOnFinish"] as const;
 
 export function defaultConfigFile(): string {
 	return join(homedir(), ".omp", "agent", "wezterm-worker.json");
+}
+
+/**
+ * The communication settings of a config file.
+ *
+ * A missing or malformed value leaves the default in place. A wrong mode or a
+ * wrong score cannot break the extension.
+ */
+export function readCommsStandard(value: unknown): CommsSettings {
+	const fallback = DEFAULT_CONFIG.commsStandard;
+	if (typeof value !== "object" || value === null) return fallback;
+	const raw = value as Record<string, unknown>;
+	const mode = raw.mode;
+	const minScore = raw.minScore;
+	return {
+		mode: mode === "off" || mode === "warn" || mode === "enforce" ? mode : fallback.mode,
+		minScore: typeof minScore === "number" && Number.isFinite(minScore) ? minScore : fallback.minScore,
+	};
 }
 
 /**
@@ -105,6 +128,7 @@ export function loadConfig(
 			if (raw.placement === "split" || raw.placement === "tab") cfg.placement = raw.placement;
 			if (typeof raw.model === "string") cfg.model = raw.model;
 			if (Array.isArray(raw.tools)) cfg.tools = raw.tools.map(String);
+			cfg.commsStandard = readCommsStandard(raw.commsStandard);
 			// The idle deadline is gone. A worker is stopped by its reports
 			// and by its total deadline, never by silence. A nonzero value
 			// in an old config file is refused with guidance, not ignored.

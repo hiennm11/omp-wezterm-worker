@@ -3,11 +3,12 @@
  */
 
 import { readBackend } from "../lib/backend.ts";
+import { checkComms } from "../lib/comms-check.ts";
 import { isActive } from "../lib/job.ts";
 import { paneState } from "../lib/pane.ts";
 import { steerWorker } from "../lib/steer.ts";
 import { steerNative } from "../lib/steer-native.ts";
-import { findJob, reply, type ToolDeps } from "./kit.ts";
+import { commsDetails, commsRefusalLine, commsWarningLine, findJob, reply, type ToolDeps } from "./kit.ts";
 
 export function registerSteerTool({ pi, rt }: ToolDeps): void {
 	const z = pi.zod;
@@ -24,6 +25,17 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 		}),
 		loadMode: "essential",
 		async execute(_id: string, params: { workerId: string; message: string }) {
+			/* The communication check runs before the instruction reaches the
+			   worker. The enforce mode refuses a message that scores below
+			   the minimum score. */
+			const comms = checkComms(params.message, "steer", rt.config.commsStandard);
+			if (comms.verdict === "fail") {
+				return reply(
+					commsRefusalLine(comms, rt.config.commsStandard),
+					{ ...commsDetails(comms), refused: "commsStandard" },
+					true,
+				);
+			}
 			const found = findJob(rt, params.workerId);
 			if ("error" in found) return found.error;
 			const { job } = found;
@@ -75,17 +87,19 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 				job.steers += 1;
 				job.lastActivityAt = Date.now();
 				rt.persist();
-				return reply(
+				const queued = [
 					`Queued for worker ${job.id} in pane ${paneId}:\n${params.message}\n\n` +
 						"The worker continues working; its final result is still delivered back automatically.",
-					{
-						workerId: job.id,
-						status: job.status,
-						paneId,
-						steers: job.steers,
-						phase: outcome.phase,
-					},
-				);
+				];
+				if (comms.verdict === "warn") queued.push(commsWarningLine(comms, rt.config.commsStandard));
+				return reply(queued.join("\n"), {
+					workerId: job.id,
+					status: job.status,
+					paneId,
+					steers: job.steers,
+					phase: outcome.phase,
+					...commsDetails(comms),
+				});
 			}
 			const steered = await steerWorker(rt, job, paneId, params.message);
 			if (!steered.ok) {
@@ -104,18 +118,20 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 			}
 			job.steers += 1;
 			job.lastActivityAt = Date.now();
-			return reply(
+			const sent = [
 				`Sent to worker ${job.id} in pane ${paneId}:\n${params.message}\n\n` +
 					"The worker continues working; its final result is still delivered back automatically.",
-				{
-					workerId: job.id,
-					status: job.status,
-					paneId,
-					steers: job.steers,
-					attempts: steered.attempts,
-					delivered: true,
-				},
-			);
+			];
+			if (comms.verdict === "warn") sent.push(commsWarningLine(comms, rt.config.commsStandard));
+			return reply(sent.join("\n"), {
+				workerId: job.id,
+				status: job.status,
+				paneId,
+				steers: job.steers,
+				attempts: steered.attempts,
+				delivered: true,
+				...commsDetails(comms),
+			});
 		},
 	});
 }

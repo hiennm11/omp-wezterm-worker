@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { checkDocument, SENTENCE_LIMIT_DESCRIPTIVE } from "../tooling/ste100.ts";
+import { checkDocument, SENTENCE_LIMIT_DESCRIPTIVE } from "../extensions/lib/ste100.ts";
 import { CHECKED_DOCUMENTS, checkFile, REQUIRED_SCORE } from "../tooling/ste100-cli.ts";
 
 const ROOT = join(import.meta.dirname, "..");

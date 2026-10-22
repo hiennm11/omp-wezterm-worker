@@ -12,5 +12,9 @@
 	"isolated": false,
 	"closePaneOnFinish": true,
 	"maxActiveWorkers": 3,
-	"maxLaunchesPerRequest": 3
+	"maxLaunchesPerRequest": 3,
+	"commsStandard": {
+		"mode": "warn",
+		"minScore": 80
+	}
 }

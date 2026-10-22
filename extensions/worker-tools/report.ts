@@ -11,11 +11,12 @@
 
 import { dirname } from "node:path";
 
+import { checkComms } from "../lib/comms-check.ts";
 import type { ToolCtx } from "../lib/host.ts";
 import { REPORT_STATES, type ReportState, type WorkerReport } from "../lib/report-model.ts";
 import { appendReport } from "../lib/report-store.ts";
 import { readRunContext } from "../lib/worker-context.ts";
-import { reply, type ToolDeps } from "./kit.ts";
+import { commsDetails, commsWarningLine, reply, type ToolDeps } from "./kit.ts";
 
 /**
  * The session directory of the calling worker.
@@ -31,7 +32,7 @@ export function workerSessionDir(): string | null {
 	return dirname(file);
 }
 
-export function registerReportTool({ pi }: ToolDeps): void {
+export function registerReportTool({ pi, rt }: ToolDeps): void {
 	const z = pi.zod;
 	pi.registerTool({
 		name: "wezterm_worker_report",
@@ -114,10 +115,24 @@ export function registerReportTool({ pi }: ToolDeps): void {
 					true,
 				);
 			}
-			return reply(`The task state is now ${state}.`, {
+			/* The communication check runs after the state check. The report
+			   is always saved. A low score only adds a warning, so a result
+			   is never refused because of its score. */
+			const comms = checkComms(report.result ?? "", "result", rt.config.commsStandard);
+			const text = `The task state is now ${state}.`;
+			if (comms.verdict === "warn" || comms.verdict === "fail") {
+				return reply(`${text}\n${commsWarningLine(comms, rt.config.commsStandard)}`, {
+					reported: true,
+					runId: context.runId,
+					state,
+					...commsDetails(comms),
+				});
+			}
+			return reply(text, {
 				reported: true,
 				runId: context.runId,
 				state,
+				...commsDetails(comms),
 			});
 		},
 	});

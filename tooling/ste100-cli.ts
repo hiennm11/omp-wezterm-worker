@@ -8,7 +8,7 @@
 import { readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
-import { checkDocument } from "./ste100.ts";
+import { checkDocument } from "../extensions/lib/ste100.ts";
 
 /** The score a document must reach. */
 export const REQUIRED_SCORE = 80;
