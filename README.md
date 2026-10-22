@@ -180,6 +180,14 @@ result: the final answer is still delivered back automatically.
 Steering a worker that has already finished reports that fact instead of
 sending text into a dead pane.
 
+**A steer call sends the instruction once.** The tool writes the text into
+the pane and then reads the worker's transcript. The tool reports a
+confirmed delivery only when the transcript records the requested text.
+Any other growth of the transcript is not a confirmation. A delivery that
+the transcript does not confirm is reported as unconfirmed, and the tool
+never sends the instruction a second time. A second copy of the same
+instruction would reach the worker as a second instruction.
+
 Implementation note: `wezterm cli send-text` pastes by default, and a pasted
 block never submits in the OMP TUI — the text lands in the composer but the
 Enter key never arrives. Steering therefore uses `--no-paste`, which delivers
@@ -196,7 +204,7 @@ receives as a real Enter.
 | `idle` | Time since the worker last wrote to its transcript. A worker that is thinking or waiting on a slow tool still writes, so a growing `idle` means it is stuck. |
 | `running` | The tool the worker is inside right now, when there is one. |
 | `turns` | How many assistant turns the worker has taken. |
-| `steers` | How many steering messages were sent into this worker. |
+| `steers` | How many steering messages this worker took. An OMP worker counts only the instructions that its transcript confirmed. |
 | `tokens` | The tokens this worker used, summed from every transcript under its session folder. A value the transcript does not hold is `unknown`, never an estimate. |
 | `stop` | Shown only while a stop waits for confirmation: why the pane is not confirmed gone. Call `wezterm_worker_cancel` again to retry. |
 
@@ -611,6 +619,7 @@ test.
 | `config.test.ts` | The environment wins over the file. A value of the wrong type leaves the default. A malformed file leaves the defaults. |
 | `registry.test.ts` | A running worker with a pane comes back as alive. A job of the wrong shape does not break the load. The write is atomic. |
 | `stop.test.ts` | A cancel ends a worker only when the pane list shows the pane gone. An unreadable pane list does not count as a closed pane. An unconfirmed stop leaves the worker running, and a retry ends it. |
+| `steer.test.ts` | A steer call sends the instruction once. The transcript confirms the delivery. An unrelated message does not confirm it. An old message with the same text does not confirm it. An unconfirmed delivery is not sent again. |
 | `monitor.test.ts` | A worker with no deadline never times out. An active worker still times out at the total deadline. A worker that keeps writing is not stopped as idle. A resumed worker does not report its old answer. |
 | `architecture.test.ts` | No source file exceeds 350 lines. The `lib/` folder never imports the entry or `worker-tools/`. Only `lib/process.ts` starts a child process. Only the entry creates the runtime. |
 | `limits.test.ts` | One active worker blocks a launch at the default limit. A worker with an unconfirmed stop still counts. A launch that failed before its pane existed does not count. A worker session cannot launch a worker. A user prompt resets the request count. |

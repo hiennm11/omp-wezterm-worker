@@ -257,11 +257,10 @@ It registers `wezterm_spawn_worker`, `wezterm_worker_status`,
 Read it rather than recalling them. What belongs here is only the operating
 knowledge the README cannot state:
 
-- The extension **spawns a real `omp` TUI process** in a pane. It is not a
-  native subagent, and not a transcript view. A native subagent has no pane;
-  a pane transcript view has no separate process.
-- Its result source is the worker's **session JSONL**, never scraped pane
-  text. Pane text is a debug view.
+- The extension starts a real interactive CLI in a pane. The default backend
+  is OMP. Set `backend: "claude"` for Claude Code. Codex is not implemented.
+- OMP activity comes from its session JSONL. Claude activity comes from the
+  native observations. Pane text is a debug view, not completion evidence.
 - A worker gets the **exact task and cwd**, and does not inherit the main
   conversation.
 - Editing the extension source needs an **OMP restart**; `/reload-plugins`
@@ -270,6 +269,26 @@ knowledge the README cannot state:
   file at `~/.omp/agent/wezterm-worker.json`. Keep one copy: a second copy in
   `~/.omp/agent/extensions/` loads the extension twice.
 - The scripts need Git Bash, not WSL.
+
+### Claude workers and project skills
+
+Before a Claude launch, check that the mounted spawn schema exposes `backend`.
+If it does not, restart OMP with the updated plugin. Do not claim a Claude launch through an OMP-only schema.
+
+Set `cwd` to the target project. Claude discovers the project's `.claude/skills/`
+and the user's `~/.claude/skills/` through its own configuration.
+The extension does not copy OMP skills into Claude.
+For the discovery rules, see [Claude skills](https://code.claude.com/docs/en/skills).
+
+Put the required skill names, commands, constraints, and acceptance criteria in `task`.
+Tell the worker to load each required skill before work.
+Task text instructs the worker. It does not add CLI flags or execute a shell command at launch.
+
+The spawn tool has no arbitrary command, custom settings, or extra plugin option.
+For the supported parameters, read the README.
+Omit `tools` for a Claude worker. The tool refuses an OMP tool list for a native backend.
+The worker keeps the user's permission rules. A person answers a permission request in the pane.
+An isolated worker uses a separate checkout. Do not assume that untracked project skills exist there.
 
 ## Worker lifecycle
 
@@ -354,9 +373,12 @@ commits survive the worktree.
 **A steering message is confirmed, not assumed.** `wezterm cli send-text`
 returns success as soon as the keystrokes reach the pane. A worker needs a
 few seconds to start its interface, and keystrokes that arrive before that
-go nowhere. The extension therefore reads the worker's transcript after each
-attempt and repeats the send until the message appears there. A steer call
-that reports success always delivered the message.
+go nowhere. The extension therefore sends the instruction once and reads the
+worker's transcript after the send. The transcript confirms the delivery only
+when it records the requested text. Any other growth of the transcript is not
+a confirmation. A delivery that the transcript does not confirm stays
+unconfirmed, and the extension never sends the instruction again. A second
+copy of the same instruction reaches the worker as a second instruction.
 
 **A cancel and a deadline stop are confirmed.** `kill-pane` returns success
 when WezTerm accepts the request, not when the pane is gone. The extension
