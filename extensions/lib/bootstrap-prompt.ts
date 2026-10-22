@@ -62,6 +62,19 @@ export const REPORTING_CONTRACT = [
 	"End every turn with a report. A turn without a report leaves the main",
 	"session without knowledge of your task.",
 	"",
+	"## Writing rules",
+	"",
+	"Use one term for one concept. Use the active voice. Keep a sentence at",
+	"20 words or fewer. Keep the articles.",
+	"",
+	"## Result format",
+	"",
+	"The result has three parts: VERIFIED, ASSUMPTION and UNKNOWN. VERIFIED",
+	"holds the facts that you observed. ASSUMPTION holds the facts that you",
+	"did not observe. UNKNOWN holds what you could not find out.",
+	"",
+	"Put the evidence in a code block or a table.",
+	"",
 ].join("\n");
 
 /**

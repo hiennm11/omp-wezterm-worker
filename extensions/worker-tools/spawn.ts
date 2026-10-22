@@ -12,13 +12,21 @@ import {
 	readBackend,
 	type WorkerBackend,
 } from "../lib/backend.ts";
+import { checkComms } from "../lib/comms-check.ts";
 import type { Placement } from "../lib/config.ts";
 import type { ToolCtx } from "../lib/host.ts";
 import { admitLaunch } from "../lib/limits.ts";
 import { monitorJob, monitorNativeJob } from "../lib/monitor.ts";
 import { spawnWorker } from "../lib/spawn.ts";
 import { spawnClaudeWorker } from "../lib/spawn-claude.ts";
-import { refusalReply, reply, type ToolDeps } from "./kit.ts";
+import {
+	commsDetails,
+	commsRefusalLine,
+	commsWarningLine,
+	refusalReply,
+	reply,
+	type ToolDeps,
+} from "./kit.ts";
 
 /**
  * The backend that a spawn names, or null when the name is unknown.
@@ -130,6 +138,19 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 					true,
 				);
 			}
+			/* The communication check runs before the launch. The enforce
+			   mode refuses a task that scores below the minimum score. */
+			const comms = checkComms(params.task, "task", rt.config.commsStandard);
+			if (comms.verdict === "fail") {
+				return reply(
+					commsRefusalLine(comms, rt.config.commsStandard),
+					{
+						...commsDetails(comms),
+						refused: "commsStandard",
+					},
+					true,
+				);
+			}
 			const admitted = admitLaunch(rt, ctx.sessionManager?.getSessionFile?.());
 			if ("refusal" in admitted) return refusalReply(admitted.refusal);
 			const job =
@@ -181,6 +202,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				"",
 				"The worker runs in the background. Its final result is delivered back into this session automatically.",
 			].filter((line): line is string => line !== null);
+			if (comms.verdict === "warn") lines.push(commsWarningLine(comms, rt.config.commsStandard));
 
 			return reply(lines.join("\n"), {
 				workerId: job.id,
@@ -192,6 +214,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				cwd: job.cwd,
 				transcriptDir: job.sessionDir,
 				worktreePath: job.worktreePath,
+				...commsDetails(comms),
 			});
 		},
 	});

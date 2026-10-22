@@ -2,6 +2,7 @@
  * What every tool module shares: its dependencies and its reply shape.
  */
 
+import type { CommsResult, CommsSettings } from "../lib/comms-check.ts";
 import type { ExtensionAPI } from "../lib/host.ts";
 import type { Job } from "../lib/job.ts";
 import type { Refusal } from "../lib/limits.ts";
@@ -37,4 +38,35 @@ export function findJob(rt: WorkerRuntime, workerId: string): { job: Job } | { e
 	const job = rt.jobs.get(workerId);
 	if (job) return { job };
 	return { error: reply(`Unknown worker id: ${workerId}`, { known: [...rt.jobs.keys()] }, true) };
+}
+
+/** The details that a reply carries for the communication check. */
+export function commsDetails(result: CommsResult): Record<string, unknown> {
+	return {
+		commsCheck: {
+			channel: result.channel,
+			score: result.score,
+			verdict: result.verdict,
+			findings: result.findings.map((finding) => ({
+				rule: finding.rule,
+				message: finding.message,
+				line: finding.line,
+			})),
+		},
+	};
+}
+
+/** The warning line that a low score adds to a reply. */
+export function commsWarningLine(result: CommsResult, settings: CommsSettings): string {
+	return `Communication check: the score is ${result.score}. The minimum score is ${settings.minScore}.`;
+}
+
+/** The refusal that a low score produces in the enforce mode. */
+export function commsRefusalLine(result: CommsResult, settings: CommsSettings): string {
+	const lines = result.findings.map((finding) => `- ${finding.message}`);
+	const body = lines.length > 0 ? `\n${lines.join("\n")}` : "";
+	return (
+		`The communication check refused this text. The score is ${result.score}. ` +
+		`The minimum score is ${settings.minScore}.${body}`
+	);
 }

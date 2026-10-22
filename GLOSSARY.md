@@ -94,6 +94,12 @@ The tokens a worker used, summed from its transcript and the transcripts of
 its subagents. A missing value is `unknown`, never an estimate.
 _Avoid_: Consumption, cost, billing
 
+**Communication check**:
+The score that the extension gives to the text that the main session and the
+workers exchange. A low score adds a warning. The enforce mode refuses a task
+and a steering message that score below the minimum.
+_Avoid_: Style check, lint, grammar check
+
 ## Agreed supervision terms
 
 These terms describe the next release. The current runtime does not yet enforce them.

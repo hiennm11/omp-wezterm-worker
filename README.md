@@ -252,7 +252,11 @@ screen text is never scraped for results.
 	"isolated": false,
 	"closePaneOnFinish": true,
 	"maxActiveWorkers": 3,
-	"maxLaunchesPerRequest": 3
+	"maxLaunchesPerRequest": 3,
+	"commsStandard": {
+		"mode": "warn",
+		"minScore": 80
+	}
 }
 ```
 
@@ -271,8 +275,40 @@ Environment overrides: `OMP_WORKER_OMP_BIN`, `OMP_WORKER_WEZTERM_BIN`,
   counted. A worker whose stop is not confirmed counts as active.
 - `maxLaunchesPerRequest` — refuse a launch after this many launches since the
   last user prompt. The default is `3`. `0` disables the limit.
+- `commsStandard` — the settings of the communication check. The section
+  "The communication check" explains them.
 - A worker cannot launch a worker. The code refuses the call and the error
   names the rule. See `docs/adr/0007-limits-and-usage-enforced-in-code.md`.
+
+## The communication check
+
+The communication check scores the text that the main session and the workers
+exchange. The score comes from the same Simplified Technical English checker
+that scores the documents of this repository. A low score means that a reader
+can read the text in more than one way.
+
+The check reads three texts: the `task` of a spawn, the `message` of a steer
+and the `result` of a report.
+
+The setting `commsStandard` holds the mode and the minimum score:
+
+| Field | Values | Meaning |
+|---|---|---|
+| `mode` | `off`, `warn`, `enforce` | What the check does with a low score. |
+| `minScore` | 0 to 100 | The score that a text must reach. |
+
+| Mode | A task or a steering message | A result |
+|---|---|---|
+| `off` | The check does not run. The text is sent. | The check does not run. The text is saved. |
+| `warn` (default) | The text is sent, and the reply carries a warning. | The text is saved, and the reply carries a warning. |
+| `enforce` | The text is refused, and the refusal names the findings. | The text is saved, and the reply carries a warning. |
+
+The reply of every checked tool carries the score and the findings in
+`details.commsCheck`. A text that is not English is skipped, because the
+checker cannot score it. A text with fewer than three words is skipped too.
+
+The extension needs no external script. The checker sits in
+`extensions/lib/ste100.ts` and runs inside the extension.
 
 ## Worker lifecycle
 
@@ -507,6 +543,8 @@ omp-wezterm-worker/
 │   │   ├── process-table.ts     reading the process table of the machine
 │   │   ├── role.ts              the role of a process, main or worker
 │   │   ├── bootstrap-prompt.ts  the reporting contract of a worker
+│   │   ├── ste100.ts            the Simplified Technical English checker
+│   │   ├── comms-check.ts       the communication check of the exchanged text
 │   │   ├── worker-context.ts    the run context of a worker
 │   │   └── worker-bootstrap.ts  the tools of a worker process
 │   ├── claude-mod/              the session-scoped mod of a Claude Code worker
@@ -530,7 +568,6 @@ omp-wezterm-worker/
 │   └── wezterm-omp-pane-ops/
 │       └── SKILL.md             operating knowledge for the model
 ├── tooling/
-│   ├── ste100.ts                the Simplified Technical English checker
 │   ├── ste100-cli.ts            the checker command line
 │   ├── trial.ts                 the Windows trial runner
 │   ├── trial-report.ts          the text of the trial report
@@ -552,6 +589,7 @@ omp-wezterm-worker/
 │   ├── monitor.test.ts          the timeout, the idle limit and the result rule
 │   ├── architecture.test.ts     the size, import and runtime rules
 │   ├── ste100.test.ts           the checker and the document scores
+│   ├── comms-check.test.ts      the communication check and the contract score
 │   ├── trial-report.test.ts     the text of the Windows trial report
 │   ├── trial-paths.test.ts      the paths that the report hides
 │   ├── registration.test.ts     the tools that the extension registers
@@ -626,6 +664,7 @@ test.
 | `usage.test.ts` | A number comes only from a transcript. A model call without usage makes the count partial. A transcript without usage shows unknown. A resumed worker counts only what came after the resume. The request total adds the workers of the request. |
 | `nested.integration.test.ts` | A real worker cannot launch a worker and opens no pane. A second spawn is refused while one worker is active. |
 | `ste100.test.ts` | Each agent-facing document reaches the required score. |
+| `comms-check.test.ts` | A clean text passes the communication check. A long sentence warns. A Vietnamese text is skipped. The off mode returns off. The warn mode and the enforce mode give different verdicts. The reporting contract reaches the required score. |
 | `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
 | `result.integration.test.ts` | The result tool returns the answer of a finished worker. |
@@ -659,9 +698,10 @@ account never appears in the report.
 
 Every document that an agent reads is written in Simplified Technical English.
 The `npm run ste100` command scores each one and fails below 80. The checker
-lives in `tooling/ste100.ts`, so the standard is a measured result and not a
-claim. The glossary in `GLOSSARY.md` and the decisions in `docs/adr/` carry the
-same standard, because the orchestrator and the workers read them both.
+lives in `extensions/lib/ste100.ts`, so the standard is a measured result and
+not a claim. The glossary in `GLOSSARY.md` and the decisions in `docs/adr/`
+carry the same standard, because the orchestrator and the workers read them
+both.
 
 ### The directories that OMP scans
 
