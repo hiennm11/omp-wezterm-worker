@@ -39,8 +39,9 @@ export function groupsToRelease(groups: ResourceGroup[], jobs: Job[]): ResourceG
  */
 export function releaseEndedGroups(db: LifecycleDb, jobs: Job[], now: number): string[] {
 	const released = groupsToRelease(heldGroups(db), jobs);
-	for (const group of released) {
-		releaseExecutionByHolder(db, group.executionHolder ?? "", now);
+	const holders = new Set(released.map((group) => group.executionHolder).filter((id) => id !== null));
+	for (const holder of holders) {
+		releaseExecutionByHolder(db, holder, now);
 	}
 	return released.map((group) => group.id);
 }
