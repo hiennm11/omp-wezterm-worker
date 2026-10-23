@@ -16,6 +16,7 @@ import { freshRunState, type Job } from "./job.ts";
 import { finalizeJob } from "./lifecycle.ts";
 import { launchPane } from "./pane.ts";
 import { describeFailure } from "./process.ts";
+import { checkSourcePane } from "./resume-guard.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { listSessionFiles, summarizeSession } from "./transcript.ts";
 import { readUsageTotals } from "./usage.ts";
@@ -197,6 +198,21 @@ export async function resumeWorker(
 		placement: params.placement ?? source.placement,
 		...freshRunState(Date.now()),
 	};
+
+	// The pane of the source run can still write into the shared transcript.
+	// The resume waits until that pane is gone. The check comes before the
+	// reservation, so a refusal holds no group and releases none.
+	const paneRefusal = await checkSourcePane(rt, source);
+	if (paneRefusal) {
+		const failed: Job = {
+			...job,
+			status: "failed",
+			error: paneRefusal,
+			finishedAt: Date.now(),
+		};
+		rt.jobs.set(jobId, failed);
+		return failed;
+	}
 
 	// The resumed run shares the transcript and the worktree of its source
 	// run. It reserves the group before it reads the baseline and before it

@@ -56,6 +56,7 @@ These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
 - Write the task text in English. Score it with `node tooling/ste100-cli.ts <file>` before you send it. The score must be 80 or more.
 - Tell the worker to write each red test first and to run it on `master`.
 - Check the report of a worker against the code. A claim without a file and a line is not evidence.
+- Run `npx biome check .` on the branch of a worker yourself. A worker report of a clean lint is not evidence, because three branches failed `biome format` after such a report. Format every new test file.
 - A worker commits on its own branch. It does not push and does not open a pull request.
 - Change `GLOSSARY.md`, the ADR and `README.md` in the same change as the code.
 - Run one `npm run check` at a time on the machine. A check starts real workers and real panes, and two checks load the machine twice. The orchestrator runs the full check. A worker runs the lint, the type check, `npm run ste100` and the test files of its own change.

@@ -28,6 +28,7 @@ import { freshRunState, type Job } from "./job.ts";
 import { observeNative } from "./native-ledger.ts";
 import { launchProgram } from "./pane.ts";
 import { delay } from "./process.ts";
+import { checkSourcePane } from "./resume-guard.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { writeRunContext } from "./worker-context.ts";
 
@@ -64,6 +65,16 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 		label: `${source.label} (resumed)`,
 		...freshRunState(Date.now()),
 	};
+
+	/* The pane of the source run can still write into the shared transcript.
+	   The resume waits until that pane is gone. The check comes before the
+	   reservation, so a refusal holds no group and releases none. */
+	const paneRefusal = await checkSourcePane(rt, source);
+	if (paneRefusal) {
+		const failed: Job = { ...job, status: "failed", error: paneRefusal, finishedAt: Date.now() };
+		rt.jobs.set(jobId, failed);
+		return failed;
+	}
 
 	const db = rt.openDb();
 	const groupId = `grp-${source.id}`;
