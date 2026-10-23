@@ -90,7 +90,7 @@ These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **omp-wezterm-worker** (1362 symbols, 4019 relationships, 108 execution flows). Use GitNexus graph tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **omp-wezterm-worker** (1434 symbols, 4298 relationships, 114 execution flows). Use GitNexus graph tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? Bootstrap with `npx`, `bunx`, or `pnpm dlx` — e.g. `bunx gitnexus@latest analyze` (npm 11 npx crash; #1939).
 
