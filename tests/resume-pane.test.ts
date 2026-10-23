@@ -22,8 +22,7 @@ import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts"
 import { resumeWorker } from "../extensions/lib/spawn.ts";
 
 /** The reason that a resume refuses a source run whose pane is still open. */
-const PRESENT_REFUSAL =
-	"The pane 42 of the source run is still open. Close pane 42, then resume again.";
+const PRESENT_REFUSAL = "The pane 42 of the source run is still open. Close pane 42, then resume again.";
 
 /** The reason that a resume refuses a source run whose pane list cannot be read. */
 const UNKNOWN_REFUSAL =
@@ -202,7 +201,10 @@ test("a resume of a source run without a pane does not read the pane list", asyn
 
 		assert.equal(resumed.status, "failed");
 		assert.match(resumed.error ?? "", /split failed/);
-		assert.equal(calls.some((args) => args.includes("list")), false);
+		assert.equal(
+			calls.some((args) => args.includes("list")),
+			false,
+		);
 	} finally {
 		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });
