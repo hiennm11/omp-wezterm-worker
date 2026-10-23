@@ -12,7 +12,7 @@ import { clearHandover } from "./bridge-handover.ts";
 import type { BridgeState } from "./claude-bridge.ts";
 import { releaseExecutionByHolder } from "./groups.ts";
 import { failJob, type Job, type JobStatus, type PendingStop } from "./job.ts";
-import { closeLedger, completionBlockerOf, transcriptOf } from "./ledger-sync.ts";
+import { closeLedger, completionBlockerOf } from "./ledger-sync.ts";
 import { closePaneConfirmed, killPane } from "./pane.ts";
 import { reportState } from "./report-decision.ts";
 import { readReports } from "./report-store.ts";
@@ -72,8 +72,9 @@ export async function finalizeJob(
 	// of the run names the loss, so the owner can resolve it. A completed
 	// worker holds no outstanding row, so it needs no close. The close runs
 	// after the pane died, so the transcript holds the last state of the
-	// worker.
-	if (status !== "completed" && transcriptOf(job) !== null) {
+	// worker. A native worker writes no transcript, so the close of its
+	// ledger must not wait for one.
+	if (status !== "completed") {
 		closeLedger(rt.openDb(), job, Date.now());
 	}
 

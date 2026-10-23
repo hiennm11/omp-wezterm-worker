@@ -92,11 +92,15 @@ A native worker is found in the process table by the path of its plugin, because
 
 ## Execution evidence
 
-A native worker keeps the execution ledger of ADR 0009. A native call opens a row when the call starts. The row settles when the same call settles.
+A native worker keeps the execution ledger of ADR 0009. A native call opens a row at the observation `tool.call.opened`. The row settles at the observation `tool.call.settled` or at the observation `tool.call.failed`. The bridge carries this evidence, because a native worker writes no OMP transcript.
 
-A background task of a native worker settles in its own right. The settlement of a background task and the return of the foreground tool are separate pieces of evidence. A completion report before the background result blocks the completion.
+A call to the report tool opens no row. The report file is its own evidence.
+
+A background task of a native worker settles in its own right. The settlement of a background task and the return of the foreground tool are separate pieces of evidence. A native background task opens no row today, because its observation names no job. Issue 30 tracks this gap. A completion report of a native run does not wait for a background result, because the run holds no row for it.
 
 A known outstanding execution blocks a completion report. An unknown execution blocks it too, because the supervisor cannot prove that the work finished.
+
+The attach of a native worker after a restart of the owner is issue 29. A run that the owner cannot attach again keeps its rows until the owner resolves them.
 
 ## Recovery and stops
 

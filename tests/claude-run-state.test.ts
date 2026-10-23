@@ -42,6 +42,22 @@ test("a call settles only when the same call settles", () => {
 	assert.equal(state.settledCalls.get("call-1")?.denied, false);
 });
 
+test("a failed call leaves the open calls and the completion blocker", () => {
+	const state = createClaudeRunState("run-1");
+	applyObservation(state, observation("tool.call.opened", { callId: "call-1", tool: "Bash" }));
+	applyObservation(state, observation("tool.call.failed", { callId: "call-1", tool: "Bash" }));
+	assert.equal(state.openCalls.size, 0);
+	assert.equal(state.settledCalls.size, 0);
+	assert.equal(claudeCompletionBlocker(state), null);
+});
+
+test("a failed call closes its permission request", () => {
+	const state = createClaudeRunState("run-1");
+	applyObservation(state, observation("tool.check", { callId: "call-1", tool: "Bash", decision: "ask" }));
+	applyObservation(state, observation("tool.call.failed", { callId: "call-1", tool: "Bash" }));
+	assert.equal(state.openApprovals.size, 0);
+});
+
 test("a permission decision of ask holds the request open", () => {
 	const state = createClaudeRunState("run-1");
 	applyObservation(state, observation("tool.check", { callId: "call-1", tool: "Bash", decision: "ask" }));
