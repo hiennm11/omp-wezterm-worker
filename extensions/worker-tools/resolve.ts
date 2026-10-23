@@ -10,6 +10,7 @@ import { readEvent } from "../lib/events.ts";
 import type { ToolCtx } from "../lib/host.ts";
 import { generationOf } from "../lib/owner.ts";
 import { type OwnerResolution, RESOLUTIONS, recordResolution } from "../lib/resolution.ts";
+import { writeUnderAuthority } from "../lib/write-authority.ts";
 import { reply, type ToolDeps } from "./kit.ts";
 
 /** The resolutions that the tool accepts. */
@@ -64,17 +65,26 @@ export function registerResolveTool({ pi, rt }: ToolDeps): void {
 					true,
 				);
 			}
-			const outcome = recordResolution(
-				db,
-				`res-${eventId}`,
-				eventId,
-				event.runId,
-				resolution,
-				evidenceNote,
-				rt.sessionId,
-				generationOf(rt, workerId),
-				Date.now(),
+			/* The authority of the task of the event is checked in the same
+			   transaction as the write. The event names its worker, so the
+			   worker of the parameter cannot name another task. */
+			const written = writeUnderAuthority(db, rt.sessionId, event.runId, () =>
+				recordResolution(
+					db,
+					`res-${eventId}`,
+					eventId,
+					event.runId,
+					resolution,
+					evidenceNote,
+					rt.sessionId,
+					generationOf(rt, workerId),
+					Date.now(),
+				),
 			);
+			if (written.refused) {
+				return reply(written.refusal, { ...written.details, resolved: false }, true);
+			}
+			const outcome = written.value;
 			if (!outcome.ok) {
 				return reply(outcome.reason, { resolved: false }, true);
 			}
