@@ -10,10 +10,10 @@ import { join } from "node:path";
 
 import { clearHandover } from "./bridge-handover.ts";
 import type { BridgeState } from "./claude-bridge.ts";
-import { outstandingExecutions } from "./executions.ts";
 import { failJob, type Job, type JobStatus, type PendingStop } from "./job.ts";
+import { closeLedger, completionBlockerOf, transcriptOf } from "./ledger-sync.ts";
 import { closePaneConfirmed, killPane } from "./pane.ts";
-import { completionBlocker, reportState } from "./report-decision.ts";
+import { reportState } from "./report-decision.ts";
 import { readReports } from "./report-store.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { confirmStopIntent, failStopIntent, recordStopIntent } from "./stop-intent.ts";
@@ -58,6 +58,15 @@ export async function finalizeJob(
 	if (job.paneId !== null && job.closePaneOnFinish && !job.paneClosed) {
 		const failure = await killPane(rt, job.paneId);
 		job.paneClosed = failure === null;
+	}
+
+	// A worker that did not complete may leave an execution open. The ledger
+	// of the run names the loss, so the owner can resolve it. A completed
+	// worker holds no outstanding row, so it needs no close. The close runs
+	// after the pane died, so the transcript holds the last state of the
+	// worker.
+	if (status !== "completed" && transcriptOf(job) !== null) {
+		closeLedger(rt.openDb(), job, Date.now());
 	}
 
 	// Record the dirty state now, so the status tool can say whether the kept
@@ -166,15 +175,21 @@ export async function cancelJob(
 export async function settleDetachedJob(rt: WorkerRuntime, job: Job): Promise<void> {
 	const pending = job.pendingStop;
 	if (pending === null) {
+		// The pane is gone, so the worker stopped. Its ledger closes now, and
+		// the rows that never settled become unknown.
+		const db = rt.openDb();
+		closeLedger(db, job, Date.now());
 		const { state, result } = reportState(readReports(job.sessionDir, job.id));
 		if (state === "completed") {
-			const rows = outstandingExecutions(rt.openDb(), job.id);
-			const unknown = rows.filter((row) => row.state === "unknown").length;
-			if (!completionBlocker(rows.length - unknown, unknown)) {
+			const blocker = completionBlockerOf(db, job.id);
+			if (!blocker) {
 				job.paneClosed = true;
 				await finalizeJob(rt, job, "completed", null, result ?? "");
 				return;
 			}
+			failJob(job, `Worker pane was closed before this session re-attached. ${blocker}`);
+			rt.persist();
+			return;
 		}
 		failJob(job, "Worker pane was closed before this session re-attached");
 		rt.persist();

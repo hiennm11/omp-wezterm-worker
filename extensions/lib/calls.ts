@@ -4,6 +4,10 @@
  * The transcript holds one JSONL file per session. A `toolCall` block holds
  * the id of the call. A `toolResult` message holds the id of the call that it
  * settles. The parser pairs them by value.
+ *
+ * A call that starts a background job names the job in the details of its
+ * result. The transcript gets a separate entry when the job ends. That entry
+ * settles the call.
  */
 
 import { readFileSync } from "node:fs";
@@ -20,13 +24,21 @@ export interface ObservedCall {
 	settled: boolean;
 	/** The job id of a background call, when the result names one. */
 	jobId: string | null;
-	/** The status of a background call, when the result names one. */
-	jobStatus: string | null;
+}
+
+/** One background job that the transcript reports as finished. */
+export interface BackgroundResult {
+	/** The id of the job. */
+	jobId: string;
+	/** The status of the job, for example `completed` or `failed`. */
+	status: string;
 }
 
 /** The calls of one transcript, in the order they appear. */
 export interface CallLedger {
 	calls: ObservedCall[];
+	/** The background jobs that the transcript reports as finished. */
+	backgroundResults: BackgroundResult[];
 	/** The number of assistant messages in the transcript. */
 	turns: number;
 	/** The number of user messages in the transcript. */
@@ -42,11 +54,14 @@ interface Entry {
 	type?: string;
 	id?: string;
 	parentId?: string | null;
+	customType?: string;
+	details?: unknown;
 	message?: {
 		role?: string;
 		content?: unknown;
 		toolCallId?: string;
 		toolName?: string;
+		details?: unknown;
 	};
 }
 
@@ -66,6 +81,7 @@ interface Block {
 export function readCallLedger(file: string): CallLedger {
 	const ledger: CallLedger = {
 		calls: [],
+		backgroundResults: [],
 		turns: 0,
 		userMessages: 0,
 		lastUserEntryId: null,
@@ -90,6 +106,10 @@ export function readCallLedger(file: string): CallLedger {
 			ledger.sessionId = entry.id;
 			continue;
 		}
+		if (entry.type === "custom_message" && entry.customType === "async-result") {
+			ledger.backgroundResults.push(...backgroundResultsOf(entry.details));
+			continue;
+		}
 		if (entry.type !== "message" || !entry.message) continue;
 		const message = entry.message;
 		if (message.role === "user") {
@@ -108,7 +128,6 @@ export function readCallLedger(file: string): CallLedger {
 					turn: ledger.turns,
 					settled: false,
 					jobId: null,
-					jobStatus: null,
 				};
 				ledger.calls.push(call);
 				byCallId.set(block.id, call);
@@ -119,26 +138,41 @@ export function readCallLedger(file: string): CallLedger {
 			const call = byCallId.get(message.toolCallId);
 			if (!call) continue;
 			call.settled = true;
-			const job = backgroundJobOf(message.content);
-			if (job) {
-				call.jobId = job.id;
-				call.jobStatus = job.status;
-			}
+			call.jobId = backgroundJobId(message.details);
 		}
 	}
 	return ledger;
 }
 
-/** The job of a background result, or null when the result names no job. */
-function backgroundJobOf(content: unknown): { id: string; status: string } | null {
-	if (!Array.isArray(content)) return null;
-	for (const block of content as Array<Record<string, unknown>>) {
-		if (!block || typeof block !== "object") continue;
-		const text = typeof block.text === "string" ? block.text : "";
-		const match = /"id"\s*:\s*"([^"]+)"[\s\S]{0,200}?"status"\s*:\s*"([^"]+)"/.exec(text);
-		if (match) return { id: match[1], status: match[2] };
+/**
+ * The job id of a result that starts a background job.
+ *
+ * The details of the result hold the job id. A result of any other tool
+ * holds no job, so it returns null.
+ */
+function backgroundJobId(details: unknown): string | null {
+	if (!details || typeof details !== "object") return null;
+	const async = (details as Record<string, unknown>).async;
+	if (!async || typeof async !== "object") return null;
+	const jobId = (async as Record<string, unknown>).jobId;
+	return typeof jobId === "string" ? jobId : null;
+}
+
+/** The finished background jobs that one entry names. */
+function backgroundResultsOf(details: unknown): BackgroundResult[] {
+	if (!details || typeof details !== "object") return [];
+	const jobs = (details as Record<string, unknown>).jobs;
+	if (!Array.isArray(jobs)) return [];
+	const found: BackgroundResult[] = [];
+	for (const job of jobs) {
+		if (!job || typeof job !== "object") continue;
+		const record = job as Record<string, unknown>;
+		const jobId = record.jobId;
+		const status = record.status;
+		if (typeof jobId !== "string" || typeof status !== "string") continue;
+		found.push({ jobId, status });
 	}
-	return null;
+	return found;
 }
 
 /**

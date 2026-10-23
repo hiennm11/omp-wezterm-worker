@@ -7,7 +7,10 @@ import { statSync } from "node:fs";
 import { backendLabel, readBackend } from "../lib/backend.ts";
 import { pendingEvents, type WorkerEvent } from "../lib/events.ts";
 import { isActive, type Job, type JobStatus } from "../lib/job.ts";
+import { completionBlockerOf } from "../lib/ledger-sync.ts";
 import { nativeJobUsageReport, requestUsageOf } from "../lib/native-usage-report.ts";
+import { reportState } from "../lib/report-decision.ts";
+import { readReports } from "../lib/report-store.ts";
 import type { WorkerRuntime } from "../lib/runtime.ts";
 import { listSessionFiles, summarizeSession } from "../lib/transcript.ts";
 import { formatUsage, jobUsage, requestWorkerIds, type UsageReport } from "../lib/usage.ts";
@@ -64,6 +67,8 @@ interface StatusRow {
 	result: string | null;
 	/** The native state of the run, for a native worker. */
 	native: string | null;
+	/** The reason that the completion of the run cannot be accepted. */
+	blocked: string | null;
 }
 
 function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime): StatusRow {
@@ -100,7 +105,23 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime): Status
 		error: j.error,
 		result: j.result,
 		native: nativeSummary(rt, j),
+		blocked: completionBlocker(rt, j),
 	};
+}
+
+/**
+ * The reason that the completion of a worker cannot be accepted.
+ *
+ * A worker that reported completion but still holds an outstanding execution
+ * cannot end. The line names the blocker, so the owner sees why the worker
+ * is still running.
+ */
+function completionBlocker(rt: WorkerRuntime, job: Job): string | null {
+	if (!isActive(job)) return null;
+	const reports = readReports(job.sessionDir, job.id);
+	const { state } = reportState(reports);
+	if (state !== "completed") return null;
+	return completionBlockerOf(rt.openDb(), job.id);
 }
 
 /**
@@ -159,6 +180,7 @@ function formatRow(r: StatusRow): string {
 			: null,
 		r.stop ? `  stop      : ${r.stop}` : null,
 		r.error ? `  error     : ${r.error}` : null,
+		r.blocked ? `  Completion blocked: ${r.blocked}` : null,
 	]
 		.filter((line): line is string => line !== null)
 		.join("\n");

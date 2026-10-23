@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { formatDelivery } from "../extensions/lib/deliver.ts";
+import { executionsOfRun } from "../extensions/lib/executions.ts";
 import { freshRunState, isActive, type Job } from "../extensions/lib/job.ts";
 import { cancelJob, settleDetachedJob, stopJob } from "../extensions/lib/lifecycle.ts";
 import { monitorJob } from "../extensions/lib/monitor.ts";
@@ -13,6 +14,7 @@ import type { WorkerReport } from "../extensions/lib/report-model.ts";
 import { appendReport } from "../extensions/lib/report-store.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { usageReport } from "../extensions/lib/usage.ts";
+import { writeTranscript } from "./execution-helpers.ts";
 
 const GONE = "[]";
 const PRESENT = '[{"pane_id":7}]';
@@ -244,6 +246,68 @@ test("a restored worker without a report still ends failed with the pane error",
 		assert.equal(job.status, "failed");
 		assert.equal(job.result, null);
 		assert.equal(job.error, "Worker pane was closed before this session re-attached");
+	} finally {
+		f.cleanup();
+	}
+});
+
+test("a restored worker with an outstanding execution fails with the text of the blocker", async () => {
+	const f = fake(GONE);
+	try {
+		const job = runningJob();
+		job.sessionDir = sessionDirOf(f.rt, job.id, [
+			{
+				runId: job.id,
+				cycleId: null,
+				state: "completed",
+				result: "THE-ANSWER",
+				dependency: null,
+				resumeCondition: null,
+				needs: null,
+				detail: null,
+			},
+		]);
+		writeTranscript(job.sessionDir, "a.jsonl", [
+			{ type: "message", id: "e0", message: { role: "user", content: [{ type: "text", text: "do it" }] } },
+			{
+				type: "message",
+				id: "e1",
+				message: { role: "assistant", content: [{ type: "toolCall", id: "call-1", name: "bash" }] },
+			},
+		]);
+
+		await settleDetachedJob(f.rt, job);
+
+		assert.equal(job.status, "failed", "the outstanding execution refuses the completion");
+		assert.equal(job.result, null);
+		assert.match(job.error ?? "", /^Worker pane was closed before this session re-attached\. /);
+		assert.match(job.error ?? "", /execution\(s\) have no settlement evidence/);
+	} finally {
+		f.cleanup();
+	}
+});
+
+test("a restored worker without a known transcript file still closes its ledger", async () => {
+	const f = fake(GONE);
+	try {
+		const job = runningJob();
+		job.sessionDir = sessionDirOf(f.rt, job.id, []);
+		job.sessionFile = null;
+		writeTranscript(job.sessionDir, "a.jsonl", [
+			{ type: "message", id: "e0", message: { role: "user", content: [{ type: "text", text: "do it" }] } },
+			{
+				type: "message",
+				id: "e1",
+				message: { role: "assistant", content: [{ type: "toolCall", id: "call-1", name: "bash" }] },
+			},
+		]);
+
+		await settleDetachedJob(f.rt, job);
+
+		const rows = executionsOfRun(f.rt.openDb(), job.id);
+		assert.equal(rows.length, 1, "the transcript of the session directory opened the row");
+		assert.equal(rows[0].state, "unknown");
+		assert.equal(job.status, "failed");
 	} finally {
 		f.cleanup();
 	}

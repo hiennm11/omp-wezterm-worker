@@ -12,12 +12,12 @@ import { readCallLedger } from "./calls.ts";
 import { claudeBoundReport, claudeCompletionBlocker } from "./claude-run-state.ts";
 import { type CycleState, needsIntervention, readCycleState } from "./cycle-state.ts";
 import { createEvent, eventKey, resolveObsoleteEvent } from "./events.ts";
-import { outstandingExecutions } from "./executions.ts";
 import { isActive, type Job, type JobStatus, type PendingStop } from "./job.ts";
+import { completionBlockerOf, syncExecutions } from "./ledger-sync.ts";
 import { finalizeJob, stopJob } from "./lifecycle.ts";
 import { recordNativeEvents } from "./native-events.ts";
 import { paneState } from "./pane.ts";
-import { completionBlocker, decideFromReports } from "./report-decision.ts";
+import { decideFromReports } from "./report-decision.ts";
 import { appendReport, readReports } from "./report-store.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { listSessionFiles, type SessionSummary, summarizeSession } from "./transcript.ts";
@@ -171,6 +171,11 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 		const decision = decideFromReports(ledger, reports);
 		const db = rt.openDb();
 
+		// The ledger of the run holds one row for every call of this run.
+		// The sync writes what the transcript shows, so the completion check
+		// below sees the outstanding executions of the run.
+		syncExecutions(db, job.id, ledger, job.baselineTurns, now);
+
 		// The cycle must hold at its terminal boundary before the supervisor
 		// asks the owner for help. The worker writes its report in the turn
 		// that follows its answer.
@@ -210,10 +215,7 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 		// A completion report ends the worker. The outstanding execution rows
 		// of the run can block it.
 		if (decision.state === "completed") {
-			const rows = outstandingExecutions(db, job.id);
-			const unknown = rows.filter((row) => row.state === "unknown").length;
-			const blocker = completionBlocker(rows.length - unknown, unknown);
-			if (blocker) return;
+			if (completionBlockerOf(db, job.id)) return;
 			end("completed", null, decision.result ?? "");
 		}
 	};
