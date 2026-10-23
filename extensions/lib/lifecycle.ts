@@ -10,6 +10,7 @@ import { join } from "node:path";
 
 import { clearHandover } from "./bridge-handover.ts";
 import type { BridgeState } from "./claude-bridge.ts";
+import { releaseExecutionByHolder } from "./groups.ts";
 import { failJob, type Job, type JobStatus, type PendingStop } from "./job.ts";
 import { closeLedger, completionBlockerOf, transcriptOf } from "./ledger-sync.ts";
 import { closePaneConfirmed, killPane } from "./pane.ts";
@@ -58,6 +59,13 @@ export async function finalizeJob(
 	if (job.paneId !== null && job.closePaneOnFinish && !job.paneClosed) {
 		const failure = await killPane(rt, job.paneId);
 		job.paneClosed = failure === null;
+	}
+
+	// A run that holds a resource group frees it when the run ends and its
+	// pane is gone. A live pane can still write into the shared transcript,
+	// so the group stays held until the pane dies.
+	if (job.paneId === null || job.paneClosed) {
+		releaseExecutionByHolder(rt.openDb(), job.id, Date.now());
 	}
 
 	// A worker that did not complete may leave an execution open. The ledger
@@ -188,10 +196,12 @@ export async function settleDetachedJob(rt: WorkerRuntime, job: Job): Promise<vo
 				return;
 			}
 			failJob(job, `Worker pane was closed before this session re-attached. ${blocker}`);
+			releaseExecutionByHolder(db, job.id, Date.now());
 			rt.persist();
 			return;
 		}
 		failJob(job, "Worker pane was closed before this session re-attached");
+		releaseExecutionByHolder(db, job.id, Date.now());
 		rt.persist();
 		return;
 	}

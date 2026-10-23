@@ -23,7 +23,7 @@ import {
 	typeFollowUp,
 	waitForComposer,
 } from "./claude-session.ts";
-import { reserveExecution } from "./groups.ts";
+import { releaseExecutionByHolder, reserveExecution } from "./groups.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { launchProgram } from "./pane.ts";
 import { delay } from "./process.ts";
@@ -87,6 +87,9 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 		job.status = "failed";
 		job.error = missing;
 		job.finishedAt = Date.now();
+		// The run never reached a pane, so it holds nothing. The group of the
+		// source run becomes free again.
+		releaseExecutionByHolder(db, jobId, Date.now());
 		return job;
 	}
 
@@ -99,6 +102,7 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 			job.status = "failed";
 			job.error = `The native session of worker ${source.id} is still running. It must end before the resume.`;
 			job.finishedAt = Date.now();
+			releaseExecutionByHolder(db, jobId, Date.now());
 			return job;
 		}
 	}
@@ -146,6 +150,7 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 		job.status = "failed";
 		job.error = failure;
 		job.finishedAt = Date.now();
+		releaseExecutionByHolder(db, jobId, Date.now());
 		await bridge.close();
 		rt.bridges.delete(jobId);
 		rt.claudeStates.delete(jobId);

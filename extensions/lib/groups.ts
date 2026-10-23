@@ -59,14 +59,12 @@ export function createGroup(db: LifecycleDb, id: string, sessionDir: string, now
 	});
 }
 
-/** Read one group, or null when the id is unknown. */
-export function readGroup(db: LifecycleDb, id: string): ResourceGroup | null {
-	const row = db.handle
-		.prepare(
-			"SELECT id, session_dir, worktree_path, worktree_origin, worktree_branch, execution_holder, execution_state, disposing, updated_at FROM resource_groups WHERE id = ?",
-		)
-		.get(id) as Record<string, unknown> | undefined;
-	if (!row) return null;
+/** The columns of one group row. */
+const GROUP_COLUMNS =
+	"id, session_dir, worktree_path, worktree_origin, worktree_branch, execution_holder, execution_state, disposing, updated_at";
+
+/** The group of one database row. */
+function groupOf(row: Record<string, unknown>): ResourceGroup {
 	return {
 		id: String(row.id),
 		sessionDir: String(row.session_dir),
@@ -78,6 +76,15 @@ export function readGroup(db: LifecycleDb, id: string): ResourceGroup | null {
 		disposing: Number(row.disposing) !== 0,
 		updatedAt: Number(row.updated_at),
 	};
+}
+
+/** Read one group, or null when the id is unknown. */
+export function readGroup(db: LifecycleDb, id: string): ResourceGroup | null {
+	const row = db.handle
+		.prepare(`SELECT ${GROUP_COLUMNS} FROM resource_groups WHERE id = ?`)
+		.get(id) as Record<string, unknown> | undefined;
+	if (!row) return null;
+	return groupOf(row);
 }
 
 /** Store the worktree of a group. */
@@ -173,17 +180,31 @@ export function reserveExecution(
 	});
 }
 
-/** Release the execution of a group. */
-export function releaseExecution(db: LifecycleDb, groupId: string, runId: string, now: number): void {
+/**
+ * Release every group that a run holds.
+ *
+ * A run does not store its group id, so the release works on the holder. The
+ * group of a run is the group of its source run, and the holder of the group
+ * is the id of the run that reserved it.
+ */
+export function releaseExecutionByHolder(db: LifecycleDb, runId: string, now: number): void {
 	db.write(() => {
 		db.handle
 			.prepare(
 				`UPDATE resource_groups
 				 SET execution_holder = NULL, execution_state = 'free', updated_at = ?
-				 WHERE id = ? AND execution_holder = ?`,
+				 WHERE execution_holder = ?`,
 			)
-			.run(now, groupId, runId);
+			.run(now, runId);
 	});
+}
+
+/** The groups that a run holds. */
+export function heldGroups(db: LifecycleDb): ResourceGroup[] {
+	const rows = db.handle
+		.prepare(`SELECT ${GROUP_COLUMNS} FROM resource_groups WHERE execution_holder IS NOT NULL`)
+		.all() as Record<string, unknown>[];
+	return rows.map(groupOf);
 }
 
 /** Mark the execution of a group as stopping. */
@@ -230,19 +251,7 @@ export function clearDisposing(db: LifecycleDb, groupId: string, now: number): v
 /** The groups that a deletion left in the disposing state. */
 export function disposingGroups(db: LifecycleDb): ResourceGroup[] {
 	const rows = db.handle
-		.prepare(
-			"SELECT id, session_dir, worktree_path, worktree_origin, worktree_branch, execution_holder, execution_state, disposing, updated_at FROM resource_groups WHERE disposing = 1",
-		)
+		.prepare(`SELECT ${GROUP_COLUMNS} FROM resource_groups WHERE disposing = 1`)
 		.all() as Record<string, unknown>[];
-	return rows.map((row) => ({
-		id: String(row.id),
-		sessionDir: String(row.session_dir),
-		worktreePath: row.worktree_path === null ? null : String(row.worktree_path),
-		worktreeOrigin: row.worktree_origin === null ? null : String(row.worktree_origin),
-		worktreeBranch: row.worktree_branch === null ? null : String(row.worktree_branch),
-		executionHolder: row.execution_holder === null ? null : String(row.execution_holder),
-		executionState: String(row.execution_state) as ExecutionState,
-		disposing: true,
-		updatedAt: Number(row.updated_at),
-	}));
+	return rows.map(groupOf);
 }

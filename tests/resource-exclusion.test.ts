@@ -12,7 +12,7 @@ import {
 	markExecutionStopping,
 	markExecutionUnknown,
 	readGroup,
-	releaseExecution,
+	releaseExecutionByHolder,
 	reserveExecution,
 } from "../extensions/lib/groups.ts";
 
@@ -102,7 +102,7 @@ test("the run that releases the group lets the next run take it", () => {
 	try {
 		createGroup(db, "grp-1", "C:/state/sessions/wz-1", 1000);
 		reserveExecution(db, "grp-1", "run-1", 1001);
-		releaseExecution(db, "grp-1", "run-1", 1002);
+		releaseExecutionByHolder(db, "run-1", 1002);
 		const second = reserveExecution(db, "grp-1", "run-2", 1003);
 		assert.equal(second.granted, true);
 	} finally {

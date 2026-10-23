@@ -26,6 +26,7 @@ import { mkdirSync } from "node:fs";
 
 import { lastGuidance, loadConfig } from "./lib/config.ts";
 import { createDeliver } from "./lib/deliver.ts";
+import { releaseEndedGroups } from "./lib/group-recovery.ts";
 import type { ExtensionAPI } from "./lib/host.ts";
 import { settleDetachedJob } from "./lib/lifecycle.ts";
 import { startRequest } from "./lib/limits.ts";
@@ -141,6 +142,15 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 				continue;
 			}
 			await settleDetachedJob(rt, job);
+		}
+
+		// A crash can end a run without the code that frees its resource
+		// group. The recovery frees the groups whose holder ended and whose
+		// pane is gone. It runs after the loop above, so the live workers are
+		// known.
+		const freed = releaseEndedGroups(db, [...rt.jobs.values()], Date.now());
+		if (freed.length > 0) {
+			pi.logger?.info?.(`[wezterm-worker] The startup recovery freed ${freed.length} resource group(s).`);
 		}
 	});
 
