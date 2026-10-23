@@ -93,7 +93,18 @@ test("the native monitor keeps a worker that has an open execution row", async (
 		rt.jobs.set(job.id, job);
 		rt.claudeStates.set(job.id, completedState(job.id));
 		const db = rt.openDb();
-		openExecution(db, `ex-${job.id}-call-1`, job.id, "tool", "bash", "call-1", null, "tool.call.opened", "bridge", 1000);
+		openExecution(
+			db,
+			`ex-${job.id}-call-1`,
+			job.id,
+			"tool",
+			"bash",
+			"call-1",
+			null,
+			"tool.call.opened",
+			"bridge",
+			1000,
+		);
 
 		let ended = 0;
 		monitorNativeJob(rt, job, () => {
@@ -119,7 +130,18 @@ test("the native monitor ends a worker when its execution row settles", async ()
 		rt.jobs.set(job.id, job);
 		rt.claudeStates.set(job.id, completedState(job.id));
 		const db = rt.openDb();
-		openExecution(db, `ex-${job.id}-call-1`, job.id, "tool", "bash", "call-1", null, "tool.call.opened", "bridge", 1000);
+		openExecution(
+			db,
+			`ex-${job.id}-call-1`,
+			job.id,
+			"tool",
+			"bash",
+			"call-1",
+			null,
+			"tool.call.opened",
+			"bridge",
+			1000,
+		);
 
 		const notified = Promise.withResolvers<void>();
 		monitorNativeJob(rt, job, () => notified.resolve());

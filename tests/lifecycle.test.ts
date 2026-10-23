@@ -193,7 +193,18 @@ test("a failed native worker marks its open execution rows unknown and creates t
 		const job: Job = { ...runningJob(), backend: "claude", sessionDir, sessionFile: null };
 		rt.jobs.set(job.id, job);
 		const db = rt.openDb();
-		openExecution(db, `ex-${job.id}-call-1`, job.id, "tool", "bash", "call-1", null, "tool.call.opened", "bridge", 1000);
+		openExecution(
+			db,
+			`ex-${job.id}-call-1`,
+			job.id,
+			"tool",
+			"bash",
+			"call-1",
+			null,
+			"tool.call.opened",
+			"bridge",
+			1000,
+		);
 
 		await finalizeJob(rt, job, "failed", "the native worker crashed", null);
 
