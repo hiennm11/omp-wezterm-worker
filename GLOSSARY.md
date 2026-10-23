@@ -102,7 +102,7 @@ _Avoid_: Style check, lint, grammar check
 
 ## Agreed supervision terms
 
-These terms describe the supervision model. The runtime enforces the acquisition, the release and the takeover of a task. It also checks the authority of the control tools `steer`, `cancel`, `cleanup` and `resume`. The record tools and the automatic paths are not checked yet.
+These terms describe the supervision model. The runtime enforces the acquisition, the release and the takeover of a task. It also checks the authority of the control tools `steer`, `cancel`, `cleanup` and `resume`, of the record tools `ack` and `resolve`, and of the delivery of a result. The automatic paths are not checked yet.
 
 **Task state**:
 The worker's declared condition: working, waiting, needs input, or completed.

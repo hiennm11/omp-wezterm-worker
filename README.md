@@ -98,13 +98,13 @@ confirm the picker.
 `/wezterm-workers` prints the roster in the TUI.
 
 The tools `wezterm_worker_steer`, `wezterm_worker_cancel`,
-`wezterm_worker_cleanup` and `wezterm_worker_resume` check the authority of
-the task before they act. A session that does not hold the authority gets one
-refusal that names the session that holds it. The refusal says
+`wezterm_worker_cleanup`, `wezterm_worker_resume`, `wezterm_worker_ack` and
+`wezterm_worker_resolve` check the authority of the task before they act. The
+delivery of a result checks it too. A session that does not hold the authority
+gets one refusal that names the session that holds it. The refusal says
 `Worker <id> belongs to session <S> (phase <P>). This session only reads it.`
 A session without an identity and a task without an ownership row keep the old
-behaviour. The record tools and the automatic paths do not check the authority
-yet.
+behaviour. The automatic paths do not check the authority yet.
 
 The worker reports its own task state through `wezterm_worker_report`. That
 tool is worker-only. The main session never gets it.
@@ -400,7 +400,20 @@ refuses the control tools with a text that names the phase. The cleanup tools
 accept a task that another session released, because a released task has no
 owner. A session without an identity and a task without an ownership row keep
 the old behaviour, so a worker from before the ownership existed still works.
-The record tools and the automatic paths do not check the authority yet.
+The automatic paths do not check the authority yet.
+
+**The record tools and the delivery check the same row.** The tools
+`wezterm_worker_ack` and `wezterm_worker_resolve` read the ownership row of
+the task of the event before they write. A session that does not hold the
+authority writes no row, and the event stays pending for the owner. The check
+and the write run in one transaction. The event names its worker, so the
+worker of the parameter cannot name another task. An event without a worker
+belongs to no task, so no check runs for it.
+
+The delivery of a result checks the same row. A session that does not hold
+the authority sends no message, writes no delivery attempt, and writes one
+warning line to the log. The event stays pending for the owner that holds the
+task.
 
 **The control tools run under the operation gate.** Every action of the four
 tools adds its name to the list of the actions that did not settle yet. A
@@ -588,6 +601,7 @@ omp-wezterm-worker/
 │   │   ├── ownership.ts         the ownership of a task, its release and its takeover
 │   │   ├── owner.ts             the acquisition of a task by this session
 │   │   ├── authority.ts         the authority rules of the control and cleanup tools
+│   │   ├── write-authority.ts   the authority check of a write for a task
 │   │   ├── attach.ts            the supervision of a worker that this session owns
 │   │   ├── attempts.ts          the launch attempts and the capacity
 │   │   ├── groups.ts            the resources that two runs share
@@ -678,6 +692,7 @@ omp-wezterm-worker/
 │   ├── cleanup-group.test.ts    the cleanup of a resumed run
 │   ├── authority.test.ts       the authority rules of the control and cleanup tools
 │   ├── authority-tools.test.ts the authority check of the four control tools
+│   ├── authority-record.test.ts the authority check of the record tools and of the delivery
 │   ├── worker.integration.test.ts    a real worker in a real pane
 │   ├── nested.integration.test.ts    the launch limits with a real worker
 │   ├── worktree.integration.test.ts  the worktree of a real worker
@@ -772,6 +787,7 @@ test.
 | `cleanup-group.test.ts` | The cleanup of a resumed run refuses while another run holds the group, and the transcript stays. The cleanup of a run without a group deletes the transcript. |
 | `authority.test.ts` | A task without an ownership row and a session without an identity pass both rules. The owner of an active task passes both rules. The owner of a releasing task and the owner of a released task fail the control rule. Another session fails both rules while the task is active or releasing. Another session passes the cleanup rule while the task is released. The details of a refusal name the worker, the owner and the phase. |
 | `authority-tools.test.ts` | The cancel of a worker of another session is refused, and the pane stays. The steer of a worker of another session is refused, and the pane receives nothing. The cleanup of a worker of another session is refused, and the transcript stays. The resume of a worker of another session is refused, and the request counts no launch. A session without an identity cancels a worker. A worker without an ownership row is cancelled. A release that starts during a cancel waits for the cancel. The cancel of a task that this session is releasing or released is refused. |
+| `authority-record.test.ts` | The ack of a session that does not own the task is refused, and the table of the handling holds no row. The resolve of a session that does not own the task is refused, and the table of the resolutions holds no row. The ack checks the worker of the event, not the worker of the parameter. The owner of a task records an ack and a resolve with the generation. An event without a worker is acknowledged. A session without an identity acknowledges an event. A task without an ownership row acknowledges an event. The delivery of a session that does not own the task sends no message, writes no attempt, and warns once. The delivery of the owner sends the message and writes one sent attempt. |
 
 The integration tests run a real `omp` worker in a real WezTerm pane. They
 take about a minute each.
