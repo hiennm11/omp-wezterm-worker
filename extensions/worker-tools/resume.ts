@@ -2,12 +2,14 @@
  * wezterm_worker_resume
  */
 
+import { cleanupRefusal, refusalDetails } from "../lib/authority.ts";
 import { readBackend } from "../lib/backend.ts";
 import type { ToolCtx } from "../lib/host.ts";
 import { isActive } from "../lib/job.ts";
 import { admitLaunch } from "../lib/limits.ts";
 import { monitorJob, monitorNativeJob } from "../lib/monitor.ts";
-import { acquireTask, bindSession, maySupervise } from "../lib/owner.ts";
+import { acquireTask, bindSession, maySupervise, taskKey } from "../lib/owner.ts";
+import { readOwnership } from "../lib/ownership.ts";
 import { resumeClaudeWorker } from "../lib/resume-claude.ts";
 import { resumeWorker } from "../lib/spawn.ts";
 import { findJob, refusalReply, reply, type ToolDeps } from "./kit.ts";
@@ -47,66 +49,74 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 					true,
 				);
 			}
-			const admitted = admitLaunch(rt, ctx.sessionManager?.getSessionFile?.());
-			if ("refusal" in admitted) return refusalReply(admitted.refusal);
-			bindSession(rt, ctx.sessionManager);
-			const acquisition = await acquireTask(rt, admitted.jobId);
-			if (!maySupervise(acquisition)) {
+			/* The gate holds the action while the release waits for it. The
+			   authority of the source run is checked before the launch, so a
+			   refused resume counts no launch. */
+			return rt.runAction(`resume:${job.id}`, async () => {
+				const owner = readOwnership(rt.openDb(), taskKey(job.id)).owner;
+				const refusal = cleanupRefusal(owner, rt.sessionId, job.id);
+				if (refusal) return reply(refusal, refusalDetails(job.id, owner), true);
+				const admitted = admitLaunch(rt, ctx.sessionManager?.getSessionFile?.());
+				if ("refusal" in admitted) return refusalReply(admitted.refusal);
+				bindSession(rt, ctx.sessionManager);
+				const acquisition = await acquireTask(rt, admitted.jobId);
+				if (!maySupervise(acquisition)) {
+					return reply(
+						`The task of worker ${admitted.jobId} cannot be acquired: ${acquisition.acquired ? "" : acquisition.reason}`,
+						{ acquired: false },
+						true,
+					);
+				}
+				/* A native worker resumes in the same native session. A run
+				   without a native session id cannot be resumed, because the
+				   extension never starts a different session behind the owner's
+				   back. */
+				const backend = readBackend(job);
+				const sessionId = job.nativeSessionId ?? null;
+				if (backend !== "omp" && !sessionId) {
+					return reply(
+						`Worker ${job.id} has no native session id. It cannot be resumed.`,
+						{ workerId: job.id, backend },
+						true,
+					);
+				}
+				const resumed =
+					backend === "omp"
+						? await resumeWorker(rt, job, {
+								jobId: admitted.jobId,
+								message: params.message,
+								placement: params.placement === "tab" ? "tab" : "split",
+							})
+						: await resumeClaudeWorker(rt, {
+								jobId: admitted.jobId,
+								source: job,
+								sessionId: sessionId as string,
+								message: params.message,
+							});
+				if (resumed.status === "failed") {
+					return reply(
+						`Could not resume worker: ${resumed.error ?? "unknown error"}`,
+						{ workerId: resumed.id, status: resumed.status, error: resumed.error },
+						true,
+					);
+				}
+				/* A native worker reports through its own bridge. */
+				if (readBackend(resumed) === "omp") monitorJob(rt, resumed, deliver);
+				else monitorNativeJob(rt, resumed, deliver);
+				const transcript = resumed.sessionFile ?? resumed.sessionDir;
 				return reply(
-					`The task of worker ${admitted.jobId} cannot be acquired: ${acquisition.acquired ? "" : acquisition.reason}`,
-					{ acquired: false },
-					true,
+					`Worker ${job.id} resumed as ${resumed.id} in pane ${resumed.paneId}.\n` +
+						`transcript: ${transcript}\n\n` +
+						"It continues from its transcript. Its next result is delivered back automatically.",
+					{
+						workerId: resumed.id,
+						resumedFrom: job.id,
+						paneId: resumed.paneId,
+						status: resumed.status,
+						transcript,
+					},
 				);
-			}
-			/* A native worker resumes in the same native session. A run
-			   without a native session id cannot be resumed, because the
-			   extension never starts a different session behind the owner's
-			   back. */
-			const backend = readBackend(job);
-			const sessionId = job.nativeSessionId ?? null;
-			if (backend !== "omp" && !sessionId) {
-				return reply(
-					`Worker ${job.id} has no native session id. It cannot be resumed.`,
-					{ workerId: job.id, backend },
-					true,
-				);
-			}
-			const resumed =
-				backend === "omp"
-					? await resumeWorker(rt, job, {
-							jobId: admitted.jobId,
-							message: params.message,
-							placement: params.placement === "tab" ? "tab" : "split",
-						})
-					: await resumeClaudeWorker(rt, {
-							jobId: admitted.jobId,
-							source: job,
-							sessionId: sessionId as string,
-							message: params.message,
-						});
-			if (resumed.status === "failed") {
-				return reply(
-					`Could not resume worker: ${resumed.error ?? "unknown error"}`,
-					{ workerId: resumed.id, status: resumed.status, error: resumed.error },
-					true,
-				);
-			}
-			/* A native worker reports through its own bridge. */
-			if (readBackend(resumed) === "omp") monitorJob(rt, resumed, deliver);
-			else monitorNativeJob(rt, resumed, deliver);
-			const transcript = resumed.sessionFile ?? resumed.sessionDir;
-			return reply(
-				`Worker ${job.id} resumed as ${resumed.id} in pane ${resumed.paneId}.\n` +
-					`transcript: ${transcript}\n\n` +
-					"It continues from its transcript. Its next result is delivered back automatically.",
-				{
-					workerId: resumed.id,
-					resumedFrom: job.id,
-					paneId: resumed.paneId,
-					status: resumed.status,
-					transcript,
-				},
-			);
+			});
 		},
 	});
 }
