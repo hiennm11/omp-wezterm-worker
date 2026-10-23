@@ -8,6 +8,7 @@
 
 import { attachWorker } from "../lib/attach.ts";
 import { readBackend } from "../lib/backend.ts";
+import { isActive } from "../lib/job.ts";
 import { previousOwnerState, taskKey } from "../lib/owner.ts";
 import { readOwnership, takeOverOwnership } from "../lib/ownership.ts";
 import { findJob, reply, type ToolDeps } from "./kit.ts";
@@ -47,11 +48,7 @@ export function registerTakeoverTool({ pi, rt, deliver }: ToolDeps): void {
 			const { job } = found;
 			const held = readOwnership(rt.openDb(), taskKey(job.id)).owner;
 			if (!held) {
-				return refuse(
-					job.id,
-					"no-owner",
-					`Worker ${job.id} has no owner. A takeover is not needed.`,
-				);
+				return refuse(job.id, "no-owner", `Worker ${job.id} has no owner. A takeover is not needed.`);
 			}
 			const sessionId = rt.sessionId;
 			if (sessionId === null) {
@@ -62,11 +59,7 @@ export function registerTakeoverTool({ pi, rt, deliver }: ToolDeps): void {
 				);
 			}
 			if (held.sessionId === sessionId) {
-				return refuse(
-					job.id,
-					"own",
-					`This session already owns worker ${job.id}.`,
-				);
+				return refuse(job.id, "own", `This session already owns worker ${job.id}.`);
 			}
 			// A native worker has no transcript, so the monitor cannot read it.
 			if (readBackend(job) !== "omp") {
@@ -100,6 +93,16 @@ export function registerTakeoverTool({ pi, rt, deliver }: ToolDeps): void {
 			);
 			if (!written.ok) {
 				return refuse(job.id, "changed", written.reason);
+			}
+			// A finished worker needs no monitor. The new owner holds the
+			// authority for its pending events, but the worker stays as it is.
+			if (!isActive(job)) {
+				return reply(
+					`This session now owns worker ${job.id} (generation ${written.generation}). ` +
+						`The worker is already ${job.status}, so the session starts no monitor. ` +
+						"Pending events are not replayed. Read them with wezterm_worker_status.",
+					{ workerId: job.id, taken: true, generation: written.generation },
+				);
 			}
 			// The session now owns the worker, so it must watch it.
 			await attachWorker(rt, job, deliver);

@@ -166,6 +166,10 @@ The write therefore compares the generation that the check read.
 The write refuses the takeover when the generation moved in the meantime.
 The write moves the generation forward by one and sets the phase to active.
 
+A takeover of a finished worker moves the ownership and starts no monitor.
+The finished worker keeps its status, its result and its error.
+The new owner holds the authority for the pending events of that worker.
+
 A takeover does not replay the pending events of the worker.
 The main session reads the pending events with the status tool.
 The replay of a pending event after a takeover is a separate change.

@@ -375,8 +375,10 @@ whose pane was closed while OMP was down is marked `failed`.
 session. The takeover needs a released task, or an owner process that is
 confirmed gone. A live owner process keeps the task, and an unreadable process
 table refuses the takeover. The write compares the generation that the check
-read, so an ownership that moves at the same time refuses the takeover. The
-takeover does not replay the pending events. The main session reads them with
+read, so an ownership that moves at the same time refuses the takeover. A
+takeover of a finished worker moves the ownership and starts no monitor, so
+the finished worker keeps its status, its result and its error. The takeover
+does not replay the pending events. The main session reads them with
 `wezterm_worker_status`.
 
 The old `registry.json` is migrated into the database once. The file stays on
@@ -730,7 +732,7 @@ test.
 | `wait-result.test.ts` | A wait result with a completed job settles the row of that job, and the completion blocker is null. A wait result with a failed job settles the row. A wait result with a cancelled job settles the row. A wait result with a running job keeps the row open. A wait result and an async result for the same job settle the row once, and the second signal does not overwrite the settlement evidence. A wait result without jobs changes nothing. An interrupted wait result changes nothing. An async result with a running job keeps the row open. A wait result for a job without a row creates no row. |
 | `report-poll.test.ts` | The report poll keeps a worker that has an open call. The report poll ends a worker when the result of its call arrives. |
 | `status-blocker.test.ts` | The status prints the completion blocker of a worker that cannot end. |
-| `takeover.test.ts` | A released task of another session is taken over. A dead owner process gives the task. A live owner process keeps the task. An unreadable process table refuses the takeover. A native worker refuses the takeover. An ownership that changes during the check refuses the takeover. A takeover of a live worker starts the monitor. |
+| `takeover.test.ts` | A released task of another session is taken over. A dead owner process gives the task. A live owner process keeps the task. An unreadable process table refuses the takeover. A native worker refuses the takeover. An ownership that changes during the check refuses the takeover. A takeover of a live worker starts the monitor. A takeover of a finished worker keeps its status and starts no monitor. |
 | `group-release.test.ts` | A run that ends with its pane closed frees its group, and a new resume takes it. A run that ends with its pane alive keeps its group. A failed launch of a resume frees the group. The recovery frees a group whose holder ended, and it keeps a group whose holder is active, has no job, or still has a live pane. |
 | `resume-pane.test.ts` | A resume refuses a source run whose pane is still open. A resume refuses a source run when the pane list cannot be read. A resume goes on when the pane of the source run is gone. A resume of a source run without a pane reads no pane list. A resume refuses a completed source run whose pane is still open. A native resume refuses a source run whose pane is still open, and it starts no bridge. |
 | `group-lookup.test.ts` | A run finds its group through its session directory. A run without a group has no group. |

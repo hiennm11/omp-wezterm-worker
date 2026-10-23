@@ -19,11 +19,7 @@ import type { WorkerRuntime } from "./runtime.ts";
  * closed by the user ends the worker instead of hanging forever. An
  * unreadable pane list keeps the monitor, which retries any pending stop.
  */
-export async function attachWorker(
-	rt: WorkerRuntime,
-	job: Job,
-	notify: (job: Job) => void,
-): Promise<void> {
+export async function attachWorker(rt: WorkerRuntime, job: Job, notify: (job: Job) => void): Promise<void> {
 	if (job.paneId === null || (await paneState(rt, job.paneId)) !== "gone") {
 		monitorJob(rt, job, notify);
 		return;

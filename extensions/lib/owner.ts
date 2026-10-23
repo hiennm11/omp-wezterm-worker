@@ -76,10 +76,7 @@ export type PreviousOwnerState =
  * The acquisition and the takeover both need this evidence. A process that
  * cannot be read is unknown, never gone.
  */
-export async function previousOwnerState(
-	rt: WorkerRuntime,
-	held: Ownership,
-): Promise<PreviousOwnerState> {
+export async function previousOwnerState(rt: WorkerRuntime, held: Ownership): Promise<PreviousOwnerState> {
 	if (held.processId === null || held.processStartedAt === null) {
 		return { state: "unknown", reason: "The previous owner process is not recorded." };
 	}
