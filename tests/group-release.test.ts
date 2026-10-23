@@ -19,7 +19,7 @@ import {
 	reserveExecution,
 	type ResourceGroup,
 } from "../extensions/lib/groups.ts";
-import { groupsToRelease } from "../extensions/lib/group-recovery.ts";
+import { groupsToRelease, releaseEndedGroups } from "../extensions/lib/group-recovery.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { finalizeJob } from "../extensions/lib/lifecycle.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
@@ -200,4 +200,24 @@ test("the recovery keeps a group whose holder ended with a live pane", () => {
 	const groups = [heldGroup("grp-1", "run-1")];
 	const jobs = [jobOf("run-1", { status: "failed", paneId: 7, paneClosed: false })];
 	assert.deepEqual(groupsToRelease(groups, jobs), []);
+});
+
+test("the recovery frees the group of a holder that ended with its pane closed", () => {
+	const { rt, dir } = freshRuntime(okExec);
+	try {
+		const db = rt.openDb();
+		createGroup(db, "grp-1", "C:/state/sessions/wz-1", 1000);
+		reserveExecution(db, "grp-1", "run-1", 1001);
+		const jobs = [jobOf("run-1", { status: "failed", paneId: 7, paneClosed: true })];
+
+		const freed = releaseEndedGroups(db, jobs, 1002);
+
+		assert.deepEqual(freed, ["grp-1"]);
+		const group = readGroup(db, "grp-1");
+		assert.equal(group?.executionHolder, null);
+		assert.equal(group?.executionState, "free");
+	} finally {
+		rt.closeDb();
+		rmSync(dir, { recursive: true, force: true });
+	}
 });
