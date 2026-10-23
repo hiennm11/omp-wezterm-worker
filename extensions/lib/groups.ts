@@ -34,7 +34,8 @@ export interface ResourceGroup {
 /**
  * Create a group for a spawn.
  *
- * A spawn creates the group. A resume keeps the group of its source run.
+ * A spawn creates the group. A resume keeps the group of the task, which it
+ * finds through the session directory.
  */
 export function createGroup(db: LifecycleDb, id: string, sessionDir: string, now: number): ResourceGroup {
 	return db.write(() => {
@@ -83,6 +84,22 @@ export function readGroup(db: LifecycleDb, id: string): ResourceGroup | null {
 	const row = db.handle.prepare(`SELECT ${GROUP_COLUMNS} FROM resource_groups WHERE id = ?`).get(id) as
 		| Record<string, unknown>
 		| undefined;
+	if (!row) return null;
+	return groupOf(row);
+}
+
+/**
+ * The group of a run, or null when the run has no group.
+ *
+ * A run stores no group id. It finds its group through the session
+ * directory, because every run of a task shares that directory. A run from
+ * before the groups existed has no directory in the table, so it has no
+ * group.
+ */
+export function groupOfRun(db: LifecycleDb, run: { sessionDir: string }): ResourceGroup | null {
+	const row = db.handle
+		.prepare(`SELECT ${GROUP_COLUMNS} FROM resource_groups WHERE session_dir = ?`)
+		.get(run.sessionDir) as Record<string, unknown> | undefined;
 	if (!row) return null;
 	return groupOf(row);
 }
@@ -184,8 +201,7 @@ export function reserveExecution(
  * Release every group that a run holds.
  *
  * A run does not store its group id, so the release works on the holder. The
- * group of a run is the group of its source run, and the holder of the group
- * is the id of the run that reserved it.
+ * holder of a group is the id of the run that reserved it.
  */
 export function releaseExecutionByHolder(db: LifecycleDb, runId: string, now: number): void {
 	db.write(() => {

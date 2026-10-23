@@ -178,6 +178,7 @@ _Avoid_: pending call
 
 **Resource group**:
 The shared transcript directory and worktree that two runs of one task use.
+A run finds its group through its session directory.
 _Avoid_: Session directory, worktree, task
 
 **Group release**:

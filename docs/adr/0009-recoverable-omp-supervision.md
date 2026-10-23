@@ -76,6 +76,7 @@ If execution disappears without completion or a stop intent, record execution lo
 Create one intervention event. Never restart automatically.
 
 Each launch and each resume belongs to a resource group. The group names the shared transcript directory and the isolated worktree.
+A run finds its group through its session directory, so a resume of a resumed run takes the group of the first run of the task.
 A resume reserves execution for the group before it reads the baseline and before it starts a pane.
 Refuse a resume when another run in that group holds a reservation.
 Refuse a resume when the previous pane is still present or when its health is unknown.
