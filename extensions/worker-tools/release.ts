@@ -7,6 +7,7 @@
  */
 
 import { clearHandover } from "../lib/bridge-handover.ts";
+import { generationOf, taskKey } from "../lib/owner.ts";
 import { beginRelease, commitRelease } from "../lib/ownership.ts";
 import { findJob, reply, type ToolDeps } from "./kit.ts";
 
@@ -27,13 +28,20 @@ export function registerReleaseTool({ pi, rt }: ToolDeps): void {
 			const found = findJob(rt, params.workerId);
 			if ("error" in found) return found.error;
 			const { job } = found;
-			const taskKey = `task-${job.id}`;
+			const key = taskKey(job.id);
 			const db = rt.openDb();
-			const ownerId = rt.ownerId ?? "unknown";
+			const generation = generationOf(rt, job.id);
+			if (rt.sessionId === null || generation === null) {
+				return reply(
+					`This session does not own worker ${job.id}, so it cannot release it.`,
+					{ workerId: job.id, released: false },
+					true,
+				);
+			}
 
 			// The phase moves to releasing first. Every external action that
 			// starts after this point is refused by the authority check.
-			const begin = beginRelease(db, taskKey, ownerId, rt.ownerGeneration, Date.now());
+			const begin = beginRelease(db, key, rt.sessionId, generation, Date.now());
 			if (!begin.ok) {
 				return reply(
 					`The release of worker ${job.id} failed: ${begin.reason}`,
@@ -60,7 +68,7 @@ export function registerReleaseTool({ pi, rt }: ToolDeps): void {
 				);
 			}
 
-			const commit = commitRelease(db, taskKey, ownerId, rt.ownerGeneration, Date.now());
+			const commit = commitRelease(db, key, rt.sessionId, generation, Date.now());
 			if (!commit.ok) {
 				return reply(
 					`The release of worker ${job.id} failed: ${commit.reason}`,

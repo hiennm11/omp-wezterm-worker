@@ -536,6 +536,7 @@ omp-wezterm-worker/
 │   │   ├── db.ts                the lifecycle database
 │   │   ├── migrate.ts           the one-time migration of the old registry
 │   │   ├── ownership.ts         the ownership of a task and its release
+│   │   ├── owner.ts             the acquisition of a task by this session
 │   │   ├── attempts.ts          the launch attempts and the capacity
 │   │   ├── groups.ts            the resources that two runs share
 │   │   ├── executions.ts        the execution ledger of a run
@@ -545,7 +546,7 @@ omp-wezterm-worker/
 │   │   ├── stop-intent.ts       the stop intents of a run
 │   │   ├── recovery.ts          the recovery of the stored records
 │   │   ├── correlation.ts       finding a live worker by its command line
-│   │   ├── process-table.ts     reading the process table of the machine
+│   │   ├── process-table.ts     reading the process table and the start time of a process
 │   │   ├── role.ts              the role of a process, main or worker
 │   │   ├── bootstrap-prompt.ts  the reporting contract of a worker
 │   │   ├── ste100.ts            the Simplified Technical English checker
@@ -674,7 +675,8 @@ test.
 | `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
 | `result.integration.test.ts` | The result tool returns the answer of a finished worker. |
-| `live-worker.integration.test.ts` | A running worker can be steered, peeked at and cancelled. A steering message reaches the worker. A cancel closes only the pane that the extension created. A worker past its deadline is stopped and its pane is confirmed closed. |
+| `live-worker.integration.test.ts` | A running worker can be steered, peeked at and cancelled. A steering message reaches the worker. A cancel closes only the pane that the extension created. A worker past its deadline is stopped and its pane is confirmed closed. A session releases the worker that it started, and the worker keeps running. |
+| `owner.test.ts` | A session that starts a worker owns it. A session without an identity acquires nothing. The same session acquires its task again after a restart only when the old process is gone. A second live process of the same session does not take the task. A reused process id does not count as the old owner. An unreadable process table refuses the acquisition. Another session never takes a task. |
 | `trial-report.test.ts` | The report names a failing check. A check detail stays on one line. The report holds no path of the machine. |
 | `trial-paths.test.ts` | A path under the project becomes a relative path. A path outside it becomes a placeholder. The name of the user never appears. |
 | `registration.test.ts` | The extension registers the eight tools that the agent needs. It registers the roster command. |

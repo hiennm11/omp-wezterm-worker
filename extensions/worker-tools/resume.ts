@@ -7,6 +7,7 @@ import type { ToolCtx } from "../lib/host.ts";
 import { isActive } from "../lib/job.ts";
 import { admitLaunch } from "../lib/limits.ts";
 import { monitorJob, monitorNativeJob } from "../lib/monitor.ts";
+import { acquireTask, bindSession, maySupervise } from "../lib/owner.ts";
 import { resumeClaudeWorker } from "../lib/resume-claude.ts";
 import { resumeWorker } from "../lib/spawn.ts";
 import { findJob, refusalReply, reply, type ToolDeps } from "./kit.ts";
@@ -48,6 +49,15 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 			}
 			const admitted = admitLaunch(rt, ctx.sessionManager?.getSessionFile?.());
 			if ("refusal" in admitted) return refusalReply(admitted.refusal);
+			bindSession(rt, ctx.sessionManager);
+			const acquisition = await acquireTask(rt, admitted.jobId);
+			if (!maySupervise(acquisition)) {
+				return reply(
+					`The task of worker ${admitted.jobId} cannot be acquired: ${acquisition.acquired ? "" : acquisition.reason}`,
+					{ acquired: false },
+					true,
+				);
+			}
 			/* A native worker resumes in the same native session. A run
 			   without a native session id cannot be resumed, because the
 			   extension never starts a different session behind the owner's

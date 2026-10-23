@@ -27,7 +27,7 @@ export interface ToolDef {
 		args: unknown,
 		signal: unknown,
 		onUpdate: unknown,
-		ctx: { cwd: string },
+		ctx: { cwd: string; sessionManager?: { getSessionId: () => string | undefined } },
 	) => Promise<ToolResult>;
 }
 
@@ -156,7 +156,7 @@ export async function closePanesAndWait(paneIds: Iterable<number>, timeoutMs = 3
  * `stateDir` holds the registry and the transcripts. The environment is set
  * before the extension reads its config.
  */
-export function createHost(options: { stateDir?: string; cwd: string }): TestHost {
+export function createHost(options: { stateDir?: string; cwd: string; sessionId?: string }): TestHost {
 	const stateDir = options.stateDir ?? mkdtempSync(join(tmpdir(), "wt-host-"));
 	process.env.OMP_WORKER_STATE_DIR = stateDir;
 
@@ -177,7 +177,11 @@ export function createHost(options: { stateDir?: string; cwd: string }): TestHos
 		async call(name, args) {
 			const tool = host.tools.get(name);
 			if (!tool) throw new Error(`The extension did not register the tool ${name}`);
-			const result = await tool.execute("test", args, undefined, undefined, { cwd: options.cwd });
+			const sessionManager = options.sessionId ? { getSessionId: () => options.sessionId } : undefined;
+			const result = await tool.execute("test", args, undefined, undefined, {
+				cwd: options.cwd,
+				sessionManager,
+			});
 			// Remember every pane the extension created, so the cleanup can
 			// close it. A worker process holds its directory open.
 			if (name === "wezterm_spawn_worker" || name === "wezterm_worker_resume") {
@@ -258,9 +262,10 @@ export function createHost(options: { stateDir?: string; cwd: string }): TestHos
 }
 
 /** The event context the host passes to a `session_start` handler. */
-export function sessionContext(cwd: string): unknown {
+export function sessionContext(cwd: string, sessionId?: string): unknown {
 	return {
 		cwd,
+		sessionManager: sessionId ? { getSessionId: () => sessionId } : undefined,
 		setInterval(fn: () => void, ms: number) {
 			const handle = setInterval(fn, ms);
 			handle.unref?.();

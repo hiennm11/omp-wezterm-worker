@@ -160,6 +160,7 @@ The OMP host runs the Bun runtime. Bun implements the module `node:sqlite` in fu
 A live OMP session opened a database through `node:sqlite`, wrote a row, and read it back.
 The host exposes a stable session identity. The session header holds the field `id`, and a session keeps it across a move.
 Use that field for ownership. Do not use the session file path for that purpose.
+A probe extension on the live host called `ctx.sessionManager.getSessionId()` in a `session_start` handler and in a tool call. Both calls returned the same UUIDv7. The extension reads the identity through this method.
 A tool call and its result share an id. A `toolCall` block holds `id`, and a `toolResult` message holds `toolCallId`.
 The tool result details persist in the transcript. Use them as settlement evidence.
 The background work of the `job` tool reports its job id and status in the tool result details.

@@ -131,10 +131,10 @@ export interface WorkerRuntime {
 	readonly ownerTools: Map<string, OwnerToolDefinition>;
 	/** Register a tool that only the owner of a task may call. */
 	registerOwnerTool: (definition: OwnerToolDefinition) => void;
-	/** The identity of the owner of this process. Null when it owns nothing. */
-	ownerId: string | null;
-	/** The generation of the ownership of this process. */
-	ownerGeneration: number;
+	/** The id of this process. It identifies the process incarnation of an owner. */
+	processId: number;
+	/** The start time of this process, read once on the first claim. Null until then. */
+	processStartedAt: string | null;
 	/** The role of this process. A worker never supervises another worker. */
 	role: "main" | "worker";
 	/**
@@ -184,8 +184,8 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 		sessionId: null,
 		workerTools: new Map(),
 		ownerTools: new Map(),
-		ownerId: null,
-		ownerGeneration: 0,
+		processId: process.pid,
+		processStartedAt: null,
 		role: "main",
 		pendingActions: new Set(),
 		bridges: new Map(),

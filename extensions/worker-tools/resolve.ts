@@ -8,6 +8,7 @@
 
 import { readEvent } from "../lib/events.ts";
 import type { ToolCtx } from "../lib/host.ts";
+import { generationOf } from "../lib/owner.ts";
 import { type OwnerResolution, RESOLUTIONS, recordResolution } from "../lib/resolution.ts";
 import { reply, type ToolDeps } from "./kit.ts";
 
@@ -70,8 +71,8 @@ export function registerResolveTool({ pi, rt }: ToolDeps): void {
 				event.runId,
 				resolution,
 				evidenceNote,
-				rt.ownerId,
-				rt.ownerGeneration,
+				rt.sessionId,
+				generationOf(rt, workerId),
 				Date.now(),
 			);
 			if (!outcome.ok) {

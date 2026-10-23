@@ -102,7 +102,7 @@ _Avoid_: Style check, lint, grammar check
 
 ## Agreed supervision terms
 
-These terms describe the next release. The current runtime does not yet enforce them.
+These terms describe the supervision model. The runtime enforces the acquisition and the release of a task. It does not yet enforce the takeover, and it does not check the authority of every action.
 
 **Task state**:
 The worker's declared condition: working, waiting, needs input, or completed.
@@ -112,6 +112,10 @@ _Avoid_: Pane state, process health
 **Supervision owner**:
 The main session with exclusive authority to control a worker and deliver its events.
 _Avoid_: Watcher, daemon, recipient
+
+**Acquisition**:
+The first claim of a task by the main session that started its worker, and the renewed claim of the same session after a restart.
+_Avoid_: Claim, lock, registration
 
 **Takeover**:
 An explicit transfer of supervision to a different main session after the previous owner releases authority or exits.

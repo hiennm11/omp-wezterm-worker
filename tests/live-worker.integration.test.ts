@@ -227,3 +227,33 @@ test("a worker past its deadline is stopped and its pane is confirmed closed", {
 		removeDir(repo);
 	}
 });
+
+test("a session releases the worker that it started, and the worker keeps running", {
+	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+}, async () => {
+	const repo = mkdtempSync(join(tmpdir(), "wt-release-"));
+	const stateDir = mkdtempSync(join(tmpdir(), "wt-live-state-"));
+	const host = createHost({ stateDir, cwd: repo, sessionId: "session-release" });
+	await host.fire("session_start", sessionContext(repo, "session-release"));
+
+	try {
+		const spawned = await host.call("wezterm_spawn_worker", {
+			task: LONG_TASK,
+			cwd: repo,
+			label: "release",
+		});
+		const workerId = detailString(spawned.details, "workerId") ?? "";
+		const paneId = detailNumber(spawned.details, "paneId") ?? -1;
+		assert.ok(workerId, "The spawn tool returned no worker id");
+
+		const released = await host.call("wezterm_worker_release", { workerId });
+		assert.equal(released.isError, undefined, `The release tool failed: ${host.text(released)}`);
+		assert.equal(detailBoolean(released.details, "released"), true);
+
+		// The authority moved. The worker itself stays alive.
+		assert.ok(currentPanes().includes(paneId), "The release closed the pane of the worker");
+	} finally {
+		await host.cleanup();
+		removeDir(repo);
+	}
+});

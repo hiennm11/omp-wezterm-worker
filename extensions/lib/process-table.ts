@@ -56,3 +56,24 @@ export function parseProcessRows(raw: string): ProcessRow[] {
 	}
 	return result;
 }
+
+/**
+ * The start time of one process.
+ *
+ * The start time tells two incarnations of the same process id apart. A
+ * process that does not exist gives `startedAt: null`. A command that fails
+ * gives `ok: false`, and the caller treats the process as unknown, never as
+ * gone.
+ */
+export async function readProcessStart(
+	rt: WorkerRuntime,
+	processId: number,
+): Promise<{ ok: true; startedAt: string | null } | { ok: false }> {
+	const script = `$p = Get-Process -Id ${Math.trunc(processId)} -ErrorAction SilentlyContinue; if ($p) { $p.StartTime.ToUniversalTime().ToString('o') }`;
+	const result = await rt.exec("powershell", ["-NoProfile", "-Command", script]);
+	if (result.code !== 0) {
+		rt.errors.push(`The start time of process ${processId} cannot be read: ${describeFailure(result)}`);
+		return { ok: false };
+	}
+	return { ok: true, startedAt: result.stdout.trim() || null };
+}
