@@ -10,8 +10,11 @@ import { join } from "node:path";
 
 import { clearHandover } from "./bridge-handover.ts";
 import type { BridgeState } from "./claude-bridge.ts";
+import { outstandingExecutions } from "./executions.ts";
 import { failJob, type Job, type JobStatus, type PendingStop } from "./job.ts";
 import { closePaneConfirmed, killPane } from "./pane.ts";
+import { completionBlocker, reportState } from "./report-decision.ts";
+import { readReports } from "./report-store.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { confirmStopIntent, failStopIntent, recordStopIntent } from "./stop-intent.ts";
 import { inspectWorktree } from "./worktree.ts";
@@ -153,10 +156,26 @@ export async function cancelJob(
 	return stopJob(rt, job, "cancelled", "Cancelled by the main agent");
 }
 
-/** End a restored worker whose pane is gone. A pending stop is confirmed by the missing pane. */
+/**
+ * End a restored worker whose pane is gone. A pending stop is confirmed by the missing pane.
+ *
+ * Without a pending stop, a completion report on disk still proves that the
+ * task finished (ADR 0001). The same blocker as the live monitor applies, so
+ * the recovery path never completes a worker that the monitor would refuse.
+ */
 export async function settleDetachedJob(rt: WorkerRuntime, job: Job): Promise<void> {
 	const pending = job.pendingStop;
 	if (pending === null) {
+		const { state, result } = reportState(readReports(job.sessionDir, job.id));
+		if (state === "completed") {
+			const rows = outstandingExecutions(rt.openDb(), job.id);
+			const unknown = rows.filter((row) => row.state === "unknown").length;
+			if (!completionBlocker(rows.length - unknown, unknown)) {
+				job.paneClosed = true;
+				await finalizeJob(rt, job, "completed", null, result ?? "");
+				return;
+			}
+		}
 		failJob(job, "Worker pane was closed before this session re-attached");
 		rt.persist();
 		return;
