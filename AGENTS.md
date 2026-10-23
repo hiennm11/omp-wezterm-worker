@@ -49,6 +49,32 @@ These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
 - When you change code, update or remove only the related comments that are out of date.
 - Do not change logic only to satisfy this rule.
 
+## Workers and the orchestrator
+
+- Give the implementation to a worker with `isolated: true`. The orchestrator keeps the grilling, the facts, the task text and the verification.
+- Put the full design in the task text. A worker cannot read the conversation.
+- Write the task text in English. Score it with `node tooling/ste100-cli.ts <file>` before you send it. The score must be 80 or more.
+- Tell the worker to write each red test first and to run it on `master`.
+- Check the report of a worker against the code. A claim without a file and a line is not evidence.
+- A worker commits on its own branch. It does not push and does not open a pull request.
+- Change `GLOSSARY.md`, the ADR and `README.md` in the same change as the code.
+
+## Commands and tools
+
+- Run every test with `env -u OMP_WORKER_SESSION_DIR -u PI_SESSION_FILE`. These variables make 5 unit tests fail.
+- Run GitNexus impact with `--repo omp-wezterm-worker`. Without it the command prints an error that a filter can hide.
+- `finalizeJob` has CRITICAL impact and `stopJob` has HIGH impact. Keep a change in them small.
+- `package.json` has `eol=crlf`. After an edit, run `git add --renormalize package.json` and `npx biome format --write package.json`.
+- Read a file before an edit and copy its tag. Never invent a tag.
+- OMP reads the configuration once at start. A change of code or configuration needs a restart of OMP.
+
+## Git
+
+- Do not push `master`. Use a branch and a pull request.
+- Merge with `gh pr merge N --rebase`. Delete the branch by hand, because the repository does not delete it.
+- Stage files by name. Never run `git add -A`.
+- Do not merge a pull request without approval of the owner. Do not delete a worktree without it.
+
 ## Documents
 
 - Keep each document that an agent reads at a score of 80 or more. Run `npm run ste100`.
@@ -63,7 +89,7 @@ These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **omp-wezterm-worker** (1298 symbols, 3816 relationships, 103 execution flows). Use GitNexus graph tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **omp-wezterm-worker** (1362 symbols, 4019 relationships, 108 execution flows). Use GitNexus graph tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? Bootstrap with `npx`, `bunx`, or `pnpm dlx` — e.g. `bunx gitnexus@latest analyze` (npm 11 npx crash; #1939).
 
