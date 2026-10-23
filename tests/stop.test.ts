@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -9,6 +9,8 @@ import { freshRunState, isActive, type Job } from "../extensions/lib/job.ts";
 import { cancelJob, settleDetachedJob, stopJob } from "../extensions/lib/lifecycle.ts";
 import { monitorJob } from "../extensions/lib/monitor.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
+import type { WorkerReport } from "../extensions/lib/report-model.ts";
+import { appendReport } from "../extensions/lib/report-store.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { usageReport } from "../extensions/lib/usage.ts";
 
@@ -195,6 +197,53 @@ test("a restored worker with a pending stop ends with the pending status once it
 		await settleDetachedJob(f.rt, job);
 		assert.equal(job.status, "cancelled");
 		assert.equal(job.pendingStop, null);
+	} finally {
+		f.cleanup();
+	}
+});
+
+/** A session directory of a job, with the given reports. */
+function sessionDirOf(rt: WorkerRuntime, jobId: string, reports: WorkerReport[]): string {
+	const dir = join(rt.config.stateDir, "sessions", jobId);
+	mkdirSync(dir, { recursive: true });
+	for (const report of reports) appendReport(dir, report);
+	return dir;
+}
+
+test("a restored worker whose report says completed ends completed with the result", async () => {
+	const f = fake(GONE);
+	try {
+		const job = runningJob();
+		job.sessionDir = sessionDirOf(f.rt, job.id, [
+			{
+				runId: job.id,
+				cycleId: null,
+				state: "completed",
+				result: "THE-ANSWER",
+				dependency: null,
+				resumeCondition: null,
+				needs: null,
+				detail: null,
+			},
+		]);
+		await settleDetachedJob(f.rt, job);
+		assert.equal(job.status, "completed");
+		assert.equal(job.result, "THE-ANSWER");
+		assert.equal(job.error, null);
+	} finally {
+		f.cleanup();
+	}
+});
+
+test("a restored worker without a report still ends failed with the pane error", async () => {
+	const f = fake(GONE);
+	try {
+		const job = runningJob();
+		job.sessionDir = sessionDirOf(f.rt, job.id, []);
+		await settleDetachedJob(f.rt, job);
+		assert.equal(job.status, "failed");
+		assert.equal(job.result, null);
+		assert.equal(job.error, "Worker pane was closed before this session re-attached");
 	} finally {
 		f.cleanup();
 	}
