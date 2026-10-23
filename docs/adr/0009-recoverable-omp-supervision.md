@@ -22,6 +22,7 @@ The supervisor does not claim to discover every detached process.
 The run keeps an execution ledger. Each row holds an execution id, start evidence, an observation method, and settlement evidence.
 A row opens when the transcript shows a tool call that carries an id.
 A row settles when a tool result carries that same id. One result never settles another call.
+A call that starts a background job settles only when an `async-result` entry names its job id.
 A row that never settles keeps an unknown state. An unknown row blocks a completion report.
 Do not infer settlement from an open pane, from transcript growth, or from an empty tool value.
 
@@ -163,6 +164,12 @@ Use that field for ownership. Do not use the session file path for that purpose.
 A probe extension on the live host called `ctx.sessionManager.getSessionId()` in a `session_start` handler and in a tool call. Both calls returned the same UUIDv7. The extension reads the identity through this method.
 A tool call and its result share an id. A `toolCall` block holds `id`, and a `toolResult` message holds `toolCallId`.
 The tool result details persist in the transcript. Use them as settlement evidence.
+A probe of real transcripts confirmed the shape of a result that starts a background job. The details hold the job id:
+`{"details":{"async":{"state":"running","jobId":"bg_5","type":"bash"}}}`
+A probe of real transcripts confirmed the shape of the entry that ends a background job. The entry is a custom message, not a message:
+`{"type":"custom_message","customType":"async-result","details":{"jobs":[{"jobId":"bg_5","type":"bash","status":"completed"}]}}`
+The entry appears only after the job ended. The status of the job is `completed` or `failed`.
+A row that stays open becomes unknown when the worker stops. The owner resolves the event `execution_loss` with `wezterm_worker_resolve`.
 The background work of the `job` tool reports its job id and status in the tool result details.
 The command line reference states that plugin capabilities still load when the built-in capabilities are restricted.
 The worker session directory names the job, so the launch context binds the report to its run.

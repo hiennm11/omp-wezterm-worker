@@ -4,12 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { applyObservation, createClaudeRunState } from "../extensions/lib/claude-run-state.ts";
+import { eventsOfRun } from "../extensions/lib/events.ts";
+import { executionsOfRun } from "../extensions/lib/executions.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { finalizeJob } from "../extensions/lib/lifecycle.ts";
 import { monitorJob } from "../extensions/lib/monitor.ts";
 import { nativeJobUsageReport } from "../extensions/lib/native-usage-report.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { createRuntime } from "../extensions/lib/runtime.ts";
+import { writeTranscript } from "./execution-helpers.ts";
 
 function runningJob(): Job {
 	return {
@@ -174,6 +177,38 @@ test("the cycle count of a native run stays readable after the run ends", async 
 		await finalizeJob(rt, job, "completed", null, "done");
 
 		assert.equal(job.nativeCycles, 2);
+	} finally {
+		rt.closeDb();
+		rmSync(stateDir, { recursive: true, force: true });
+	}
+});
+
+test("a failed worker marks its open execution rows unknown and creates the event", async () => {
+	const stateDir = mkdtempSync(join(tmpdir(), "wz-lifecycle-ledger-"));
+	const rt = createRuntime(async () => ({ code: 0, stdout: "", stderr: "" }));
+	rt.config.stateDir = stateDir;
+	try {
+		const sessionDir = join(stateDir, "sessions", "wz-1");
+		const file = writeTranscript(sessionDir, "a.jsonl", [
+			{ type: "message", id: "e0", message: { role: "user", content: [{ type: "text", text: "do it" }] } },
+			{
+				type: "message",
+				id: "e1",
+				message: { role: "assistant", content: [{ type: "toolCall", id: "call-1", name: "bash" }] },
+			},
+		]);
+		const job: Job = { ...runningJob(), sessionDir, sessionFile: file };
+		rt.jobs.set(job.id, job);
+
+		await finalizeJob(rt, job, "failed", "the worker crashed", null);
+
+		const db = rt.openDb();
+		const rows = executionsOfRun(db, job.id);
+		assert.equal(rows.length, 1);
+		assert.equal(rows[0].state, "unknown");
+		const events = eventsOfRun(db, job.id);
+		assert.equal(events.length, 1);
+		assert.equal(events[0].condition, "execution_loss");
 	} finally {
 		rt.closeDb();
 		rmSync(stateDir, { recursive: true, force: true });

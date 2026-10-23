@@ -102,6 +102,32 @@ export function findByJobId(db: LifecycleDb, runId: string, jobId: string): Exec
 }
 
 /**
+ * Attach a background job to the row of one call id.
+ *
+ * The result of a call that starts a background job names the job. The row
+ * becomes a background row. A row that is not open keeps its state.
+ */
+export function attachJob(
+	db: LifecycleDb,
+	runId: string,
+	callId: string,
+	jobId: string,
+	now: number,
+): ExecutionRecord | null {
+	return db.write(() => {
+		const result = db.handle
+			.prepare(
+				`UPDATE executions
+				 SET kind = 'background', job_id = ?, updated_at = ?
+				 WHERE run_id = ? AND call_id = ? AND state = 'open'`,
+			)
+			.run(jobId, now, runId, callId);
+		if (Number(result.changes) === 0) return null;
+		return findByCallId(db, runId, callId);
+	});
+}
+
+/**
  * Settle the row of one call id.
  *
  * A result for one call never settles another call. The function returns the
@@ -156,8 +182,8 @@ export function settleByJobId(
 /**
  * Mark the open rows of one run as unknown.
  *
- * The recovery calls this for the calls that the transcript shows without a
- * result. The owner resolves them.
+ * The ledger sync calls this when the worker stops. The owner resolves the
+ * rows that the worker left open.
  */
 export function markOpenUnknown(db: LifecycleDb, runId: string, now: number): number {
 	return db.write(() => {

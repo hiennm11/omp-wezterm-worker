@@ -64,16 +64,23 @@ export function emptySummary(): SessionSummary {
 }
 
 /**
+ * The prefix of the records that the extension writes into a session
+ * directory. The report file and the bridge log use it. They are records of
+ * the run, not transcripts of the worker.
+ */
+const RECORD_FILE_PREFIX = ".wezterm-worker-";
+
+/**
  * The transcript files in a session directory, newest first.
  *
  * A session directory holds one JSONL per session; the newest is the live
- * one.
+ * one. The records of the run are skipped, because they are not transcripts.
  */
 export function listSessionFiles(sessionDir: string): string[] {
 	try {
 		if (!existsSync(sessionDir)) return [];
 		return readdirSync(sessionDir)
-			.filter((f) => f.endsWith(".jsonl"))
+			.filter((f) => f.endsWith(".jsonl") && !f.startsWith(RECORD_FILE_PREFIX))
 			.map((f) => join(sessionDir, f))
 			.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
 	} catch {
