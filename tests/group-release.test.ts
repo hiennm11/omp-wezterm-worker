@@ -10,16 +10,15 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-
+import { groupsToRelease, releaseEndedGroups } from "../extensions/lib/group-recovery.ts";
 import {
 	createGroup,
 	heldGroups,
+	type ResourceGroup,
 	readGroup,
 	releaseExecutionByHolder,
 	reserveExecution,
-	type ResourceGroup,
 } from "../extensions/lib/groups.ts";
-import { groupsToRelease, releaseEndedGroups } from "../extensions/lib/group-recovery.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { finalizeJob } from "../extensions/lib/lifecycle.ts";
 import type { RunFn } from "../extensions/lib/process.ts";

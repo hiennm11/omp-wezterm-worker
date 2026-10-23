@@ -80,9 +80,9 @@ function groupOf(row: Record<string, unknown>): ResourceGroup {
 
 /** Read one group, or null when the id is unknown. */
 export function readGroup(db: LifecycleDb, id: string): ResourceGroup | null {
-	const row = db.handle
-		.prepare(`SELECT ${GROUP_COLUMNS} FROM resource_groups WHERE id = ?`)
-		.get(id) as Record<string, unknown> | undefined;
+	const row = db.handle.prepare(`SELECT ${GROUP_COLUMNS} FROM resource_groups WHERE id = ?`).get(id) as
+		| Record<string, unknown>
+		| undefined;
 	if (!row) return null;
 	return groupOf(row);
 }
