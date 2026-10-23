@@ -11,7 +11,7 @@ import { join, resolve } from "node:path";
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
 import { bootstrapPromptFile, writeBootstrapPrompt } from "./bootstrap-prompt.ts";
 import type { Placement } from "./config.ts";
-import { createGroup, reserveExecution, setGroupWorktree } from "./groups.ts";
+import { createGroup, releaseExecutionByHolder, reserveExecution, setGroupWorktree } from "./groups.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { finalizeJob } from "./lifecycle.ts";
 import { launchPane } from "./pane.ts";
@@ -257,6 +257,9 @@ export async function resumeWorker(
 		job.status = "failed";
 		job.error = failure;
 		job.finishedAt = Date.now();
+		// The run never reached a pane, so it holds nothing. The group of the
+		// source run becomes free again.
+		releaseExecutionByHolder(db, jobId, Date.now());
 	}
 	attachAttempt(db, attemptId, job.paneId ?? -1, job.sessionFile, null, Date.now());
 	rt.persist();

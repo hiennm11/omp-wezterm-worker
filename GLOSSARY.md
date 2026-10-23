@@ -176,6 +176,12 @@ _Avoid_: pending call
 The shared transcript directory and worktree that two runs of one task use.
 _Avoid_: Session directory, worktree, task
 
+**Group release**:
+The end of the reservation of a resource group. A run releases its group when
+the run ends and its pane is gone. The startup recovery releases a group whose
+holder ended.
+_Avoid_: Cleanup, deletion, cancel
+
 **Launch attempt**:
 One attempt to start a worker, with its own identity and reservation state.
 _Avoid_: Launch, spawn, request

@@ -391,6 +391,13 @@ group before it reads the baseline and before it starts a pane. A resume
 fails while another run holds the group, and it fails while the previous pane
 of the group lives or its health is unknown.
 
+**A run that ends frees its resource group.** The run frees the group when
+the run ends and its pane is gone. A live pane can still write into the shared
+transcript, so the group stays held until that pane dies. A launch that fails
+before the pane exists frees the group at once. The startup recovery frees a
+group whose holder ended and whose pane is gone. A holder that is still active
+keeps its group.
+
 A resumed transcript already holds a finished turn, so the extension records
 how many assistant turns the transcript had when the worker started. Only a
 turn **beyond** that baseline counts as the new result — otherwise the
@@ -539,6 +546,7 @@ omp-wezterm-worker/
 │   │   ├── owner.ts             the acquisition of a task by this session
 │   │   ├── attempts.ts          the launch attempts and the capacity
 │   │   ├── groups.ts            the resources that two runs share
+│   │   ├── group-recovery.ts    the recovery of the resource groups
 │   │   ├── executions.ts        the execution ledger of a run
 │   │   ├── ledger-sync.ts       the sync between the transcript and the ledger
 │   │   ├── events.ts            the worker events and their handling
@@ -611,6 +619,7 @@ omp-wezterm-worker/
 │   ├── ledger-sync.test.ts      the execution ledger of a run
 │   ├── report-poll.test.ts      the report poll and the outstanding executions
 │   ├── status-blocker.test.ts   the completion blocker in the status tool
+│   ├── group-release.test.ts    the release of a resource group
 │   ├── worker.integration.test.ts    a real worker in a real pane
 │   ├── nested.integration.test.ts    the launch limits with a real worker
 │   ├── worktree.integration.test.ts  the worktree of a real worker
@@ -693,6 +702,7 @@ test.
 | `ledger-sync.test.ts` | A call without a result leaves one outstanding row, and the result settles it. A call at or before the baseline turn opens no row. A call to the report tool opens no row. A background call stays outstanding until the async result names its job. A second sync of the same transcript writes nothing. The close of a run turns an open row into unknown and creates one execution loss event. A sync never reopens a row that is unknown. |
 | `report-poll.test.ts` | The report poll keeps a worker that has an open call. The report poll ends a worker when the result of its call arrives. |
 | `status-blocker.test.ts` | The status prints the completion blocker of a worker that cannot end. |
+| `group-release.test.ts` | A run that ends with its pane closed frees its group, and a new resume takes it. A run that ends with its pane alive keeps its group. A failed launch of a resume frees the group. The recovery frees a group whose holder ended, and it keeps a group whose holder is active, has no job, or still has a live pane. |
 
 The integration tests run a real `omp` worker in a real WezTerm pane. They
 take about a minute each.
