@@ -11,8 +11,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
-import { acquireOwnership, readOwnership } from "../extensions/lib/ownership.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
+import { acquireOwnership, readOwnership } from "../extensions/lib/ownership.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { registerTakeoverTool } from "../extensions/worker-tools/takeover.ts";
@@ -126,7 +126,12 @@ export function ownerOf(rt: WorkerRuntime, jobId: string) {
 }
 
 /** The row of a task that another session owns. */
-export function seedOwner(rt: WorkerRuntime, jobId: string, processId: number | null, startedAt: string | null) {
+export function seedOwner(
+	rt: WorkerRuntime,
+	jobId: string,
+	processId: number | null,
+	startedAt: string | null,
+) {
 	acquireOwnership(rt.openDb(), taskKey(jobId), "session-old", processId, startedAt, 1000);
 }
 

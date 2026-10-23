@@ -7,19 +7,18 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-
-import { beginRelease, commitRelease, takeOverOwnership } from "../extensions/lib/ownership.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
+import { beginRelease, commitRelease, takeOverOwnership } from "../extensions/lib/ownership.ts";
 import {
+	type FakeTable,
 	fakeRuntime,
 	finish,
-	type FakeTable,
 	makeJob,
 	OLD_PID,
 	OLD_START,
-	ownerOf,
 	OWN_PID,
 	OWN_START,
+	ownerOf,
 	seedOwner,
 	takeOver,
 } from "./takeover-helpers.ts";
@@ -275,6 +274,49 @@ test("a takeover of a worker whose pane is gone ends the worker", async () => {
 		assert.equal(rt.monitors.has(job.id), false);
 		assert.equal(job.status, "failed");
 		assert.match(job.error ?? "", /pane was closed/);
+	} finally {
+		finish(rt, dir, "wz-1");
+	}
+});
+
+test("a takeover of a completed worker keeps its status and starts no monitor", async () => {
+	const { rt, dir } = fakeRuntime({ starts: { [OLD_PID]: "" }, code: 0, panes: [] });
+	try {
+		rt.sessionId = "session-new";
+		const job = makeJob(dir, "wz-1", { status: "completed", result: "DONE" });
+		rt.jobs.set(job.id, job);
+		seedOwner(rt, job.id, OLD_PID, OLD_START);
+
+		const result = await takeOver(rt, job.id);
+		assert.equal(result.details.taken, true);
+		assert.equal(result.details.generation, 2);
+		assert.equal(ownerOf(rt, job.id)?.sessionId, "session-new");
+		assert.equal(ownerOf(rt, job.id)?.generation, 2);
+		assert.equal(job.status, "completed");
+		assert.equal(job.result, "DONE");
+		assert.equal(job.error, null);
+		assert.equal(rt.monitors.has(job.id), false);
+		assert.match(result.content[0]?.text ?? "", /already completed/);
+	} finally {
+		finish(rt, dir, "wz-1");
+	}
+});
+
+test("a takeover of a failed worker keeps its error and starts no monitor", async () => {
+	const { rt, dir } = fakeRuntime({ starts: { [OLD_PID]: "" }, code: 0, panes: [] });
+	try {
+		rt.sessionId = "session-new";
+		const job = makeJob(dir, "wz-1", { status: "failed", error: "the worker failed" });
+		rt.jobs.set(job.id, job);
+		seedOwner(rt, job.id, OLD_PID, OLD_START);
+
+		const result = await takeOver(rt, job.id);
+		assert.equal(result.details.taken, true);
+		assert.equal(ownerOf(rt, job.id)?.sessionId, "session-new");
+		assert.equal(job.status, "failed");
+		assert.equal(job.error, "the worker failed");
+		assert.equal(rt.monitors.has(job.id), false);
+		assert.match(result.content[0]?.text ?? "", /already failed/);
 	} finally {
 		finish(rt, dir, "wz-1");
 	}
