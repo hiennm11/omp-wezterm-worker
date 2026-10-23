@@ -79,7 +79,7 @@ Each launch and each resume belongs to a resource group. The group names the sha
 A resume reserves execution for the group before it reads the baseline and before it starts a pane.
 Refuse a resume when another run in that group holds a reservation.
 Refuse a resume when the previous pane is still present or when its health is unknown.
-No code sets the execution states `stopping` and `unknown` today (issue 26), and they stay in the schema.
+No production code sets the execution states `stopping` and `unknown` today (issue 26), and they stay in the schema.
 A run that declared completion does not free the group while its pane lives.
 The owner can still read a completed pane before the owner closes it.
 A run frees the group when the run ends and its pane is gone, and the startup recovery frees a group whose holder has ended.
