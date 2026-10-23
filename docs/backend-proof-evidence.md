@@ -62,6 +62,15 @@ The modern permission path does not raise `classic.PermissionRequest`. The permi
 
 A background task ends in a transcript row whose `origin.kind` is `task-notification`. That row is separate from the row of the foreground tool result, so the two settlements stay apart.
 
+A second probe (2026-10-23, Claude Code 2.1.309, model haiku, one real worker in a WezTerm pane) read the raw events. The worker ran one background command and one foreground command. The probe mod posted every raw event and changed none. These are the facts.
+
+- The raw `tool.call` event of a background command has the fields `command`, `description`, `run_in_background`, `tool` and `tool_use_id`. The field `run_in_background` is `true`. The raw event of the foreground command has the same fields without `run_in_background`.
+- The raw `session.append` event of the notification has the fields `message`, `door`, `origin` and `uuid`. The field `origin.kind` is `task-notification`.
+- The text of the notification (`message.content[0].text`) holds the elements `<task-id>`, `<tool-use-id>`, `<output-file>`, `<status>` and `<summary>`. The element `<tool-use-id>` equals the `tool_use_id` of the call that started the task. The probe shows this for one task.
+- The notification arrived 20.1 seconds after the start of the session. The call `tool.call` arrived at 4.4 seconds. The command slept 12 seconds.
+- The production mod forwards neither fact. It sends `command` but not `run_in_background` in `tool.call.opened`. It sends `uuid`, `door` and `originKind` but not the text of the notification in `background.settled`. So the supervisor cannot link the notification to its call (issue 30).
+- The probe covers one background task. It does not show a task that fails, a task that the user cancels, or two tasks that run at the same time.
+
 A native turn reports its usage in the `turn.complete` event. The measured fields are the five that the table names. A field that the build does not report stays missing.
 
 The session startup asks two questions: the trust of the workspace and the MCP servers of the project. The proof answers both in the pane. The MCP servers come from the global configuration of the user, so the proof enables them. The feature contract requires that a worker keeps the integrations of the user.
