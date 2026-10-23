@@ -257,11 +257,7 @@ test("a wait result for a job without a row creates no row", () => {
 		]);
 		syncExecutions(db, "run-1", readCallLedger(file), 0, 1000);
 		const rows = executionsOfRun(db, "run-1");
-		assert.equal(
-			rows.filter((row) => row.jobId === "bg_unknown").length,
-			0,
-			"the unknown job opens no row",
-		);
+		assert.equal(rows.filter((row) => row.jobId === "bg_unknown").length, 0, "the unknown job opens no row");
 		const known = rowOfJob(db, "run-1", "bg_1");
 		assert.ok(known, "the background job has a row");
 		assert.equal(known.state, "settled", "the known job settles");
