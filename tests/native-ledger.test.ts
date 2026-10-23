@@ -92,11 +92,19 @@ test("a native call without a call id opens no row", () => {
 test("a native call to the report tool opens no row", () => {
 	const { db, dir } = freshDb();
 	try {
-		recordNativeCall(db, "run-1", observation("tool.call.opened", { callId: "call-1", tool: "wezterm_worker_report" }), 1000);
 		recordNativeCall(
 			db,
 			"run-1",
-			observation("tool.call.opened", { callId: "call-2", tool: "mcp__wezterm-worker__wezterm_worker_report" }),
+			observation("tool.call.opened", { callId: "call-1", tool: "wezterm_worker_report" }),
+			1000,
+		);
+		recordNativeCall(
+			db,
+			"run-1",
+			observation("tool.call.opened", {
+				callId: "call-2",
+				tool: "mcp__wezterm-worker__wezterm_worker_report",
+			}),
 			1000,
 		);
 		assert.equal(executionsOfRun(db, "run-1").length, 0);
