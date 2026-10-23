@@ -10,7 +10,7 @@
  */
 
 import type { LifecycleDb } from "./db.ts";
-import { heldGroups, releaseExecutionByHolder, type ResourceGroup } from "./groups.ts";
+import { heldGroups, type ResourceGroup, releaseExecutionByHolder } from "./groups.ts";
 import { isActive, type Job } from "./job.ts";
 
 /**
