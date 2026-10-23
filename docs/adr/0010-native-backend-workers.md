@@ -100,7 +100,7 @@ A background task of a native worker settles in its own right. The settlement of
 
 A known outstanding execution blocks a completion report. An unknown execution blocks it too, because the supervisor cannot prove that the work finished.
 
-The attach of a native worker after a restart of the owner is issue 29. A run that the owner cannot attach again keeps its rows until the owner resolves them.
+The rows of a native run survive a restart of the owner, because the ledger lives in the database. The owner cannot attach a native worker again after a restart. Issue 29 tracks this gap. Such a run keeps its rows until the owner resolves them.
 
 ## Recovery and stops
 
