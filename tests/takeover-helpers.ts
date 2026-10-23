@@ -19,8 +19,10 @@ import { registerTakeoverTool } from "../extensions/worker-tools/takeover.ts";
 
 export const OWN_PID = 500;
 export const OLD_PID = 900;
+export const THIRD_PID = 700;
 export const OWN_START = "2026-10-23T01:00:00.000Z";
 export const OLD_START = "2026-10-22T08:00:00.000Z";
+export const THIRD_START = "2026-10-23T09:00:00.000Z";
 
 /** The answers that the fake process table gives. */
 export interface FakeTable {
@@ -30,18 +32,34 @@ export interface FakeTable {
 	code: number;
 	/** The panes that the fake WezTerm reports. */
 	panes: number[];
+	/** The processes whose start time the table cannot read. */
+	failFor?: number[];
 	/** A hook that runs while the process table is read. */
 	onProbe?: () => void;
 }
 
+/** The options of a fake runtime. */
+export interface FakeOptions {
+	/** Leave the start time of this process empty, like a session that just started. */
+	withoutOwnStart?: boolean;
+	/** Use this state directory. A second session reads the records of the first one. */
+	stateDir?: string;
+	/** The process of this session. A second session runs in another process. */
+	ownProcess?: { id: number; startedAt: string };
+}
+
 /** A runtime whose process table and pane list come from the fake table. */
-export function fakeRuntime(table: FakeTable): { rt: WorkerRuntime; dir: string } {
-	const dir = mkdtempSync(join(tmpdir(), "wt-takeover-"));
+export function fakeRuntime(table: FakeTable, options: FakeOptions = {}): { rt: WorkerRuntime; dir: string } {
+	const dir = options.stateDir ?? mkdtempSync(join(tmpdir(), "wt-takeover-"));
 	const exec: RunFn = async (_bin, args) => {
 		const command = args.join(" ");
 		if (command.includes("Get-Process -Id")) {
 			const match = /Get-Process -Id (\d+)/.exec(command);
 			table.onProbe?.();
+			const processId = match ? Number(match[1]) : 0;
+			if (table.failFor?.includes(processId)) {
+				return { code: 1, stdout: "", stderr: "no table" };
+			}
 			if (table.code !== 0) return { code: table.code, stdout: "", stderr: "no table" };
 			const startedAt = match ? (table.starts[Number(match[1])] ?? "") : "";
 			return { code: 0, stdout: startedAt, stderr: "" };
@@ -55,8 +73,8 @@ export function fakeRuntime(table: FakeTable): { rt: WorkerRuntime; dir: string 
 	const rt = createRuntime(exec);
 	rt.config.stateDir = dir;
 	rt.config.pollMs = 60_000;
-	rt.processId = OWN_PID;
-	rt.processStartedAt = OWN_START;
+	rt.processId = options.ownProcess?.id ?? OWN_PID;
+	rt.processStartedAt = options.withoutOwnStart ? null : (options.ownProcess?.startedAt ?? OWN_START);
 	return { rt, dir };
 }
 

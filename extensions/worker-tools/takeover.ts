@@ -9,7 +9,7 @@
 import { attachWorker } from "../lib/attach.ts";
 import { readBackend } from "../lib/backend.ts";
 import { isActive } from "../lib/job.ts";
-import { previousOwnerState, taskKey } from "../lib/owner.ts";
+import { ensureOwnProcessStart, previousOwnerState, taskKey } from "../lib/owner.ts";
 import { readOwnership, takeOverOwnership } from "../lib/ownership.ts";
 import { findJob, reply, type ToolDeps } from "./kit.ts";
 
@@ -22,6 +22,7 @@ type RefusalReason =
 	| "no-process-record"
 	| "process-alive"
 	| "process-unknown"
+	| "own-process-unknown"
 	| "changed";
 
 /** The reply of a refused takeover. */
@@ -81,6 +82,16 @@ export function registerTakeoverTool({ pi, rt, deliver }: ToolDeps): void {
 				if (previous.state === "alive") {
 					return refuse(job.id, "process-alive", previous.reason);
 				}
+			}
+			// The new row needs the start time of this process. A row without
+			// it names no owner, so no session can take the task over later.
+			await ensureOwnProcessStart(rt);
+			if (rt.processStartedAt === null) {
+				return refuse(
+					job.id,
+					"own-process-unknown",
+					`The process table cannot give the start time of this process, so the takeover would leave worker ${job.id} without a process record. Try again.`,
+				);
 			}
 			const written = takeOverOwnership(
 				rt.openDb(),
