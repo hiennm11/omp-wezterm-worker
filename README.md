@@ -632,10 +632,10 @@ so the suite needs no build step and no test framework.
 | Command | What it does |
 |---|---|
 | `npm test` | Run every test. The integration tests spawn a real worker in a real pane. |
-| `npm run test:unit` | Run only the tests that need no worker. They run in parallel. |
+| `npm run test:unit` | Run only the tests that need no worker. They run one file at a time. |
 | `npm run test:integration` | Run only the tests that spawn a real worker. |
 | `npm run test:integration:panes` | Run only the integration tests that read the pane list. They run one at a time. |
-| `npm run test:integration:free` | Run the integration tests that do not read the pane list. They run in parallel. |
+| `npm run test:integration:free` | Run the integration tests that do not read the pane list. They run one file at a time. |
 | `npm run lint` | Check the format and the lint rules. |
 | `npm run lint:fix` | Apply the fixes that Biome can apply. |
 | `npm run ste100` | Score every agent-facing document. The score must reach 80. |
@@ -648,9 +648,10 @@ so the suite needs no build step and no test framework.
 The integration tests need `omp` and `wezterm` on PATH. Without them the tests
 report that they cannot run. They never report a pass they did not observe.
 
-The tests run the unit files in parallel. The integration files that read the
-WezTerm pane list run one at a time, because a test that counts the panes
-would see the panes of the other test.
+Every test file runs one at a time. A test that counts the panes would see the
+panes of the other test. A check also starts real workers and real panes, so
+two checks that run at the same time load the machine twice. Run one check
+at a time.
 
 ### The essential tests
 
