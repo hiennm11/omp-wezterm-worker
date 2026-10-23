@@ -11,7 +11,13 @@ import { join, resolve } from "node:path";
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
 import { bootstrapPromptFile, writeBootstrapPrompt } from "./bootstrap-prompt.ts";
 import type { Placement } from "./config.ts";
-import { createGroup, releaseExecutionByHolder, reserveExecution, setGroupWorktree } from "./groups.ts";
+import {
+	createGroup,
+	groupOfRun,
+	releaseExecutionByHolder,
+	reserveExecution,
+	setGroupWorktree,
+} from "./groups.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { finalizeJob } from "./lifecycle.ts";
 import { launchPane } from "./pane.ts";
@@ -218,7 +224,20 @@ export async function resumeWorker(
 	// run. It reserves the group before it reads the baseline and before it
 	// starts a pane, so a cleanup cannot delete the resources under it.
 	const db = rt.openDb();
-	const groupId = `grp-${source.id}`;
+	// The group belongs to the session directory of the task, so a resume of
+	// a resumed run takes the group of the first run of the task.
+	const group = groupOfRun(db, source);
+	if (!group) {
+		const failed: Job = {
+			...job,
+			status: "failed",
+			error: `Worker ${source.id} has no resource group. It cannot be resumed.`,
+			finishedAt: Date.now(),
+		};
+		rt.jobs.set(jobId, failed);
+		return failed;
+	}
+	const groupId = group.id;
 	const reservation = reserveExecution(db, groupId, jobId, Date.now());
 	if (!reservation.granted) {
 		const failed: Job = {
@@ -231,7 +250,7 @@ export async function resumeWorker(
 		return failed;
 	}
 
-	// The run context names the new run and keeps the group of the source.
+	// The run context names the new run and the group of the task.
 	writeRunContext(job.sessionDir, {
 		runId: jobId,
 		sourceRunId: source.id,

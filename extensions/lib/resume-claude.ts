@@ -23,7 +23,7 @@ import {
 	typeFollowUp,
 	waitForComposer,
 } from "./claude-session.ts";
-import { releaseExecutionByHolder, reserveExecution } from "./groups.ts";
+import { groupOfRun, releaseExecutionByHolder, reserveExecution } from "./groups.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { observeNative } from "./native-ledger.ts";
 import { launchProgram } from "./pane.ts";
@@ -77,7 +77,20 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 	}
 
 	const db = rt.openDb();
-	const groupId = `grp-${source.id}`;
+	/* The group belongs to the session directory of the task, so a resume of
+	   a resumed run takes the group of the first run of the task. */
+	const group = groupOfRun(db, source);
+	if (!group) {
+		const failed: Job = {
+			...job,
+			status: "failed",
+			error: `Worker ${source.id} has no resource group. It cannot be resumed.`,
+			finishedAt: Date.now(),
+		};
+		rt.jobs.set(jobId, failed);
+		return failed;
+	}
+	const groupId = group.id;
 	const reservation = reserveExecution(db, groupId, jobId, Date.now());
 	if (!reservation.granted) {
 		const failed: Job = { ...job, status: "failed", error: reservation.reason, finishedAt: Date.now() };
@@ -85,7 +98,7 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 		return failed;
 	}
 
-	/* The run context names the new run and keeps the group of the source.
+	/* The run context names the new run and the group of the task.
 	   The report of the source run cannot finish the new run. */
 	writeRunContext(job.sessionDir, {
 		runId: jobId,
