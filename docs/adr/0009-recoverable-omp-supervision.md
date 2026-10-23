@@ -159,6 +159,7 @@ The third case is a task of another session whose owner process id was reused by
 The tool refuses a takeover when the owner process still runs.
 The tool refuses a takeover when the process table cannot be read.
 The tool refuses a takeover of a native worker, because the supervisor cannot attach it yet.
+The tool refuses a takeover when the session cannot read the start time of its own process.
 The phase releasing is not special. A dead owner can leave that phase.
 
 The check of the owner process runs outside the transaction.

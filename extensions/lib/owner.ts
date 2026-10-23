@@ -57,6 +57,19 @@ export function maySupervise(acquisition: Acquisition): boolean {
 }
 
 /**
+ * Read the start time of this process and store it.
+ *
+ * A session starts without a start time. The start time tells two
+ * incarnations of the same process id apart, so a row that holds it names
+ * one owner. A process table that cannot answer leaves the value empty.
+ */
+export async function ensureOwnProcessStart(rt: WorkerRuntime): Promise<void> {
+	if (rt.processStartedAt !== null) return;
+	const own = await readProcessStart(rt, rt.processId);
+	rt.processStartedAt = own.ok ? own.startedAt : null;
+}
+
+/**
  * The state of the process that held a task.
  *
  * `gone`: the process does not exist, or its start time differs from the
@@ -115,10 +128,7 @@ export async function acquireTask(rt: WorkerRuntime, jobId: string): Promise<Acq
 			reason: "The host gives this session no identity, so the task has no owner.",
 		};
 	}
-	if (rt.processStartedAt === null) {
-		const own = await readProcessStart(rt, rt.processId);
-		rt.processStartedAt = own.ok ? own.startedAt : null;
-	}
+	await ensureOwnProcessStart(rt);
 	const db = rt.openDb();
 	const key = taskKey(jobId);
 
