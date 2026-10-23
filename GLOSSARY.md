@@ -102,7 +102,7 @@ _Avoid_: Style check, lint, grammar check
 
 ## Agreed supervision terms
 
-These terms describe the supervision model. The runtime enforces the acquisition and the release of a task. It does not yet enforce the takeover, and it does not check the authority of every action.
+These terms describe the supervision model. The runtime enforces the acquisition, the release and the takeover of a task. It does not check the authority of every action.
 
 **Task state**:
 The worker's declared condition: working, waiting, needs input, or completed.
@@ -118,7 +118,7 @@ The first claim of a task by the main session that started its worker, and the r
 _Avoid_: Claim, lock, registration
 
 **Takeover**:
-An explicit transfer of supervision to a different main session after the previous owner releases authority or exits.
+The explicit transfer of supervision to a different main session. The previous owner must have released the task, or its process must be confirmed gone.
 _Avoid_: Resume, restart
 
 **Worker event**:

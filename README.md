@@ -92,6 +92,7 @@ confirm the picker.
 | `wezterm_worker_cancel` | Cancel a worker and close **only** the pane that worker created. The cancel counts only after the pane list shows the pane gone. A worker whose stop is not confirmed stays `running`, and the tool accepts it again. |
 | `wezterm_worker_cleanup` | Release a finished worker's transcript directory and its isolated worktree. A worktree with uncommitted changes is kept unless `force` is set. |
 | `wezterm_worker_release` | Stop the supervision of a worker and give the authority away. The worker keeps running. |
+| `wezterm_worker_takeover` | Take the supervision of a worker that another session owned. The previous owner must have released the task, or its process must be confirmed gone. A live owner keeps the task. The takeover does not replay pending events. |
 | `wezterm_worker_resolve` | Settle an unknown worker outcome. It records what you confirmed. It does not create a worker completion report. |
 
 `/wezterm-workers` prints the roster in the TUI.
@@ -369,6 +370,15 @@ still lists workers that were running when the previous process ended, and the
 extension re-attaches a monitor to any whose pane is still alive. A worker
 whose pane was closed while OMP was down is marked `failed`.
 
+**A new session can take over a task of another session.** The tool
+`wezterm_worker_takeover` moves the supervision of one worker to the calling
+session. The takeover needs a released task, or an owner process that is
+confirmed gone. A live owner process keeps the task, and an unreadable process
+table refuses the takeover. The write compares the generation that the check
+read, so an ownership that moves at the same time refuses the takeover. The
+takeover does not replay the pending events. The main session reads them with
+`wezterm_worker_status`.
+
 The old `registry.json` is migrated into the database once. The file stays on
 disk as evidence. The extension never writes it again, so two processes cannot
 lose one another's records.
@@ -546,8 +556,9 @@ omp-wezterm-worker/
 │   │   ├── deliver.ts           delivering a result to the main session
 │   │   ├── db.ts                the lifecycle database
 │   │   ├── migrate.ts           the one-time migration of the old registry
-│   │   ├── ownership.ts         the ownership of a task and its release
+│   │   ├── ownership.ts         the ownership of a task, its release and its takeover
 │   │   ├── owner.ts             the acquisition of a task by this session
+│   │   ├── attach.ts            the supervision of a worker that this session owns
 │   │   ├── attempts.ts          the launch attempts and the capacity
 │   │   ├── groups.ts            the resources that two runs share
 │   │   ├── group-recovery.ts    the recovery of the resource groups
@@ -576,6 +587,7 @@ omp-wezterm-worker/
 │       ├── spawn.ts, status.ts, steer.ts, peek.ts
 │       ├── result.ts, resume.ts, cancel.ts, cleanup.ts
 │       ├── report.ts, ack.ts, release.ts, resolve.ts
+│       ├── takeover.ts          the takeover of a task of another session
 │       └── roster.ts            the /wezterm-workers command
 ├── scripts/
 │   ├── _paths.sh                shared Windows-path helpers
@@ -626,6 +638,8 @@ omp-wezterm-worker/
 │   ├── wait-result.test.ts      the settlement of a background job that a wait result names
 │   ├── report-poll.test.ts      the report poll and the outstanding executions
 │   ├── status-blocker.test.ts   the completion blocker in the status tool
+│   ├── takeover.test.ts         the takeover of a task of another session
+│   ├── takeover-helpers.ts      the helpers of the takeover tests
 │   ├── group-release.test.ts    the release of a resource group
 │   ├── group-lookup.test.ts     the group of a run through its session directory
 │   ├── resume-pane.test.ts      the pane of the source run of a resume
@@ -716,6 +730,7 @@ test.
 | `wait-result.test.ts` | A wait result with a completed job settles the row of that job, and the completion blocker is null. A wait result with a failed job settles the row. A wait result with a cancelled job settles the row. A wait result with a running job keeps the row open. A wait result and an async result for the same job settle the row once, and the second signal does not overwrite the settlement evidence. A wait result without jobs changes nothing. An interrupted wait result changes nothing. An async result with a running job keeps the row open. A wait result for a job without a row creates no row. |
 | `report-poll.test.ts` | The report poll keeps a worker that has an open call. The report poll ends a worker when the result of its call arrives. |
 | `status-blocker.test.ts` | The status prints the completion blocker of a worker that cannot end. |
+| `takeover.test.ts` | A released task of another session is taken over. A dead owner process gives the task. A live owner process keeps the task. An unreadable process table refuses the takeover. A native worker refuses the takeover. An ownership that changes during the check refuses the takeover. A takeover of a live worker starts the monitor. |
 | `group-release.test.ts` | A run that ends with its pane closed frees its group, and a new resume takes it. A run that ends with its pane alive keeps its group. A failed launch of a resume frees the group. The recovery frees a group whose holder ended, and it keeps a group whose holder is active, has no job, or still has a live pane. |
 | `resume-pane.test.ts` | A resume refuses a source run whose pane is still open. A resume refuses a source run when the pane list cannot be read. A resume goes on when the pane of the source run is gone. A resume of a source run without a pane reads no pane list. A resume refuses a completed source run whose pane is still open. A native resume refuses a source run whose pane is still open, and it starts no bridge. |
 | `group-lookup.test.ts` | A run finds its group through its session directory. A run without a group has no group. |

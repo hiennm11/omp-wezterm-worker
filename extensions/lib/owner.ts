@@ -8,7 +8,7 @@
  */
 
 import type { SessionView } from "./host.ts";
-import { acquireOwnership, readOwnership } from "./ownership.ts";
+import { acquireOwnership, type Ownership, readOwnership } from "./ownership.ts";
 import { readProcessStart } from "./process-table.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 
@@ -57,6 +57,50 @@ export function maySupervise(acquisition: Acquisition): boolean {
 }
 
 /**
+ * The state of the process that held a task.
+ *
+ * `gone`: the process does not exist, or its start time differs from the
+ * stored one. A different start time means that the machine reused the
+ * process id.
+ * `alive`: the process still runs with the stored start time.
+ * `unknown`: the process table cannot answer, or the row holds no process.
+ */
+export type PreviousOwnerState =
+	| { state: "gone" }
+	| { state: "alive"; reason: string }
+	| { state: "unknown"; reason: string };
+
+/**
+ * Read the state of the process that held a task.
+ *
+ * The acquisition and the takeover both need this evidence. A process that
+ * cannot be read is unknown, never gone.
+ */
+export async function previousOwnerState(
+	rt: WorkerRuntime,
+	held: Ownership,
+): Promise<PreviousOwnerState> {
+	if (held.processId === null || held.processStartedAt === null) {
+		return { state: "unknown", reason: "The previous owner process is not recorded." };
+	}
+	const probe = await readProcessStart(rt, held.processId);
+	if (!probe.ok) {
+		return {
+			state: "unknown",
+			reason: `The process table cannot confirm that process ${held.processId} exited. The task stays with it.`,
+		};
+	}
+	/* The start time tells a reused process id from the previous owner. */
+	if (probe.startedAt === held.processStartedAt) {
+		return {
+			state: "alive",
+			reason: `Process ${held.processId} still owns the task. This process only reads it.`,
+		};
+	}
+	return { state: "gone" };
+}
+
+/**
  * Acquire the task of a worker for this session.
  *
  * Another session never takes the task. That needs an explicit takeover. The
@@ -92,24 +136,12 @@ export async function acquireTask(rt: WorkerRuntime, jobId: string): Promise<Acq
 		}
 		const sameProcess = held.processId === rt.processId && held.processStartedAt === rt.processStartedAt;
 		if (!sameProcess) {
-			if (held.processId === null || held.processStartedAt === null) {
-				return { acquired: false, kind: "unknown", reason: "The previous owner process is not recorded." };
+			const previous = await previousOwnerState(rt, held);
+			if (previous.state === "unknown") {
+				return { acquired: false, kind: "unknown", reason: previous.reason };
 			}
-			const probe = await readProcessStart(rt, held.processId);
-			if (!probe.ok) {
-				return {
-					acquired: false,
-					kind: "unknown",
-					reason: `The process table cannot confirm that process ${held.processId} exited. The task stays with it.`,
-				};
-			}
-			/* The start time tells a reused process id from the previous owner. */
-			if (probe.startedAt === held.processStartedAt) {
-				return {
-					acquired: false,
-					kind: "owned",
-					reason: `Process ${held.processId} still owns the task. This process only reads it.`,
-				};
+			if (previous.state === "alive") {
+				return { acquired: false, kind: "owned", reason: previous.reason };
 			}
 		}
 	}

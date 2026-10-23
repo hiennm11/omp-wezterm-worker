@@ -148,6 +148,28 @@ A generation number cannot fence an action that already started. Do not claim th
 Persist a stop intent before sending a destructive pane command. A recovered owner reconciles it before it steers, resumes, or cleans up.
 A command that ran before a crash cannot be taken back. The reconciliation reads the pane state.
 
+### Takeover
+
+The tool `wezterm_worker_takeover` moves the supervision of one worker to another main session.
+The tool writes one ownership row and sends no command to a pane.
+The tool allows the takeover in three cases.
+The first case is a task of another session in the phase released.
+The second case is a task of another session whose owner process is confirmed gone.
+The third case is a task of another session whose owner process id was reused by another process.
+The tool refuses a takeover when the owner process still runs.
+The tool refuses a takeover when the process table cannot be read.
+The tool refuses a takeover of a native worker, because the supervisor cannot attach it yet.
+The phase releasing is not special. A dead owner can leave that phase.
+
+The check of the owner process runs outside the transaction.
+The write therefore compares the generation that the check read.
+The write refuses the takeover when the generation moved in the meantime.
+The write moves the generation forward by one and sets the phase to active.
+
+A takeover does not replay the pending events of the worker.
+The main session reads the pending events with the status tool.
+The replay of a pending event after a takeover is a separate change.
+
 ## Transactional storage
 
 Use SQLite through node:sqlite for lifecycle records, ownership, launch reservations, and pending events.
