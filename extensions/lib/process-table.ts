@@ -69,7 +69,14 @@ export async function readProcessStart(
 	rt: WorkerRuntime,
 	processId: number,
 ): Promise<{ ok: true; startedAt: string | null } | { ok: false }> {
-	const script = `$p = Get-Process -Id ${Math.trunc(processId)} -ErrorAction SilentlyContinue; if ($p) { $p.StartTime.ToUniversalTime().ToString('o') }`;
+	/* PowerShell keeps the exit code of the last command. A suppressed error
+	   still sets that code, so a script with `; exit 0` would hide a real
+	   failure too. The script therefore names the one failure that means the
+	   process is gone, and it gives every other failure a nonzero code. */
+	const script =
+		`try { $p = Get-Process -Id ${Math.trunc(processId)} -ErrorAction Stop } ` +
+		`catch { if ($_.CategoryInfo.Category -eq 'ObjectNotFound') { exit 0 }; exit 1 }; ` +
+		`try { $p.StartTime.ToUniversalTime().ToString('o') } catch { exit 1 }; exit 0`;
 	const result = await rt.exec("powershell", ["-NoProfile", "-Command", script]);
 	if (result.code !== 0) {
 		rt.errors.push(`The start time of process ${processId} cannot be read: ${describeFailure(result)}`);
