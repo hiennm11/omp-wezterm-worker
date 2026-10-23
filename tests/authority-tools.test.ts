@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { taskKey } from "../extensions/lib/owner.ts";
-import { acquireOwnership, readOwnership } from "../extensions/lib/ownership.ts";
+import { acquireOwnership, beginRelease, commitRelease, readOwnership } from "../extensions/lib/ownership.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { registerCancelTool } from "../extensions/worker-tools/cancel.ts";
@@ -268,6 +268,55 @@ test("a release that starts during a cancel waits for the cancel", async () => {
 
 		gate.resolve();
 		await cancelling;
+	} finally {
+		finish(rt, dir);
+	}
+});
+
+test("a cancel of a task that this session is releasing is refused", async () => {
+	const { rt, dir, calls } = fakeRuntime();
+	try {
+		rt.sessionId = OWN;
+		const job = makeJob(dir, "wz-1");
+		rt.jobs.set(job.id, job);
+		seedOwner(rt, job.id, OWN);
+		beginRelease(rt.openDb(), taskKey(job.id), OWN, 1, 1100);
+
+		const result = await toolOf(rt, registerCancelTool, "cancel").execute("t1", { workerId: job.id });
+
+		assert.equal(result.isError, true);
+		assert.equal(result.content[0]?.text, "This session is releasing worker wz-1.");
+		assert.equal(result.details.phase, "releasing");
+		assert.equal(
+			calls.some((args) => args.includes("kill-pane")),
+			false,
+		);
+		assert.equal(job.status, "running");
+	} finally {
+		finish(rt, dir);
+	}
+});
+
+test("a cancel of a task that this session released is refused", async () => {
+	const { rt, dir, calls } = fakeRuntime();
+	try {
+		rt.sessionId = OWN;
+		const job = makeJob(dir, "wz-1");
+		rt.jobs.set(job.id, job);
+		seedOwner(rt, job.id, OWN);
+		beginRelease(rt.openDb(), taskKey(job.id), OWN, 1, 1100);
+		commitRelease(rt.openDb(), taskKey(job.id), OWN, 1, 1200);
+
+		const result = await toolOf(rt, registerCancelTool, "cancel").execute("t1", { workerId: job.id });
+
+		assert.equal(result.isError, true);
+		assert.equal(result.content[0]?.text, "This session released worker wz-1.");
+		assert.equal(result.details.phase, "released");
+		assert.equal(
+			calls.some((args) => args.includes("kill-pane")),
+			false,
+		);
+		assert.equal(job.status, "running");
 	} finally {
 		finish(rt, dir);
 	}
