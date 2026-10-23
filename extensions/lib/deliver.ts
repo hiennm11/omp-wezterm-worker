@@ -18,6 +18,7 @@ import { nativeJobUsageReport, requestUsageOf } from "./native-usage-report.ts";
 import { generationOf } from "./owner.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { formatUsage, jobUsage, type UsageReport } from "./usage.ts";
+import { writeUnderAuthority } from "./write-authority.ts";
 
 /** The usage of the worker and of the request the worker belongs to. */
 export interface DeliveryUsage {
@@ -84,7 +85,17 @@ export function createDeliver(pi: ExtensionAPI, rt: WorkerRuntime): (job: Job) =
 		// handling acknowledgement.
 		const db = rt.openDb();
 		const attemptId = `del-${job.id}-${Date.now()}`;
-		beginDelivery(db, attemptId, job.id, generationOf(rt, job.id) ?? 0, Date.now());
+		/* Only the owner of the task may deliver the result. The check and
+		   the attempt run in one transaction, so a session that lost the
+		   task sends no message and writes no attempt. */
+		const attempt = writeUnderAuthority(db, rt.sessionId, job.id, () =>
+			beginDelivery(db, attemptId, job.id, generationOf(rt, job.id) ?? 0, Date.now()),
+		);
+		if (attempt.refused) {
+			// The event stays pending for the owner that holds the task.
+			pi.logger?.warn?.(`[wezterm-worker] The delivery of worker ${job.id} was refused: ${attempt.refusal}`);
+			return;
+		}
 		try {
 			if (typeof pi.sendUserMessage === "function") {
 				pi.sendUserMessage(text, { triggerTurn: true });
