@@ -11,7 +11,7 @@
  */
 
 import type { Job } from "./job.ts";
-import { paneState, type PaneState } from "./pane.ts";
+import { type PaneState, paneState } from "./pane.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 
 /**
