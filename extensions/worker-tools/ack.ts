@@ -8,6 +8,7 @@
 
 import { type Disposition, readEvent, recordHandling } from "../lib/events.ts";
 import type { ToolCtx } from "../lib/host.ts";
+import { generationOf } from "../lib/owner.ts";
 import { reply, type ToolDeps } from "./kit.ts";
 
 /** The dispositions that the tool accepts. */
@@ -57,8 +58,8 @@ export function registerAckTool({ pi, rt }: ToolDeps): void {
 				eventId,
 				disposition,
 				note,
-				rt.ownerId,
-				rt.ownerGeneration,
+				rt.sessionId,
+				generationOf(rt, workerId),
 				Date.now(),
 			);
 			if (!outcome.ok) {

@@ -15,6 +15,7 @@ import { beginDelivery, markSent, markUncertain } from "./delivery.ts";
 import type { ExtensionAPI } from "./host.ts";
 import type { Job } from "./job.ts";
 import { nativeJobUsageReport, requestUsageOf } from "./native-usage-report.ts";
+import { generationOf } from "./owner.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { formatUsage, jobUsage, type UsageReport } from "./usage.ts";
 
@@ -83,7 +84,7 @@ export function createDeliver(pi: ExtensionAPI, rt: WorkerRuntime): (job: Job) =
 		// handling acknowledgement.
 		const db = rt.openDb();
 		const attemptId = `del-${job.id}-${Date.now()}`;
-		beginDelivery(db, attemptId, job.id, rt.ownerGeneration, Date.now());
+		beginDelivery(db, attemptId, job.id, generationOf(rt, job.id) ?? 0, Date.now());
 		try {
 			if (typeof pi.sendUserMessage === "function") {
 				pi.sendUserMessage(text, { triggerTurn: true });

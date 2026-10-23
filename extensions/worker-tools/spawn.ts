@@ -17,6 +17,7 @@ import type { Placement } from "../lib/config.ts";
 import type { ToolCtx } from "../lib/host.ts";
 import { admitLaunch } from "../lib/limits.ts";
 import { monitorJob, monitorNativeJob } from "../lib/monitor.ts";
+import { acquireTask, bindSession, maySupervise } from "../lib/owner.ts";
 import { spawnWorker } from "../lib/spawn.ts";
 import { spawnClaudeWorker } from "../lib/spawn-claude.ts";
 import {
@@ -153,6 +154,15 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 			}
 			const admitted = admitLaunch(rt, ctx.sessionManager?.getSessionFile?.());
 			if ("refusal" in admitted) return refusalReply(admitted.refusal);
+			bindSession(rt, ctx.sessionManager);
+			const acquisition = await acquireTask(rt, admitted.jobId);
+			if (!maySupervise(acquisition)) {
+				return reply(
+					`The task of worker ${admitted.jobId} cannot be acquired: ${acquisition.acquired ? "" : acquisition.reason}`,
+					{ acquired: false },
+					true,
+				);
+			}
 			const job =
 				backend === "claude"
 					? await spawnClaudeWorker(rt, {

@@ -31,6 +31,7 @@ import { settleDetachedJob } from "./lib/lifecycle.ts";
 import { startRequest } from "./lib/limits.ts";
 import { migrateRegistry } from "./lib/migrate.ts";
 import { monitorJob } from "./lib/monitor.ts";
+import { acquireTask, bindSession, maySupervise } from "./lib/owner.ts";
 import { paneState } from "./lib/pane.ts";
 import { findLiveWorkers } from "./lib/process-table.ts";
 import { reconcileAttempts } from "./lib/recovery.ts";
@@ -118,8 +119,19 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			}
 		}
 
+		bindSession(rt, ctx.sessionManager);
 		for (const job of restored.alive) {
 			rt.jobs.set(job.id, job);
+			// A task that another session or another live process owns stays
+			// read-only here. A second supervisor would deliver every event
+			// twice (docs/adr/0009).
+			const acquisition = await acquireTask(rt, job.id);
+			if (!maySupervise(acquisition)) {
+				pi.logger?.warn?.(
+					`[wezterm-worker] Worker ${job.id} stays read-only: ${acquisition.acquired ? "" : acquisition.reason}`,
+				);
+				continue;
+			}
 			// A monitor only makes sense while the pane still exists. A pane
 			// that was closed by the user ends the worker instead of hanging
 			// forever. An unreadable pane list keeps the monitor, which retries

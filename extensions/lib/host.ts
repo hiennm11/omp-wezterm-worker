@@ -29,13 +29,21 @@ export interface EventCtx {
 	cwd?: string;
 	setInterval: (fn: () => void, ms: number) => NodeJS.Timeout;
 	clearTimer?: (timer: NodeJS.Timeout) => void;
+	/** Read-only view of the calling session. */
+	sessionManager?: SessionView;
+}
+
+/** The read-only view of a session that the host gives to a handler and to a tool. */
+export interface SessionView {
+	getSessionFile?: () => string | null | undefined;
+	getSessionId?: () => string | null | undefined;
 }
 
 /** The context a tool receives. */
 export interface ToolCtx {
 	cwd: string;
 	/** Read-only view of the calling session. */
-	sessionManager?: { getSessionFile?: () => string | null | undefined };
+	sessionManager?: SessionView;
 }
 
 export interface ExtensionAPI {
