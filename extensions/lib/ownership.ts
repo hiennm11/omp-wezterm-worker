@@ -127,6 +127,46 @@ export function acquireOwnership(
 export type AuthorityFailure = { ok: true; generation: number } | { ok: false; reason: string };
 
 /**
+ * Take the ownership of a task from another session.
+ *
+ * The check and the write run in one transaction. The generation that the
+ * caller read must still be the generation of the row, so an ownership that
+ * moves between the check and the write refuses the takeover.
+ */
+export function takeOverOwnership(
+	db: LifecycleDb,
+	taskKey: string,
+	sessionId: string,
+	processId: number | null,
+	processStartedAt: string | null,
+	expectedGeneration: number,
+	now: number,
+): AuthorityFailure {
+	return db.write(() => {
+		const current = readOwnership(db, taskKey);
+		if (!current.owner) return { ok: false, reason: "The task has no owner." };
+		if (current.owner.generation !== expectedGeneration) {
+			return { ok: false, reason: "The ownership changed while the check ran." };
+		}
+		const generation = current.owner.generation + 1;
+		db.handle
+			.prepare(
+				`INSERT INTO ownership (task_key, session_id, process_id, process_started_at, generation, phase, updated_at)
+				 VALUES (?, ?, ?, ?, ?, 'active', ?)
+				 ON CONFLICT(task_key) DO UPDATE SET
+				   session_id = excluded.session_id,
+				   process_id = excluded.process_id,
+				   process_started_at = excluded.process_started_at,
+				   generation = excluded.generation,
+				   phase = 'active',
+				   updated_at = excluded.updated_at`,
+			)
+			.run(taskKey, sessionId, processId, processStartedAt, generation, now);
+		return { ok: true as const, generation };
+	});
+}
+
+/**
  * Check that the caller still holds the authority of a task.
  *
  * The caller must call this inside the same transaction as the write. A

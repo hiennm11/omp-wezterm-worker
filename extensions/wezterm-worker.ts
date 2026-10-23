@@ -24,16 +24,14 @@
 
 import { mkdirSync } from "node:fs";
 
+import { attachWorker } from "./lib/attach.ts";
 import { lastGuidance, loadConfig } from "./lib/config.ts";
 import { createDeliver } from "./lib/deliver.ts";
 import { releaseEndedGroups } from "./lib/group-recovery.ts";
 import type { ExtensionAPI } from "./lib/host.ts";
-import { settleDetachedJob } from "./lib/lifecycle.ts";
 import { startRequest } from "./lib/limits.ts";
 import { migrateRegistry } from "./lib/migrate.ts";
-import { monitorJob } from "./lib/monitor.ts";
 import { acquireTask, bindSession, maySupervise } from "./lib/owner.ts";
-import { paneState } from "./lib/pane.ts";
 import { findLiveWorkers } from "./lib/process-table.ts";
 import { reconcileAttempts } from "./lib/recovery.ts";
 import { detectRole, ownSessionDir } from "./lib/role.ts";
@@ -52,6 +50,7 @@ import { registerRosterCommand } from "./worker-tools/roster.ts";
 import { registerSpawnTool } from "./worker-tools/spawn.ts";
 import { registerStatusTool } from "./worker-tools/status.ts";
 import { registerSteerTool } from "./worker-tools/steer.ts";
+import { registerTakeoverTool } from "./worker-tools/takeover.ts";
 
 /**
  * The runtime lives at module scope. Child sessions rebind the factory but
@@ -137,11 +136,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			// that was closed by the user ends the worker instead of hanging
 			// forever. An unreadable pane list keeps the monitor, which retries
 			// any pending stop.
-			if (job.paneId === null || (await paneState(rt, job.paneId)) !== "gone") {
-				monitorJob(rt, job, deps.deliver);
-				continue;
-			}
-			await settleDetachedJob(rt, job);
+			await attachWorker(rt, job, deps.deliver);
 		}
 
 		// A crash can end a run without the code that frees its resource
@@ -186,5 +181,6 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	registerCleanupTool(deps);
 	registerResolveTool(deps);
 	registerReleaseTool(deps);
+	registerTakeoverTool(deps);
 	registerRosterCommand(deps);
 }
