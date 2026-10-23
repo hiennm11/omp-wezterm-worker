@@ -7,7 +7,7 @@
  * settles blocks the completion report of the run.
  */
 
-import { type CallLedger, readCallLedger } from "./calls.ts";
+import { type CallLedger, readCallLedger, SETTLED_JOB_STATUSES } from "./calls.ts";
 import type { LifecycleDb } from "./db.ts";
 import { createEvent, eventKey } from "./events.ts";
 import {
@@ -85,6 +85,7 @@ export function syncExecutions(
 		if (settled) rows.set(call.callId, settled);
 	}
 	for (const background of ledger.backgroundResults) {
+		if (!Object.hasOwn(SETTLED_JOB_STATUSES, background.status)) continue;
 		settleByJobId(db, runId, background.jobId, `background job ${background.status}`, now);
 	}
 }

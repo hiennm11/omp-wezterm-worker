@@ -617,6 +617,7 @@ omp-wezterm-worker/
 │   ├── bridge-handover.test.ts  the handover of a bridge to a new owner
 │   ├── process-probe.test.ts    the probe of the start time of a process
 │   ├── ledger-sync.test.ts      the execution ledger of a run
+│   ├── wait-result.test.ts      the settlement of a background job that a wait result names
 │   ├── report-poll.test.ts      the report poll and the outstanding executions
 │   ├── status-blocker.test.ts   the completion blocker in the status tool
 │   ├── group-release.test.ts    the release of a resource group
@@ -700,6 +701,7 @@ test.
 | `claude-run-state.test.ts` | A native turn starts the cycle. A call settles only when the same call settles. A permission request holds the completion. An accepted instruction blocks the completion until its cycle carries it. |
 | `spawn-backend.test.ts` | A spawn with an unknown backend is refused. A spawn with a backend that is not implemented is refused, and the extension never falls back. A spawn with a tool list and a native backend is refused before the launch. |
 | `ledger-sync.test.ts` | A call without a result leaves one outstanding row, and the result settles it. A call at or before the baseline turn opens no row. A call to the report tool opens no row. A background call stays outstanding until the async result names its job. A second sync of the same transcript writes nothing. The close of a run turns an open row into unknown and creates one execution loss event. A sync never reopens a row that is unknown. |
+| `wait-result.test.ts` | A wait result with a completed job settles the row of that job, and the completion blocker is null. A wait result with a failed job settles the row. A wait result with a cancelled job settles the row. A wait result with a running job keeps the row open. A wait result and an async result for the same job settle the row once, and the second signal does not overwrite the settlement evidence. A wait result without jobs changes nothing. An interrupted wait result changes nothing. An async result with a running job keeps the row open. A wait result for a job without a row creates no row. |
 | `report-poll.test.ts` | The report poll keeps a worker that has an open call. The report poll ends a worker when the result of its call arrives. |
 | `status-blocker.test.ts` | The status prints the completion blocker of a worker that cannot end. |
 | `group-release.test.ts` | A run that ends with its pane closed frees its group, and a new resume takes it. A run that ends with its pane alive keeps its group. A failed launch of a resume frees the group. The recovery frees a group whose holder ended, and it keeps a group whose holder is active, has no job, or still has a live pane. |
