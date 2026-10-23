@@ -96,7 +96,7 @@ A native worker keeps the execution ledger of ADR 0009. A native call opens a ro
 
 A call to the report tool opens no row. The report file is its own evidence.
 
-A background task of a native worker settles in its own right. The settlement of a background task and the return of the foreground tool are separate pieces of evidence. A native background task opens no row today. The mod does not forward the flag `run_in_background` of the call, and it does not forward the call id that the notification of the task names. Issue 30 tracks this gap. A completion report of a native run does not wait for a background result, because the run holds no row for it.
+A background task of a native worker settles in its own right. The settlement of a background task and the return of the foreground tool are separate pieces of evidence. A native background task opens no row today. The mod does not forward the flag `run_in_background` of the call, and it does not forward the call id that the notification of the task names. The raw events carry both: a probe shows the flag in `tool.call` and the call id in the text of the notification (`docs/backend-proof-evidence.md`). Issue 30 tracks the missing forwarding. A completion report of a native run does not wait for a background result, because the run holds no row for it.
 
 A known outstanding execution blocks a completion report. An unknown execution blocks it too, because the supervisor cannot prove that the work finished.
 
