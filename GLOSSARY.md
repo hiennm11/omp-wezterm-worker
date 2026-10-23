@@ -102,7 +102,7 @@ _Avoid_: Style check, lint, grammar check
 
 ## Agreed supervision terms
 
-These terms describe the supervision model. The runtime enforces the acquisition, the release and the takeover of a task. It does not check the authority of every action.
+These terms describe the supervision model. The runtime enforces the acquisition, the release and the takeover of a task. It also checks the authority of the control tools `steer`, `cancel`, `cleanup` and `resume`. The record tools and the automatic paths are not checked yet.
 
 **Task state**:
 The worker's declared condition: working, waiting, needs input, or completed.
@@ -112,6 +112,11 @@ _Avoid_: Pane state, process health
 **Supervision owner**:
 The main session with exclusive authority to control a worker and deliver its events.
 _Avoid_: Watcher, daemon, recipient
+
+**Read-only session**:
+A main session that sees the records of a worker and does not hold its authority.
+It does not control the worker.
+_Avoid_: Observer, guest
 
 **Acquisition**:
 The first claim of a task by the main session that started its worker, and the renewed claim of the same session after a restart.
