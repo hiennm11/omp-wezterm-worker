@@ -58,6 +58,7 @@ These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
 - Check the report of a worker against the code. A claim without a file and a line is not evidence.
 - A worker commits on its own branch. It does not push and does not open a pull request.
 - Change `GLOSSARY.md`, the ADR and `README.md` in the same change as the code.
+- Run one `npm run check` at a time on the machine. A check starts real workers and real panes, and two checks load the machine twice. The orchestrator runs the full check. A worker runs the lint, the type check, `npm run ste100` and the test files of its own change.
 
 ## Commands and tools
 
@@ -83,7 +84,7 @@ These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
 
 ## Before you report done
 
-- Run `npm run check`. It runs the lint, the type check, the scores and every test.
+- Run `npm run check`. It runs the lint, the type check, the scores and every test. Run it one time, and not while another check runs.
 - The integration tests need `omp` and `wezterm`. Report a test that did not run.
 
 <!-- gitnexus:start -->
