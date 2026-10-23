@@ -22,7 +22,7 @@ The supervisor does not claim to discover every detached process.
 The run keeps an execution ledger. Each row holds an execution id, start evidence, an observation method, and settlement evidence.
 A row opens when the transcript shows a tool call that carries an id.
 A row settles when a tool result carries that same id. One result never settles another call.
-A call that starts a background job settles only when an `async-result` entry names its job id.
+A call that starts a background job settles when an `async-result` entry or a result of the tool `wait` names its job id, and when the status of the job is `completed`, `failed` or `cancelled`.
 A row that never settles keeps an unknown state. An unknown row blocks a completion report.
 Do not infer settlement from an open pane, from transcript growth, or from an empty tool value.
 
@@ -169,7 +169,10 @@ A probe of real transcripts confirmed the shape of a result that starts a backgr
 `{"details":{"async":{"state":"running","jobId":"bg_5","type":"bash"}}}`
 A probe of real transcripts confirmed the shape of the entry that ends a background job. The entry is a custom message, not a message:
 `{"type":"custom_message","customType":"async-result","details":{"jobs":[{"jobId":"bg_5","type":"bash","status":"completed"}]}}`
-The entry appears only after the job ended. The status of the job is `completed` or `failed`.
+The entry appears only after the job ended. The status of the job is `completed` or `failed`. The documentation of the host also names `cancelled`.
+A probe of real transcripts confirmed the shape of the result of the tool `wait`:
+`{"message":{"role":"toolResult","toolName":"wait","details":{"op":"wait","jobs":[{"id":"bg_1","type":"bash","status":"completed"}]}}}`
+The two ways to end a job exclude each other. One job ends through exactly one of them.
 A row that stays open becomes unknown when the worker stops. The owner resolves the event `execution_loss` with `wezterm_worker_resolve`.
 The background work of the `job` tool reports its job id and status in the tool result details.
 The command line reference states that plugin capabilities still load when the built-in capabilities are restricted.

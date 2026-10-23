@@ -6,8 +6,8 @@
  * settles. The parser pairs them by value.
  *
  * A call that starts a background job names the job in the details of its
- * result. The transcript gets a separate entry when the job ends. That entry
- * settles the call.
+ * result. The transcript names the end of the job in an `async-result` entry
+ * or in the result of the tool `wait`. Both names settle the call.
  */
 
 import { readFileSync } from "node:fs";
@@ -33,6 +33,13 @@ export interface BackgroundResult {
 	/** The status of the job, for example `completed` or `failed`. */
 	status: string;
 }
+
+/** The statuses of a background job that mean the job ended. */
+export const SETTLED_JOB_STATUSES: Record<string, true> = {
+	completed: true,
+	failed: true,
+	cancelled: true,
+};
 
 /** The calls of one transcript, in the order they appear. */
 export interface CallLedger {
@@ -134,7 +141,11 @@ export function readCallLedger(file: string): CallLedger {
 			}
 			continue;
 		}
-		if (message.role === "toolResult" && message.toolCallId) {
+		if (message.role === "toolResult") {
+			if (message.toolName === "wait") {
+				ledger.backgroundResults.push(...waitResultsOf(message.details));
+			}
+			if (!message.toolCallId) continue;
 			const call = byCallId.get(message.toolCallId);
 			if (!call) continue;
 			call.settled = true;
@@ -169,6 +180,31 @@ function backgroundResultsOf(details: unknown): BackgroundResult[] {
 		const record = job as Record<string, unknown>;
 		const jobId = record.jobId;
 		const status = record.status;
+		if (typeof jobId !== "string" || typeof status !== "string") continue;
+		found.push({ jobId, status });
+	}
+	return found;
+}
+
+/**
+ * The background jobs that the result of the tool wait names.
+ *
+ * The result of the tool wait holds the jobs under the key `id`. A result
+ * that an incoming message interrupted names no job that ended. The function
+ * skips such a result and every job without a string id or a string status.
+ */
+function waitResultsOf(details: unknown): BackgroundResult[] {
+	if (!details || typeof details !== "object") return [];
+	const record = details as Record<string, unknown>;
+	if (record.interrupted === true) return [];
+	const jobs = record.jobs;
+	if (!Array.isArray(jobs)) return [];
+	const found: BackgroundResult[] = [];
+	for (const job of jobs) {
+		if (!job || typeof job !== "object") continue;
+		const entry = job as Record<string, unknown>;
+		const jobId = entry.id;
+		const status = entry.status;
 		if (typeof jobId !== "string" || typeof status !== "string") continue;
 		found.push({ jobId, status });
 	}

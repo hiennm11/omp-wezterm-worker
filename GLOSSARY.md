@@ -168,6 +168,10 @@ A durable row that holds one unit of worker execution, its start evidence, and i
 A record that never settles keeps an unknown state.
 _Avoid_: Tool call, task, background job
 
+**Job result**:
+The end of a background job as the transcript shows it. It is an entry of the type async-result or the result of the tool wait. One job ends through one of them.
+_Avoid_: Completion, callback
+
 **Outstanding execution**:
 An execution record that is open or unknown. It blocks a completion report.
 _Avoid_: pending call
