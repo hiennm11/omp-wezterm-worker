@@ -122,6 +122,15 @@ export function applyObservation(state: ClaudeRunState, observation: BridgeObser
 			state.openApprovals.delete(callId);
 			return true;
 		}
+		case "tool.call.failed": {
+			const callId = (payload.callId as string) ?? null;
+			if (!callId) return false;
+			/* A failed call leaves the open calls and the open approvals.
+			   It records no settlement, because it returned no result. */
+			state.openCalls.delete(callId);
+			state.openApprovals.delete(callId);
+			return true;
+		}
 		case "tool.check": {
 			const callId = (payload.callId as string) ?? null;
 			const decision = (payload.decision as string) ?? null;

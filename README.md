@@ -530,6 +530,7 @@ omp-wezterm-worker/
 │   │   ├── claude-session.ts    the Claude Code session of a worker
 │   │   ├── claude-bridge.ts     the loopback bridge of a native worker
 │   │   ├── claude-run-state.ts  the native state of a Claude Code run
+│   │   ├── native-ledger.ts     the execution ledger of a native run
 │   │   ├── native-events.ts     the events of a native run
 │   │   ├── native-usage.ts      the measured usage of a native run
 │   │   ├── native-usage-report.ts the usage report of a native run
@@ -617,6 +618,8 @@ omp-wezterm-worker/
 │   ├── bridge-handover.test.ts  the handover of a bridge to a new owner
 │   ├── process-probe.test.ts    the probe of the start time of a process
 │   ├── ledger-sync.test.ts      the execution ledger of a run
+│   ├── native-ledger.test.ts    the execution ledger of a native run
+│   ├── monitor-native.test.ts   the monitor of a native worker and its outstanding rows
 │   ├── wait-result.test.ts      the settlement of a background job that a wait result names
 │   ├── report-poll.test.ts      the report poll and the outstanding executions
 │   ├── status-blocker.test.ts   the completion blocker in the status tool
@@ -698,9 +701,11 @@ test.
 | `trial-paths.test.ts` | A path under the project becomes a relative path. A path outside it becomes a placeholder. The name of the user never appears. |
 | `registration.test.ts` | The extension registers the eight tools that the agent needs. It registers the roster command. |
 | `backend.test.ts` | A run without a backend field is an OMP run. A backend that is not implemented is refused, and the extension never falls back. A report of an earlier cycle cannot finish newer work. |
-| `claude-run-state.test.ts` | A native turn starts the cycle. A call settles only when the same call settles. A permission request holds the completion. An accepted instruction blocks the completion until its cycle carries it. |
+| `claude-run-state.test.ts` | A native turn starts the cycle. A call settles only when the same call settles. A failed call leaves the open calls and the completion blocker. A failed call closes its permission request. A permission request holds the completion. An accepted instruction blocks the completion until its cycle carries it. |
 | `spawn-backend.test.ts` | A spawn with an unknown backend is refused. A spawn with a backend that is not implemented is refused, and the extension never falls back. A spawn with a tool list and a native backend is refused before the launch. |
 | `ledger-sync.test.ts` | A call without a result leaves one outstanding row, and the result settles it. A call at or before the baseline turn opens no row. A call to the report tool opens no row. A background call stays outstanding until the async result names its job. A second sync of the same transcript writes nothing. The close of a run turns an open row into unknown and creates one execution loss event. A sync never reopens a row that is unknown. |
+| `native-ledger.test.ts` | An opened native call opens one row. A settled native call settles its row. A failed native call settles its row. A native call without a call id opens no row. A native call to the report tool opens no row. A native settlement without a row creates no row. Another native observation changes no row. Observing a native call updates the state and writes the row. A database error of a native observation does not reach the bridge. |
+| `monitor-native.test.ts` | The native monitor keeps a worker that has an open execution row. The native monitor ends a worker when its execution row settles. |
 | `wait-result.test.ts` | A wait result with a completed job settles the row of that job, and the completion blocker is null. A wait result with a failed job settles the row. A wait result with a cancelled job settles the row. A wait result with a running job keeps the row open. A wait result and an async result for the same job settle the row once, and the second signal does not overwrite the settlement evidence. A wait result without jobs changes nothing. An interrupted wait result changes nothing. An async result with a running job keeps the row open. A wait result for a job without a row creates no row. |
 | `report-poll.test.ts` | The report poll keeps a worker that has an open call. The report poll ends a worker when the result of its call arrives. |
 | `status-blocker.test.ts` | The status prints the completion blocker of a worker that cannot end. |

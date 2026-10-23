@@ -276,9 +276,12 @@ export function monitorNativeJob(rt: WorkerRuntime, job: Job, notify: (job: Job)
 		const report = claudeBoundReport(state);
 		if (report?.state !== "completed") return;
 
-		/* The work that the worker still owes blocks the completion. */
+		/* The work that the worker still owes blocks the completion. The
+		   open rows of the run block it too, because a native call that
+		   never settles leaves no transcript behind. */
 		const blocker = claudeCompletionBlocker(state);
 		if (blocker) return;
+		if (completionBlockerOf(rt.openDb(), job.id)) return;
 
 		/* The report is the evidence of the completion. It stays beside the
 		   run, so a recovery and a later reader find it. */

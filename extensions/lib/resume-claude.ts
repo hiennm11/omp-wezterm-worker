@@ -14,7 +14,7 @@ import { mkdirSync } from "node:fs";
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
 import { handoverFile, writeHandover } from "./bridge-handover.ts";
 import { startBridge } from "./claude-bridge.ts";
-import { applyObservation, createClaudeRunState } from "./claude-run-state.ts";
+import { createClaudeRunState } from "./claude-run-state.ts";
 import {
 	checkClaude,
 	claudeResumeArgv,
@@ -25,6 +25,7 @@ import {
 } from "./claude-session.ts";
 import { releaseExecutionByHolder, reserveExecution } from "./groups.ts";
 import { freshRunState, type Job } from "./job.ts";
+import { observeNative } from "./native-ledger.ts";
 import { launchProgram } from "./pane.ts";
 import { delay } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -119,7 +120,7 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 	const state = createClaudeRunState(jobId);
 	rt.claudeStates.set(jobId, state);
 	const bridge = await startBridge(jobId, (observation) => {
-		applyObservation(state, observation);
+		observeNative(rt, state, jobId, observation);
 	});
 	rt.bridges.set(jobId, bridge);
 	/* The worker finds its bridge through the handover file, so a new owner
