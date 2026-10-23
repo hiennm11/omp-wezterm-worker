@@ -606,6 +606,7 @@ omp-wezterm-worker/
 │   ├── correlation.test.ts      finding a native worker in the process table
 │   ├── pending-events.test.ts   the events that wait for the owner
 │   ├── bridge-handover.test.ts  the handover of a bridge to a new owner
+│   ├── process-probe.test.ts    the probe of the start time of a process
 │   ├── worker.integration.test.ts    a real worker in a real pane
 │   ├── nested.integration.test.ts    the launch limits with a real worker
 │   ├── worktree.integration.test.ts  the worktree of a real worker
@@ -678,6 +679,7 @@ test.
 | `result.integration.test.ts` | The result tool returns the answer of a finished worker. |
 | `live-worker.integration.test.ts` | A running worker can be steered, peeked at and cancelled. A steering message reaches the worker. A cancel closes only the pane that the extension created. A worker past its deadline is stopped and its pane is confirmed closed. A session releases the worker that it started, and the worker keeps running. |
 | `owner.test.ts` | A session that starts a worker owns it. A session without an identity acquires nothing. The same session acquires its task again after a restart only when the old process is gone. A second live process of the same session does not take the task. A reused process id does not count as the old owner. An unreadable process table refuses the acquisition. Another session never takes a task. |
+| `process-probe.test.ts` | The probe reads the start time of a live process. Two reads of one process give the same start time. The probe reports a gone process as gone. |
 | `trial-report.test.ts` | The report names a failing check. A check detail stays on one line. The report holds no path of the machine. |
 | `trial-paths.test.ts` | A path under the project becomes a relative path. A path outside it becomes a placeholder. The name of the user never appears. |
 | `registration.test.ts` | The extension registers the eight tools that the agent needs. It registers the roster command. |
