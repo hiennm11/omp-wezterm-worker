@@ -14,6 +14,7 @@
 import { cpSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
+import { REPORTING_CONTRACT } from "./bootstrap-prompt.ts";
 import { delay, describeFailure } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 
@@ -65,7 +66,16 @@ export function claudeArgv(options: {
 	cwd: string;
 	task: string;
 }): string[] {
-	const args = ["--session-id", options.sessionId, "--plugin-dir", options.pluginDir];
+	/* The contract goes inline. A Claude Code session has no worker prompt
+	   file, and the session needs the same rules as an OMP worker. */
+	const args = [
+		"--session-id",
+		options.sessionId,
+		"--plugin-dir",
+		options.pluginDir,
+		"--append-system-prompt",
+		REPORTING_CONTRACT,
+	];
 	/* An omitted model keeps the default of Claude Code. The extension never
 	   adds a model that the user did not name. */
 	if (options.model) args.push("--model", options.model);
@@ -84,7 +94,14 @@ export function claudeResumeArgv(options: {
 	pluginDir: string;
 	model: string | null;
 }): string[] {
-	const args = ["--resume", options.sessionId, "--plugin-dir", options.pluginDir];
+	const args = [
+		"--resume",
+		options.sessionId,
+		"--plugin-dir",
+		options.pluginDir,
+		"--append-system-prompt",
+		REPORTING_CONTRACT,
+	];
 	if (options.model) args.push("--model", options.model);
 	return args;
 }

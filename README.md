@@ -670,6 +670,7 @@ test.
 | `nested.integration.test.ts` | A real worker cannot launch a worker and opens no pane. A second spawn is refused while one worker is active. |
 | `ste100.test.ts` | Each agent-facing document reaches the required score. |
 | `comms-check.test.ts` | A clean text passes the communication check. A long sentence warns. A Vietnamese text is skipped. An English text with a Vietnamese name is not skipped. An English text with one accented letter is not skipped. The off mode returns off. The warn mode and the enforce mode give different verdicts. The reporting contract reaches the required score. |
+| `claude-argv.test.ts` | A new Claude Code worker and a resumed one both get the reporting contract as one argv element. The task stays the last argument. |
 | `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
 | `result.integration.test.ts` | The result tool returns the answer of a finished worker. |
