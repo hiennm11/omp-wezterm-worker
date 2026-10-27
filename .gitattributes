@@ -2,3 +2,6 @@
 # The formatter of Biome uses CRLF on Windows, and a file with LF endings
 # fails the format check on every other file that uses CRLF.
 * text=auto eol=crlf
+
+# Shell scripts run in bash. A CR in the file breaks "set -o pipefail".
+*.sh text eol=lf
