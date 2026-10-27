@@ -77,30 +77,30 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 		return failed;
 	}
 
-const db = rt.openDb();
-    /* The group belongs to the session directory of the task, so a resume of
-       a resumed run takes the group of the first run of the task. */
-    let group = groupOfRun(db, source);
-    if (!group) {
-        const failed: Job = {
-            ...job,
-            status: "failed",
-            error: `Worker ${source.id} has no resource group. It cannot be resumed.`,
-            finishedAt: Date.now(),
-        };
-        rt.jobs.set(jobId, failed);
-        return failed;
-    }
-    /* A holder that ended keeps the group until its pane is gone. The resume
-       frees the group when the pane of the holder is gone. */
-    const holderRefusal = await freeEndedHolder(rt, group);
-    if (holderRefusal) {
-        const failed: Job = { ...job, status: "failed", error: holderRefusal, finishedAt: Date.now() };
-        rt.jobs.set(jobId, failed);
-        return failed;
-    }
-    group = groupOfRun(db, source) ?? group;
-    const groupId = group.id;
+	const db = rt.openDb();
+	/* The group belongs to the session directory of the task, so a resume of
+	   a resumed run takes the group of the first run of the task. */
+	let group = groupOfRun(db, source);
+	if (!group) {
+		const failed: Job = {
+			...job,
+			status: "failed",
+			error: `Worker ${source.id} has no resource group. It cannot be resumed.`,
+			finishedAt: Date.now(),
+		};
+		rt.jobs.set(jobId, failed);
+		return failed;
+	}
+	/* A holder that ended keeps the group until its pane is gone. The resume
+	   frees the group when the pane of the holder is gone. */
+	const holderRefusal = await freeEndedHolder(rt, group);
+	if (holderRefusal) {
+		const failed: Job = { ...job, status: "failed", error: holderRefusal, finishedAt: Date.now() };
+		rt.jobs.set(jobId, failed);
+		return failed;
+	}
+	group = groupOfRun(db, source) ?? group;
+	const groupId = group.id;
 	const reservation = reserveExecution(db, groupId, jobId, Date.now());
 	if (!reservation.granted) {
 		const failed: Job = { ...job, status: "failed", error: reservation.reason, finishedAt: Date.now() };
