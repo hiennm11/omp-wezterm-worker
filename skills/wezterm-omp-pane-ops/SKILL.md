@@ -458,3 +458,13 @@ Apply these rules:
 
 Run `npm run ste100` in the repository. The command scores every document
 that an agent reads. It fails below 80.
+
+### The text that you send to a worker
+
+The extension scores the `task` of a spawn, the `message` of a steer and the `result` of a report. The setting `commsStandard` in the config file sets the mode and the minimum score. The default is mode `warn` and score 80.
+
+- Write the `task` and the `message` in English. The check skips a text that is mostly Vietnamese.
+- Use one instruction per sentence. Keep each sentence to 20 words or fewer.
+- Name the file, the command and the expected output.
+- In mode `warn`, a low score adds one line to the reply. The line holds the score only. The findings are in `details.commsCheck`.
+- In mode `enforce`, the tool refuses a low score and lists the findings. Rewrite the text and send it again.

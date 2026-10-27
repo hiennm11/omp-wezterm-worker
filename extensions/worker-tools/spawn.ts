@@ -63,9 +63,16 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 			"The worker is an independent omp process with its own model, tools and session file — it does " +
 			"NOT inherit this conversation. Returns immediately with a worker id, pane id and transcript path; " +
 			"the final result is delivered back into this session automatically when the worker finishes. " +
-			"Use for long read-only or independent tasks. Prefer the native `task` tool when no pane is needed.",
+			"Use for long read-only or independent tasks. Prefer the native `task` tool when no pane is needed. " +
+			"The extension scores the `task` text with a Simplified Technical English check (see `commsStandard`). " +
+			"Write short sentences, one instruction per sentence, in the active voice.",
 		parameters: z.object({
-			task: z.string().describe("Self-contained instructions for the worker. It sees only this text."),
+			task: z
+				.string()
+				.describe(
+					"Self-contained instructions for the worker. It sees only this text. " +
+						"The text is scored in Simplified Technical English: one instruction per sentence, 20 words or fewer.",
+				),
 			cwd: z
 				.string()
 				.optional()

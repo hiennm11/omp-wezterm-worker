@@ -24,7 +24,12 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 			"Use this to redirect a long-running worker without cancelling it.",
 		parameters: z.object({
 			workerId: z.string().describe("Id of the running worker to steer."),
-			message: z.string().describe("The instruction to send into the worker."),
+			message: z
+				.string()
+				.describe(
+					"The instruction to send into the worker. " +
+						"The text is scored in Simplified Technical English: one instruction per sentence, 20 words or fewer.",
+				),
 		}),
 		loadMode: "essential",
 		async execute(_id: string, params: { workerId: string; message: string }) {
