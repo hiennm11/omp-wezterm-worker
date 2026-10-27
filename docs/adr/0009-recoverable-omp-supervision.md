@@ -84,6 +84,8 @@ No production code sets the execution states `stopping` and `unknown` today (iss
 A run that declared completion does not free the group while its pane lives.
 The owner can still read a completed pane before the owner closes it.
 A run frees the group when the run ends and its pane is gone, and the startup recovery frees a group whose holder has ended.
+A resume and a cleanup free a group whose holder ended and whose pane is gone.
+The pane list proves that the pane is gone. An unreadable pane list keeps the group held.
 Mark the group disposing only when no run holds an execution reservation and no linked event is unhandled.
 A disposing group refuses every resume and every launch against it. Keep the marker until the deletion finishes.
 

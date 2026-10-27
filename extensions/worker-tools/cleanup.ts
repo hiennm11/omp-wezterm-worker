@@ -8,6 +8,7 @@ import { rmSync } from "node:fs";
 
 import { cleanupRefusal, refusalDetails } from "../lib/authority.ts";
 import { pendingEvents } from "../lib/events.ts";
+import { freeEndedHolder } from "../lib/group-holder.ts";
 import { clearDisposing, groupOfRun, markDisposing } from "../lib/groups.ts";
 import { activeSharers, isActive, type Job } from "../lib/job.ts";
 import { taskKey } from "../lib/owner.ts";
@@ -140,7 +141,7 @@ export function registerCleanupTool({ pi, rt }: ToolDeps): void {
 				const db = rt.openDb();
 				// The group belongs to the session directory of the task, so a
 				// resumed run finds the group of the first run of the task.
-				const group = groupOfRun(db, job);
+				let group = groupOfRun(db, job);
 				const groupId = group?.id ?? null;
 				if (group) {
 					if (group.executionState === "unknown") {
@@ -150,6 +151,24 @@ export function registerCleanupTool({ pi, rt }: ToolDeps): void {
 							true,
 						);
 					}
+					// A holder that ended keeps the group until its pane is gone.
+					// The cleanup frees the group when the pane of the holder is
+					// gone.
+					const holderRefusal = await freeEndedHolder(rt, group);
+					if (holderRefusal) {
+						const holder = group.executionHolder === null ? undefined : rt.jobs.get(group.executionHolder);
+						return reply(
+							holderRefusal,
+							{
+								workerId: job.id,
+								resourceGroup: group.id,
+								executionHolder: group.executionHolder,
+								pane: holder?.paneId ?? null,
+							},
+							true,
+						);
+					}
+					group = groupOfRun(db, job) ?? group;
 					if (group.executionHolder !== null && group.executionHolder !== job.id) {
 						return reply(
 							`The resources of worker ${job.id} are used by run ${group.executionHolder}. Cancel that run first.`,

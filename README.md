@@ -606,6 +606,7 @@ omp-wezterm-worker/
 │   │   ├── attempts.ts          the launch attempts and the capacity
 │   │   ├── groups.ts            the resources that two runs share
 │   │   ├── group-recovery.ts    the recovery of the resource groups
+│   │   ├── group-holder.ts      the holder of a resource group that ended
 │   │   ├── executions.ts        the execution ledger of a run
 │   │   ├── ledger-sync.ts       the sync between the transcript and the ledger
 │   │   ├── events.ts            the worker events and their handling
@@ -686,6 +687,7 @@ omp-wezterm-worker/
 │   ├── takeover-process.test.ts the process record of the new owner of a task
 │   ├── takeover-helpers.ts      the helpers of the takeover tests
 │   ├── group-release.test.ts    the release of a resource group
+│   ├── group-holder.test.ts     the holder of a resource group that ended
 │   ├── group-lookup.test.ts     the group of a run through its session directory
 │   ├── resume-pane.test.ts      the pane of the source run of a resume
 │   ├── resume-group.test.ts     the group of a resume and of a resumed run
@@ -781,6 +783,7 @@ test.
 | `takeover.test.ts` | A released task of another session is taken over. A dead owner process gives the task. A live owner process keeps the task. An unreadable process table refuses the takeover. A native worker refuses the takeover. An ownership that changes during the check refuses the takeover. A takeover of a live worker starts the monitor. A takeover of a finished worker keeps its status and starts no monitor. |
 | `takeover-process.test.ts` | A takeover of a session without a start time stores the start time of its process. A takeover refuses when the session cannot read the start time of its process. A task taken over with a start time is not a lock. |
 | `group-release.test.ts` | A run that ends with its pane closed frees its group, and a new resume takes it. A run that ends with its pane alive keeps its group. A failed launch of a resume frees the group. The recovery frees a group whose holder ended, and it keeps a group whose holder is active, has no job, or still has a live pane. |
+| `group-holder.test.ts` | The holder of an ended run frees its group when its pane is gone. The holder of an ended run keeps its group while its pane is open, and the refusal names the pane. The holder of an ended run keeps its group when the pane list cannot be read. An active holder and a holder that this process does not know keep their group. A resume takes the group of a source run whose pane was closed by hand. The cleanup of a task whose holder ended with its pane gone goes on. |
 | `resume-pane.test.ts` | A resume refuses a source run whose pane is still open. A resume refuses a source run when the pane list cannot be read. A resume goes on when the pane of the source run is gone. A resume of a source run without a pane reads no pane list. A resume refuses a completed source run whose pane is still open. A native resume refuses a source run whose pane is still open, and it starts no bridge. |
 | `group-lookup.test.ts` | A run finds its group through its session directory. A run without a group has no group. |
 | `resume-group.test.ts` | A resume of a resumed run takes the group of the first run. A native resume of a resumed run takes the group of the first run. A resume of a source run without a group refuses, and it changes no group. |

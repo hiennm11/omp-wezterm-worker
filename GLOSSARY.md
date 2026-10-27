@@ -189,7 +189,8 @@ _Avoid_: Session directory, worktree, task
 **Group release**:
 The end of the reservation of a resource group. A run releases its group when
 the run ends and its pane is gone. The startup recovery releases a group whose
-holder ended.
+holder ended. A resume and a cleanup release a group whose holder ended and
+whose pane is gone.
 _Avoid_: Cleanup, deletion, cancel
 
 **Launch attempt**:
