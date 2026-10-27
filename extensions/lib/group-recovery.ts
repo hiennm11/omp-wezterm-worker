@@ -35,7 +35,6 @@ export function groupsToRelease(
 		if (holder === null) return false;
 		const job = byId.get(holder);
 		if (!job) return false;
-		if (isActive(job)) return false;
 		const state = job.paneId !== null && !job.paneClosed ? (states.get(job.paneId) ?? null) : null;
 		return decideHolder(job, state) === "release";
 	});
