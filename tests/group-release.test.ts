@@ -179,7 +179,7 @@ test("the recovery releases a group whose holder ended with its pane closed", ()
 	const groups = [heldGroup("grp-1", "run-1")];
 	const jobs = [jobOf("run-1", { status: "completed", paneId: 7, paneClosed: true })];
 	assert.deepEqual(
-		groupsToRelease(groups, jobs).map((group) => group.id),
+		groupsToRelease(groups, jobs, new Map()).map((group) => group.id),
 		["grp-1"],
 	);
 });
@@ -187,21 +187,21 @@ test("the recovery releases a group whose holder ended with its pane closed", ()
 test("the recovery keeps a group whose holder is still active", () => {
 	const groups = [heldGroup("grp-1", "run-1")];
 	const jobs = [jobOf("run-1", { status: "running", paneId: 7, paneClosed: true })];
-	assert.deepEqual(groupsToRelease(groups, jobs), []);
+	assert.deepEqual(groupsToRelease(groups, jobs, new Map()), []);
 });
 
 test("the recovery keeps a group whose holder has no job", () => {
 	const groups = [heldGroup("grp-1", "run-1")];
-	assert.deepEqual(groupsToRelease(groups, []), []);
+	assert.deepEqual(groupsToRelease(groups, [], new Map()), []);
 });
 
 test("the recovery keeps a group whose holder ended with a live pane", () => {
 	const groups = [heldGroup("grp-1", "run-1")];
 	const jobs = [jobOf("run-1", { status: "failed", paneId: 7, paneClosed: false })];
-	assert.deepEqual(groupsToRelease(groups, jobs), []);
+	assert.deepEqual(groupsToRelease(groups, jobs, new Map()), []);
 });
 
-test("the recovery frees the group of a holder that ended with its pane closed", () => {
+test("the recovery frees the group of a holder that ended with its pane closed", async () => {
 	const { rt, dir } = freshRuntime(okExec);
 	try {
 		const db = rt.openDb();
@@ -209,7 +209,7 @@ test("the recovery frees the group of a holder that ended with its pane closed",
 		reserveExecution(db, "grp-1", "run-1", 1001);
 		const jobs = [jobOf("run-1", { status: "failed", paneId: 7, paneClosed: true })];
 
-		const freed = releaseEndedGroups(db, jobs, 1002);
+		const freed = await releaseEndedGroups(rt, jobs, 1002);
 
 		assert.deepEqual(freed, ["grp-1"]);
 		const group = readGroup(db, "grp-1");

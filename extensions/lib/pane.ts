@@ -1,7 +1,7 @@
 /**
  * WezTerm panes.
  *
- * Every function here touches only the pane id it is given. No function lists
+ * Every function here touches only the pane ids it is given. No function lists
  * panes to act on them, so a pane that belongs to the user is never touched.
  */
 
@@ -12,21 +12,55 @@ import type { WorkerRuntime } from "./runtime.ts";
 
 export type PaneState = "present" | "gone" | "unknown";
 
-function hasPaneId(entry: unknown, paneId: number): boolean {
-	return typeof entry === "object" && entry !== null && "pane_id" in entry && entry.pane_id === paneId;
+/** The pane ids of a pane list, or null when the list cannot be read. */
+function parsePaneIds(stdout: string): Set<number> | null {
+	let panes: unknown;
+	try {
+		panes = JSON.parse(stdout);
+	} catch {
+		return null;
+	}
+	if (!Array.isArray(panes)) return null;
+	const ids = new Set<number>();
+	for (const entry of panes) {
+		if (typeof entry !== "object" || entry === null) continue;
+		if (!("pane_id" in entry)) continue;
+		if (typeof entry.pane_id !== "number") continue;
+		ids.add(entry.pane_id);
+	}
+	return ids;
 }
 
 /** An unreadable pane list is "unknown", never "gone": a broken CLI must not look like a closed pane. */
 export async function paneState(rt: WorkerRuntime, paneId: number): Promise<PaneState> {
 	const listing = await rt.wezterm(["list", "--format", "json"]);
 	if (listing.code !== 0) return "unknown";
-	try {
-		const panes: unknown = JSON.parse(listing.stdout);
-		if (!Array.isArray(panes)) return "unknown";
-		return panes.some((p) => hasPaneId(p, paneId)) ? "present" : "gone";
-	} catch {
-		return "unknown";
+	const ids = parsePaneIds(listing.stdout);
+	if (ids === null) return "unknown";
+	return ids.has(paneId) ? "present" : "gone";
+}
+
+/**
+ * The state of every given pane id.
+ *
+ * The function reads the pane list one time, whatever the number of ids. It
+ * returns one entry for every id that it received. An unreadable list makes
+ * every entry "unknown", because a broken CLI must not look like a closed
+ * pane.
+ */
+export async function paneStatesOf(
+	rt: WorkerRuntime,
+	paneIds: readonly number[],
+): Promise<Map<number, PaneState>> {
+	const states = new Map<number, PaneState>();
+	if (paneIds.length === 0) return states;
+	const listing = await rt.wezterm(["list", "--format", "json"]);
+	const ids = listing.code === 0 ? parsePaneIds(listing.stdout) : null;
+	for (const paneId of paneIds) {
+		if (ids === null) states.set(paneId, "unknown");
+		else states.set(paneId, ids.has(paneId) ? "present" : "gone");
 	}
+	return states;
 }
 
 /**
