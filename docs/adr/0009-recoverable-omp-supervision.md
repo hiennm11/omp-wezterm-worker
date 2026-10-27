@@ -83,7 +83,8 @@ Refuse a resume when the previous pane is still present or when its health is un
 No production code sets the execution states `stopping` and `unknown` today (issue 26), and they stay in the schema.
 A run that declared completion does not free the group while its pane lives.
 The owner can still read a completed pane before the owner closes it.
-A run frees the group when the run ends and its pane is gone, and the startup recovery frees a group whose holder has ended.
+A run frees the group when the run ends and its pane is gone.
+The startup recovery frees a group whose holder ended and whose pane is gone.
 A resume and a cleanup free a group whose holder ended and whose pane is gone.
 The pane list proves that the pane is gone. An unreadable pane list keeps the group held.
 Mark the group disposing only when no run holds an execution reservation and no linked event is unhandled.
