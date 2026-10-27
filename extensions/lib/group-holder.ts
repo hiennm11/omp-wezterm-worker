@@ -56,10 +56,7 @@ export function decideHolder(job: Job | undefined, state: PaneState | null): Hol
  * when the caller must keep its own refusal. A refusal names the pane that
  * holds the group.
  */
-export async function freeEndedHolder(
-	rt: WorkerRuntime,
-	group: ResourceGroup,
-): Promise<string | null> {
+export async function freeEndedHolder(rt: WorkerRuntime, group: ResourceGroup): Promise<string | null> {
 	const holder = group.executionHolder;
 	if (holder === null) return null;
 	const job = rt.jobs.get(holder);

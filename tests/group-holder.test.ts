@@ -12,9 +12,9 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-
+import type { LifecycleDb } from "../extensions/lib/db.ts";
 import type * as GroupHolder from "../extensions/lib/group-holder.ts";
-import { createGroup, readGroup, reserveExecution } from "../extensions/lib/groups.ts";
+import { createGroup, type ResourceGroup, readGroup, reserveExecution } from "../extensions/lib/groups.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
@@ -138,6 +138,13 @@ function sessionDirOf(dir: string, id: string): string {
 	return sessionDir;
 }
 
+/** The group of an id, which the test has created. */
+function groupOfId(db: LifecycleDb, id: string): ResourceGroup {
+	const group = readGroup(db, id);
+	assert.ok(group, `the group ${id} does not exist`);
+	return group;
+}
+
 test("the decision names one result for every state of the holder", async () => {
 	const { decideHolder } = await loadHolder();
 	const ended = jobOf("wz-1");
@@ -165,7 +172,7 @@ test("the holder of an ended run frees its group when its pane is gone", async (
 		const job = jobOf("wz-1", { paneId: 7, paneClosed: false });
 		rt.jobs.set(job.id, job);
 
-		const result = await freeEndedHolder(rt, readGroup(db, "grp-1")!);
+		const result = await freeEndedHolder(rt, groupOfId(db, "grp-1"));
 
 		assert.equal(result, null);
 		assert.equal(readGroup(db, "grp-1")?.executionHolder, null);
@@ -188,7 +195,7 @@ test("the holder of an ended run keeps its group while its pane is open", async 
 		const job = jobOf("wz-1", { paneId: 7, paneClosed: false });
 		rt.jobs.set(job.id, job);
 
-		const result = await freeEndedHolder(rt, readGroup(db, "grp-1")!);
+		const result = await freeEndedHolder(rt, groupOfId(db, "grp-1"));
 
 		assert.equal(
 			result,
@@ -213,12 +220,9 @@ test("the holder of an ended run keeps its group when the pane list fails", asyn
 		const job = jobOf("wz-1", { paneId: 7, paneClosed: false });
 		rt.jobs.set(job.id, job);
 
-		const result = await freeEndedHolder(rt, readGroup(db, "grp-1")!);
+		const result = await freeEndedHolder(rt, groupOfId(db, "grp-1"));
 
-		assert.equal(
-			result,
-			"The pane list cannot be read, so the state of pane 7 is unknown. Try again.",
-		);
+		assert.equal(result, "The pane list cannot be read, so the state of pane 7 is unknown. Try again.");
 		assert.equal(readGroup(db, "grp-1")?.executionHolder, "wz-1");
 		assert.equal(job.paneClosed, false);
 	} finally {
@@ -238,7 +242,7 @@ test("an active holder keeps its group", async () => {
 		const job = jobOf("wz-1", { status: "running", paneId: 7, paneClosed: false });
 		rt.jobs.set(job.id, job);
 
-		const result = await freeEndedHolder(rt, readGroup(db, "grp-1")!);
+		const result = await freeEndedHolder(rt, groupOfId(db, "grp-1"));
 
 		assert.equal(result, null);
 		assert.equal(readGroup(db, "grp-1")?.executionHolder, "wz-1");
@@ -257,7 +261,7 @@ test("a holder that this process does not know keeps its group", async () => {
 		createGroup(db, "grp-1", "C:/state/sessions/wz-1", 1000);
 		reserveExecution(db, "grp-1", "wz-1", 1001);
 
-		const result = await freeEndedHolder(rt, readGroup(db, "grp-1")!);
+		const result = await freeEndedHolder(rt, groupOfId(db, "grp-1"));
 
 		assert.equal(result, null);
 		assert.equal(readGroup(db, "grp-1")?.executionHolder, "wz-1");
