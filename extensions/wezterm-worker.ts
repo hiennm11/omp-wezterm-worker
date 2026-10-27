@@ -143,7 +143,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		// group. The recovery frees the groups whose holder ended and whose
 		// pane is gone. It runs after the loop above, so the live workers are
 		// known.
-		const freed = releaseEndedGroups(db, [...rt.jobs.values()], Date.now());
+		const freed = await releaseEndedGroups(rt, [...rt.jobs.values()], Date.now());
 		if (freed.length > 0) {
 			pi.logger?.info?.(`[wezterm-worker] The startup recovery freed ${freed.length} resource group(s).`);
 		}
