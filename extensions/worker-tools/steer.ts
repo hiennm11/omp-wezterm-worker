@@ -9,9 +9,9 @@ import { isActive } from "../lib/job.ts";
 import { taskKey } from "../lib/owner.ts";
 import { readOwnership } from "../lib/ownership.ts";
 import { paneState } from "../lib/pane.ts";
-import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
 import { steerWorker } from "../lib/steer.ts";
 import { steerNative } from "../lib/steer-native.ts";
+import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
 import { commsDetails, commsRefusalLine, commsWarningLine, findJob, reply, type ToolDeps } from "./kit.ts";
 
 export function registerSteerTool({ pi, rt }: ToolDeps): void {
