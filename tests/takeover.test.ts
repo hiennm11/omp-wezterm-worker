@@ -205,7 +205,7 @@ test("a session that owns the task refuses the takeover", async () => {
 	}
 });
 
-test("a native worker refuses the takeover", async () => {
+test("a native worker is taken over and gets a bridge", async () => {
 	const { rt, dir } = fakeRuntime({ starts: {}, code: 0, panes: [3] });
 	try {
 		rt.sessionId = "session-new";
@@ -214,10 +214,9 @@ test("a native worker refuses the takeover", async () => {
 		seedOwner(rt, job.id, OLD_PID, OLD_START);
 
 		const result = await takeOver(rt, job.id);
-		assert.equal(result.isError, true);
-		assert.equal(result.details.reason, "native");
-		assert.match(result.content[0]?.text ?? "", /native worker/);
-		assert.equal(ownerOf(rt, job.id)?.sessionId, "session-old");
+		assert.equal(result.isError, undefined);
+		assert.equal(result.details.taken, true);
+		assert.ok(rt.bridges.has(job.id), "the new owner has a bridge");
 	} finally {
 		finish(rt, dir, "wz-1");
 	}
