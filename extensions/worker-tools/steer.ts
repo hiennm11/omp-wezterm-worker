@@ -9,6 +9,7 @@ import { isActive } from "../lib/job.ts";
 import { taskKey } from "../lib/owner.ts";
 import { readOwnership } from "../lib/ownership.ts";
 import { paneState } from "../lib/pane.ts";
+import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
 import { steerWorker } from "../lib/steer.ts";
 import { steerNative } from "../lib/steer-native.ts";
 import { commsDetails, commsRefusalLine, commsWarningLine, findJob, reply, type ToolDeps } from "./kit.ts";
@@ -61,6 +62,13 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 				const owner = readOwnership(rt.openDb(), taskKey(job.id)).owner;
 				const refusal = controlRefusal(owner, rt.sessionId, job.id);
 				if (refusal) return reply(refusal, refusalDetails(job.id, owner), true);
+				// A pending stop intent means that a destructive command may have
+				// run. The steer must not reach a worker whose pane may already
+				// be closed.
+				const intentRefusal = stopIntentRefusal(rt.openDb(), job.id);
+				if (intentRefusal) {
+					return reply(intentRefusal, { workerId: job.id, stopIntent: "pending" }, true);
+				}
 				if (job.paneId === null) {
 					return reply(`Worker ${job.id} has no pane yet.`, { workerId: job.id, status: job.status }, true);
 				}

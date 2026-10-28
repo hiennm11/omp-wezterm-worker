@@ -15,6 +15,7 @@ import { taskKey } from "../lib/owner.ts";
 import { readOwnership } from "../lib/ownership.ts";
 import { paneState } from "../lib/pane.ts";
 import type { WorkerRuntime } from "../lib/runtime.ts";
+import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
 import { inspectWorktree, removeWorktree } from "../lib/worktree.ts";
 import { findJob, reply, type ToolDeps } from "./kit.ts";
 
@@ -124,6 +125,13 @@ export function registerCleanupTool({ pi, rt }: ToolDeps): void {
 				const owner = readOwnership(rt.openDb(), taskKey(job.id)).owner;
 				const refusal = cleanupRefusal(owner, rt.sessionId, job.id);
 				if (refusal) return reply(refusal, refusalDetails(job.id, owner), true);
+				// A pending stop intent means that a destructive command may have
+				// run. The cleanup must not act on a worker whose pane may
+				// already be closed.
+				const intentRefusal = stopIntentRefusal(rt.openDb(), job.id);
+				if (intentRefusal) {
+					return reply(intentRefusal, { workerId: job.id, stopIntent: "pending" }, true);
+				}
 				const sharers = activeSharers(rt.jobs.values(), job);
 				if (sharers.length > 0) {
 					const ids = sharers.map((other) => other.id);

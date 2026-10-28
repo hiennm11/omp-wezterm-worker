@@ -19,6 +19,7 @@ import {
 	confirmStopIntent,
 	failStopIntent,
 	pendingStopIntents,
+	type StopIntent,
 	stopIntentsOfRun,
 } from "./stop-intent.ts";
 
@@ -96,14 +97,20 @@ export async function reconcileStopIntents(
 }
 
 /**
+ * The pending stop intent of one run, or null when it has none.
+ */
+export function pendingStopIntentOf(db: LifecycleDb, runId: string): StopIntent | null {
+	return stopIntentsOfRun(db, runId).find((intent) => intent.state === "pending") ?? null;
+}
+
+/**
  * The reason that a control action must not go on, or null when it may go on.
  *
  * A pending stop intent means that a destructive command may have run. The
  * text names the worker and the tool that retries the stop.
  */
 export function stopIntentRefusal(db: LifecycleDb, runId: string): string | null {
-	const pending = stopIntentsOfRun(db, runId).find((intent) => intent.state === "pending");
-	if (!pending) return null;
+	if (!pendingStopIntentOf(db, runId)) return null;
 	return (
 		`Worker ${runId} has a pending stop intent. The pane of the worker may already be closed. ` +
 		"Call wezterm_worker_cancel to settle the stop before you act on the worker."

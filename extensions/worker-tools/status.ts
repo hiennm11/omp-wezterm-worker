@@ -13,6 +13,7 @@ import { reportState } from "../lib/report-decision.ts";
 import { readReports } from "../lib/report-store.ts";
 import { snapshotNotice, turnsLabel } from "../lib/restored-run.ts";
 import type { WorkerRuntime } from "../lib/runtime.ts";
+import { pendingStopIntentOf } from "../lib/stop-reconcile.ts";
 import { listSessionFiles, summarizeSession } from "../lib/transcript.ts";
 import { formatUsage, jobUsage, requestWorkerIds, type UsageReport } from "../lib/usage.ts";
 import { reply, type ToolDeps } from "./kit.ts";
@@ -65,6 +66,8 @@ interface StatusRow {
 	worktreeBranch: string | null;
 	worktreeDirty: boolean | null;
 	stop: string | null;
+	/** The state of the stop intent of the run, when it has one. */
+	stopIntent: string | null;
 	error: string | null;
 	/** The result of the task, for a finished worker. */
 	result: string | null;
@@ -111,6 +114,7 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime): Status
 				: j.pendingStop.failure === null
 					? "in progress"
 					: `not confirmed (${j.pendingStop.failure}). Call wezterm_worker_cancel to retry.`,
+		stopIntent: pendingStopIntentOf(rt.openDb(), j.id) === null ? null : "pending",
 		error: j.error,
 		result: j.result,
 		native: nativeSummary(rt, j),
@@ -201,6 +205,7 @@ function formatRow(r: StatusRow): string {
 				(r.worktreeDirty === true ? " [has uncommitted changes]" : "")
 			: null,
 		r.stop ? `  stop      : ${r.stop}` : null,
+		r.stopIntent ? `  Stop intent: ${r.stopIntent}` : null,
 		r.error ? `  error     : ${r.error}` : null,
 		r.blocked ? `  Completion blocked: ${r.blocked}` : null,
 	]
