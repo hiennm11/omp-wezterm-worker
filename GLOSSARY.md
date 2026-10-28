@@ -264,3 +264,7 @@ _Avoid_: Estimated cost, token estimate, zero usage
 **Pending event**:
 An event of a worker that nobody handled yet. The status tool lists it, and the owner acknowledges it with its event id.
 _Avoid_: Open event, unread event, notification
+
+**Stop intent reconciliation**:
+The act of settling the stop intents that a restart left pending. It reads the pane state of each run. A gone pane confirms the intent, and an existing pane fails the intent.
+_Avoid_: Stop retry, pane check, intent repair
