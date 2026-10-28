@@ -34,6 +34,7 @@ import { migrateRegistry } from "./lib/migrate.ts";
 import { acquireTask, bindSession, maySupervise } from "./lib/owner.ts";
 import { findLiveWorkers } from "./lib/process-table.ts";
 import { reconcileAttempts } from "./lib/recovery.ts";
+import { recoverTask } from "./lib/recover-task.ts";
 import { detectRole, ownSessionDir } from "./lib/role.ts";
 import { createRuntime } from "./lib/runtime.ts";
 import { registerWorkerBootstrap } from "./lib/worker-bootstrap.ts";
@@ -147,6 +148,10 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		if (freed.length > 0) {
 			pi.logger?.info?.(`[wezterm-worker] The startup recovery freed ${freed.length} resource group(s).`);
 		}
+
+		// A restart can lose the result of a finished run. The recovery sends
+		// the result of a run that this session owns and never delivered.
+		recoverTask(rt, [...rt.jobs.values()], deps.deliver, Date.now());
 	});
 
 	pi.on("session_shutdown", () => {
