@@ -12,6 +12,9 @@
  * The new owner keeps the rows of the run. An open row blocks the completion
  * of the run until a settlement arrives, so the state of the run names the
  * calls that still run.
+ *
+ * The counts of the usage start at the restart. The usage of a restored run
+ * is partial, because the turns before the restart stay unmeasured.
  */
 
 import { writeHandover } from "./bridge-handover.ts";
@@ -32,6 +35,7 @@ import type { WorkerRuntime } from "./runtime.ts";
 export async function reattachNative(rt: WorkerRuntime, job: Job): Promise<void> {
 	const state = createClaudeRunState(job.id);
 	state.sessionId = job.nativeSessionId ?? null;
+	state.usage.restoredAt = Date.now();
 
 	/* The rows of the run survive the restart. An open row names a call that
 	   still runs, so the new state must hold it as an open call. A row that
