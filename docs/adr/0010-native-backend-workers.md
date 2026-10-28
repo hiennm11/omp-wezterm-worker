@@ -1,6 +1,6 @@
 # Native backend workers
 
-Status: accepted design. The Claude Code backend is implemented. The Codex backend is not.
+Status: accepted design. The extension implements the Claude Code backend. The Codex backend has no implementation yet.
 
 ## Scope
 
@@ -8,25 +8,25 @@ This decision replaces the OMP-only restriction of ADR 0009. It keeps every evid
 
 A worker runs in the CLI that the user selected. The backends are OMP, Claude Code CLI, and Codex CLI. A spawn that names no backend runs OMP. A run that the database holds without a backend field is an OMP run. The migration never guesses a different backend.
 
-The extension never falls back to another backend. A backend that is not implemented is refused, because a silent fallback would run a different program than the user asked for.
+The extension never falls back to another backend. The extension refuses a backend without an implementation, because a silent fallback would run a different program than the user asked for.
 
 A worker exposes the real interactive interface of its CLI. The extension never imitates a native interface with streamed text.
 
-The release stays specific to the backends that are implemented. It adds no daemon, no routine watcher, and no second supervision convention.
+The release stays specific to the backends that the extension implements. It adds no daemon, no routine watcher, and no second convention for supervision.
 
 ## The native bridge
 
 A native worker needs a way to report its task state and to receive a steering instruction. A native CLI has no such interface of its own, so the extension supplies one.
 
-A Claude Code worker loads a session-scoped mod. The mod registers a report tool and polls the owner for commands. The mod imports no Node module. The mod never approves a tool and never refuses a native denial. Every observer passes its event on unchanged.
+A Claude Code worker loads a session-scoped mod. The mod registers a report tool and polls the owner for commands. The mod imports no Node module. The mod never gives approval to a tool and never refuses a native denial. Every observer passes its event on unchanged.
 
 The mod lives in the session directory of the worker. Two workers never share one plugin directory. The interactive load writes the build-specific types into that copy, so the mod follows the installed build and not the published documentation.
 
-The owner talks to the mod over a loopback HTTP server. The server binds only to 127.0.0.1 and requires a per-run bearer token. The token reaches the worker through the environment of the launch. The token never appears in a command argument and never enters a committed file.
+The owner speaks to the mod over a loopback HTTP server. The server binds only to 127.0.0.1 and needs a per-run bearer token. The token reaches the worker through the environment of the launch. The token never appears in a command argument and never enters a committed file.
 
 The address and the token of the bridge also live in a handover file inside the session directory. The mod reads that file on every poll. A new owner writes the file again, so a worker that keeps running after a release finds its new owner. A released owner closes its bridge and removes the file, so the released owner accepts no more commands. A run that ends removes the file too, so the worker stops for good.
 
-The bridge holds the observations of one run and the commands of the owner. The bridge is a transport. The decisions that use it live in the library.
+The bridge holds the observations of one run and the commands of the owner. The bridge only carries data. The decisions that use it live in the library.
 
 ## Task evidence
 
@@ -38,49 +38,49 @@ A report binds to its run and to its instruction cycle. A report of an earlier c
 
 The instruction cycle of a native worker is the native turn. A cycle starts at the accepted task instruction or at a steering input. It ends at the native turn boundary when no foreground call of the turn is open.
 
-A native worker reports the state of its task through its own report tool. The tool accepts the same fields as the OMP report tool: `state`, `result`, `dependency`, `resumeCondition`, `needs`, and `detail`. A state-specific field stays required. A completed report needs the result. A waiting report needs the dependency and the condition that resumes the work. A needs input report needs the decision or information that the worker needs.
+A native worker reports the state of its task through its own report tool. The tool accepts the same fields as the OMP report tool: `state`, `result`, `dependency`, `resumeCondition`, `needs`, and `detail`. A state-specific field stays necessary. A completed report needs the result. A waiting report needs the dependency and the condition that resumes the work. A needs input report needs the decision or information that the worker needs.
 
 A child loop of a native worker cannot complete the main task. The report of the main loop settles the task.
 
 ## Accepted input and delivered input
 
-The receipt of a command is not an accepted input. The native acceptance of the instruction adds its instruction id to the pending input. The native delivery of the instruction starts its cycle.
+The receipt of a command is not an accepted input. The native acceptance of the instruction adds the instruction id to the pending input. The native delivery of the instruction starts its cycle.
 
-An accepted input blocks the completion of the run until the instruction is processed and the latest instruction cycle holds a valid completion report.
+An accepted input blocks the completion of the run until the native program processes the instruction. The latest instruction cycle must then hold a valid completion report.
 
-A steering instruction never interrupts a running tool. The native prompt API queues the instruction.
+A steering instruction never stops a running tool. The native prompt API queues the instruction.
 
-A steering instruction is refused while a verified permission request is open. A refused instruction is not saved for a later submission.
+The extension refuses a steering instruction while a verified permission request is open. The native program does not keep a refused instruction for a later submission.
 
-A direct task input inside an active pane joins the same run and starts an instruction cycle. The native ingress and the native delivery of that input are separate pieces of evidence.
+A direct task input inside an active pane enters the same run and starts an instruction cycle. The arrival of the input and the native delivery of the input are separate pieces of evidence.
 
 ## Approvals
 
-A native permission request is a fact that the owner must know. The request is raised as an event that keeps the identity of the run. The person answers the request in the pane. The extension never answers a request on behalf of the person.
+A native permission request is a fact that the owner must know. The supervisor creates an event for the request, and the event keeps the identity of the run. The person answers the request in the pane. The extension never answers a request on behalf of the person.
 
-The modern permission path of Claude Code does not raise the classic permission hook. The permission decision of the tool check is the native request evidence. The resolution is the settlement of the same call.
+The modern permission path of Claude Code does not call the classic permission hook. The permission decision of the tool check is the native request evidence. The resolution is the settlement of the same call.
 
-Pane text is a diagnostic view. It never proves that a request exists or that it was resolved.
+Pane text is a diagnostic view. It never proves that a request exists or that the person resolved it.
 
 ## Native configuration
 
 A native worker keeps the configuration, the credentials, the MCP servers and the permission rules of the user. The extension never edits a global setting and never changes a native home directory to control storage.
 
-An omitted model uses the default of the selected CLI. An explicit model identifier is passed through unchanged. The OMP model default stays OMP-specific.
+An omitted model uses the default of the selected CLI. The extension passes an explicit model identifier through without any change. The OMP model default stays OMP-specific.
 
-The `tools` parameter is OMP-only. A spawn that names a Claude Code or a Codex worker and gives a tool list is refused before the launch.
+The `tools` parameter is OMP-only. The extension refuses a spawn that names a Claude Code or a Codex worker and gives a tool list before the launch.
 
 ## Usage and history
 
 The native usage fields of a worker are the measured fields that the native turn reports. A field that the native program does not report stays missing. The extension never manufactures a zero and never sums a cumulative usage twice.
 
-The native CLI reports the usage of a turn when the turn ends. A run therefore waits for the end of the turn of its cycle before it ends. A run that ends before its turn ends loses the measured usage, because the bridge closes with the run.
+The native CLI reports the usage of a turn when the turn ends. A run thus waits for the end of the turn of its cycle before it ends. A run that ends before its turn ends loses the measured usage, because the bridge closes with the run.
 
 The measured usage and the cycle count of a run stay on the job. A finished run keeps them, so the status tool and the delivery still show the counts of the run. A resumed run starts without them, because the usage belongs to the run that measured it.
 
-A native worker writes no OMP transcript. Its activity comes from the native observations. The idle deadline therefore never stops a native worker that is still working.
+A native worker writes no OMP transcript. Its activity comes from the native observations. The idle deadline thus never stops a native worker that keeps working.
 
-A resume preserves the backend and the native session history. A resume reuses the native session id of its source run, so the worker comes back with its history. A backend change needs a new worker and a new task.
+A resume keeps the backend and the native session history. A resume uses the native session id of its source run, so the worker comes back with its history. A backend change needs a new worker and a new task.
 
 A run keeps its native history outside the plugin-owned state. The cleanup never removes it.
 
@@ -88,7 +88,7 @@ A run keeps its native history outside the plugin-owned state. The cleanup never
 
 An event of a native run keeps the identity of the run. The status tool lists the events that wait for the owner, with their event ids. The owner acknowledges each event with its id. An event that nobody handled blocks the cleanup.
 
-A native worker is found in the process table by the path of its plugin, because the path names the session directory of the run. A recovery therefore finds a native worker after a crash of the owner, the same way it finds an OMP worker.
+The process table finds a native worker by the path of its plugin, because the path names the session directory of the run. A recovery thus finds a native worker after a crash of the owner, the same way it finds an OMP worker.
 
 ## Execution evidence
 
@@ -98,7 +98,7 @@ A call to the report tool opens no row. The report file is its own evidence.
 
 A background task of a native worker settles in its own right. The settlement of a background task and the return of the foreground tool are separate pieces of evidence.
 
-The mod forwards the flag of a background call. It forwards the id of the task that the call started. It forwards the id of the call and the status of the notification of a task. The ids and the status are read from the text of the notification, because the host writes them there. The text is a host format and not a documented field, so a new build of the host can change it. A text without the tags gives null, and the mod never throws.
+The mod forwards the flag of a background call. It forwards the id of the task that the call started. It forwards the id of the call and the status of the notification of a task. The mod reads the ids and the status from the text of the notification, because the host writes them there. The text is a host format and not a documented field, so a new build of the host can change it. A text without the tags gives null, and the mod never throws.
 
 The supervisor opens a row of kind background for such a call. The return of the call leaves the row open, because the task of the call still runs. A failed call settles its row, because a call that failed started no task.
 
@@ -112,25 +112,27 @@ The probe of 2026-10-28 did not cover a task that the user stops with a key in t
 
 A known outstanding execution blocks a completion report. An unknown execution blocks it too, because the supervisor cannot prove that the work finished.
 
-The rows of a native run survive a restart of the owner, because the ledger lives in the database. After a restart the owner starts a new bridge for the run, writes the handover file again and watches the worker. The worker follows the new bridge through the handover file. The worker sends a snapshot of the run to the new owner when the address of the owner changes, and it sends the snapshot again until the owner accepts it. The new owner settles the open rows of kind tool that the snapshot does not hold, because the worker names the calls that still run. The rows of kind background stay open, because a task settles through its own notification. A stored open row keeps blocking the completion of the run until a settlement arrives or the worker stops. A re-attachment that fails stops the worker, because a worker without a supervisor keeps running. The stop waits for the pane to close, so the ledger of the run closes only after the worker really stopped. The owner marks the usage of a restored run as partial, and the status and the delivery say that the counts start at the restart.
+The rows of a native run survive a restart of the owner, because the ledger lives in the database. After a restart the owner starts a new bridge for the run, writes the handover file again and monitors the worker. The worker follows the new bridge through the handover file. The worker sends a snapshot of the run to the new owner when the address of the owner changes. The worker sends the snapshot again until the owner accepts it.
+
+The new owner settles the open rows of kind tool that the snapshot does not hold, because the worker names the calls that still run. The rows of kind background stay open, because a task settles through its own notification. A stored open row keeps blocking the completion of the run until a settlement arrives or the worker stops. A re-attachment that fails stops the worker, because a worker without a supervisor keeps running. The stop waits for the pane to close, so the ledger of the run closes only after the worker stopped. The owner marks the usage of a restored run as partial, and the status and the delivery say that the counts start at the restart.
 
 ## Recovery and stops
 
 Every rule of ADR 0009 about recovery and stops applies to a native worker.
 
-A stop kills only the pane of the selected worker. The stop is confirmed when the pane list shows the pane gone and the native process of the worker has ended. A missing pane alone is not a confirmed stop.
+A stop kills only the pane of the selected worker. The pane list confirms the stop when it shows the pane gone and the native process of the worker ended. A missing pane alone is not a confirmed stop.
 
 A controller failure recovers the original execution. The extension never launches a replacement automatically.
 
-A cleanup refuses unhandled events and preserves the dirty work and the external native history.
+A cleanup refuses unhandled events and keeps the dirty work and the external native history.
 
 ## Tradeoffs
 
 A session-scoped mod and a loopback bridge add a native dependency. They buy the real native interface, the native permission flow, the native usage and the native history. The alternative, a text protocol that imitates a native interface, loses every one of those.
 
-A native worker does not share the transcript format of an OMP worker. The supervisor therefore reads the native state of a native run instead of the transcript. The decision functions stay pure, so they are still testable without a pane.
+A native worker does not share the transcript format of an OMP worker. The supervisor thus reads the native state of a native run instead of the transcript. The decision functions stay pure, so they are still testable without a pane.
 
-The Codex backend needs a different bridge. It talks to a dedicated app server over a websocket. The bridge is a transport, so the second backend reuses the decision functions and the event model.
+The Codex backend needs a different bridge. It speaks to a dedicated app server over a websocket. The bridge only carries data, so the second backend uses the same decision functions and the event model.
 
 ## What this replaces
 
