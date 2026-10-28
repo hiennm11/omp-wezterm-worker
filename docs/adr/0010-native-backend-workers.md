@@ -112,7 +112,7 @@ The probe of 2026-10-28 did not cover a task that the user stops with a key in t
 
 A known outstanding execution blocks a completion report. An unknown execution blocks it too, because the supervisor cannot prove that the work finished.
 
-The rows of a native run survive a restart of the owner, because the ledger lives in the database. After a restart the owner starts a new bridge for the run, writes the handover file again and watches the worker. The worker follows the new bridge through the handover file. The observations that the worker sent while the owner was away are lost. A stored open row keeps blocking the completion of the run until a settlement arrives or the worker stops.
+The rows of a native run survive a restart of the owner, because the ledger lives in the database. After a restart the owner starts a new bridge for the run, writes the handover file again and watches the worker. The worker follows the new bridge through the handover file. The observations that the worker sent while the owner was away are lost. A stored open row keeps blocking the completion of the run until a settlement arrives or the worker stops. A re-attachment that fails stops the worker, because a worker without a supervisor keeps running. The stop waits for the pane to close, so the ledger of the run closes only after the worker really stopped.
 
 ## Recovery and stops
 
