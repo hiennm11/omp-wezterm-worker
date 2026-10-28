@@ -7,7 +7,6 @@
  */
 
 import { attachWorker } from "../lib/attach.ts";
-import { readBackend } from "../lib/backend.ts";
 import { isActive } from "../lib/job.ts";
 import { ensureOwnProcessStart, previousOwnerState, taskKey } from "../lib/owner.ts";
 import { readOwnership, takeOverOwnership } from "../lib/ownership.ts";
@@ -18,7 +17,6 @@ type RefusalReason =
 	| "no-owner"
 	| "no-identity"
 	| "own"
-	| "native"
 	| "no-process-record"
 	| "process-alive"
 	| "process-unknown"
@@ -61,14 +59,6 @@ export function registerTakeoverTool({ pi, rt, deliver }: ToolDeps): void {
 			}
 			if (held.sessionId === sessionId) {
 				return refuse(job.id, "own", `This session already owns worker ${job.id}.`);
-			}
-			// A native worker has no transcript, so the monitor cannot read it.
-			if (readBackend(job) !== "omp") {
-				return refuse(
-					job.id,
-					"native",
-					`Worker ${job.id} is a native worker. The supervisor cannot attach it yet (issue 29).`,
-				);
 			}
 			if (held.phase !== "released") {
 				const previous = await previousOwnerState(rt, held);
