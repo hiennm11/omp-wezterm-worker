@@ -7,7 +7,7 @@
  */
 
 import { readBackend } from "./backend.ts";
-import { type Job } from "./job.ts";
+import type { Job } from "./job.ts";
 import { settleDetachedJob, stopJob } from "./lifecycle.ts";
 import { monitorJob, monitorNativeJob } from "./monitor.ts";
 import { paneState } from "./pane.ts";
@@ -43,7 +43,12 @@ export async function attachWorker(rt: WorkerRuntime, job: Job, notify: (job: Jo
 		/* A worker without a supervisor keeps running. A failed
 		   re-attachment therefore stops the worker. The stop waits for the
 		   pane to close, so the ledger closes only after the worker died. */
-		const outcome = await stopJob(rt, job, "failed", `The native worker could not be attached again: ${message}`);
+		const outcome = await stopJob(
+			rt,
+			job,
+			"failed",
+			`The native worker could not be attached again: ${message}`,
+		);
 		if (!outcome.stopped) monitorNativeJob(rt, job, notify);
 		return;
 	}
