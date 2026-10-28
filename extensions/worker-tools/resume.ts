@@ -12,6 +12,7 @@ import { acquireTask, bindSession, maySupervise, taskKey } from "../lib/owner.ts
 import { readOwnership } from "../lib/ownership.ts";
 import { resumeClaudeWorker } from "../lib/resume-claude.ts";
 import { resumeWorker } from "../lib/spawn.ts";
+import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
 import { findJob, refusalReply, reply, type ToolDeps } from "./kit.ts";
 
 export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
@@ -56,6 +57,13 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 				const owner = readOwnership(rt.openDb(), taskKey(job.id)).owner;
 				const refusal = cleanupRefusal(owner, rt.sessionId, job.id);
 				if (refusal) return reply(refusal, refusalDetails(job.id, owner), true);
+				// A pending stop intent means that a destructive command may have
+				// run. The resume must not start a second writer on a worker
+				// whose pane may already be closed.
+				const intentRefusal = stopIntentRefusal(rt.openDb(), job.id);
+				if (intentRefusal) {
+					return reply(intentRefusal, { workerId: job.id, stopIntent: "pending" }, true);
+				}
 				const admitted = admitLaunch(rt, ctx.sessionManager?.getSessionFile?.());
 				if ("refusal" in admitted) return refusalReply(admitted.refusal);
 				bindSession(rt, ctx.sessionManager);
