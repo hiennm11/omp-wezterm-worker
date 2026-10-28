@@ -29,6 +29,10 @@ export interface NativeTotals {
 	callsWithoutUsage: number;
 	/** The name of the model that the run used. */
 	model: string | null;
+	/**
+	 * The time of the restart of the owner. The counts of the run start there.
+	 */
+	restoredAt?: number | null;
 }
 
 /** The totals of a run that reported no usage. */

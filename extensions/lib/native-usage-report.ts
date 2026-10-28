@@ -29,6 +29,7 @@ export interface NativeUsageHolder {
 		calls: number;
 		callsWithoutUsage: number;
 		model: string | null;
+		restoredAt?: number | null;
 	};
 }
 
@@ -42,6 +43,7 @@ export interface NativeUsageHolder {
 export function nativeUsageReport(state: NativeUsageHolder | null): UsageReport {
 	if (!state) return { state: "unknown", totals: null, cost: null, note: "the native run reported no usage" };
 	const totals = nativeUsageTotals(state.usage);
+	const restored = typeof state.usage.restoredAt === "number";
 	const turns = totals.calls + totals.callsWithoutUsage;
 	if (turns === 0) {
 		return { state: "unknown", totals: null, cost: null, note: "the native run reported no usage" };
@@ -55,12 +57,16 @@ export function nativeUsageReport(state: NativeUsageHolder | null): UsageReport 
 		};
 	}
 	if (totals.callsWithoutUsage > 0) {
+		const missing = `${totals.callsWithoutUsage} of ${turns} model calls have no usage data`;
 		return {
 			state: "partial",
 			totals,
 			cost: null,
-			note: `${totals.callsWithoutUsage} of ${turns} model calls have no usage data`,
+			note: restored ? `counted from the restart of OMP; ${missing}` : missing,
 		};
+	}
+	if (restored) {
+		return { state: "partial", totals, cost: null, note: "counted from the restart of OMP" };
 	}
 	return { state: "measured", totals, cost: null, note: "" };
 }
