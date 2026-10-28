@@ -34,6 +34,18 @@ const TASK_ID_TAG = /<task-id>([^<]*)<\/task-id>/;
 const TOOL_USE_ID_TAG = /<tool-use-id>([^<]*)<\/tool-use-id>/;
 const STATUS_TAG = /<status>([^<]*)<\/status>/;
 
+/** The result blocks of a transcript row, with their text and their call. */
+function readResultBlocks(e) {
+	const content = e.message?.content;
+	if (!Array.isArray(content)) return [];
+	return content
+		.filter((block) => block?.type === "tool_result")
+		.map((block) => ({
+			callId: block?.tool_use_id ?? null,
+			text: typeof block?.content === "string" ? block.content : (block?.text ?? null),
+		}));
+}
+
 /** The state of the mod. It lives in the closure of register. */
 const state = {
 	/** The native session id of the session. */
@@ -275,23 +287,6 @@ function readRowText(e) {
 			.join("\n");
 	}
 	return null;
-}
-
-/**
- * The result blocks of a transcript row, with their text.
- *
- * A tool result is a block of the type `tool_result`. The block holds the id
- * of the call and the text of the result.
- */
-function readResultBlocks(e) {
-	const content = e.message?.content;
-	if (!Array.isArray(content)) return [];
-	return content
-		.filter((block) => block?.type === "tool_result")
-		.map((block) => ({
-			callId: block?.tool_use_id ?? null,
-			text: typeof block?.content === "string" ? block.content : (block?.text ?? null),
-		}));
 }
 
 /**
