@@ -148,6 +148,18 @@ export function applyObservation(state: ClaudeRunState, observation: BridgeObser
 		}
 		case "background.settled": {
 			state.backgroundSettlements += 1;
+			/* The call of a background task leaves the open calls, because the
+			   task of the call ended. The row of the call stays in the
+			   database, and it blocks the completion until it settles. */
+			const callId = (payload.callId as string) ?? null;
+			if (callId) state.openCalls.delete(callId);
+			return true;
+		}
+		case "background.stopped": {
+			/* A stop of a task ends the call that started it. The call id
+			   arrives with the stop only when the host names it. */
+			const callId = (payload.callId as string) ?? null;
+			if (callId) state.openCalls.delete(callId);
 			return true;
 		}
 		case "command.accepted": {

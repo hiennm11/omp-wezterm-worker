@@ -26,6 +26,14 @@ const REPORT_TOOL = "wezterm_worker_report";
 /** The name that the native host uses for the report tool. */
 const MCP_REPORT_TOOL = "mcp__wezterm-worker__wezterm_worker_report";
 
+/* The host text of a background task. The tags are text and not a documented
+   field, so a new build of the host can change them. */
+const BACKGROUND_ID_PATTERN = /Command running in background with ID: (\w+)/;
+const STOPPED_MESSAGE_PREFIX = "Successfully stopped task";
+const TASK_ID_TAG = /<task-id>([^<]*)<\/task-id>/;
+const TOOL_USE_ID_TAG = /<tool-use-id>([^<]*)<\/tool-use-id>/;
+const STATUS_TAG = /<status>([^<]*)<\/status>/;
+
 /** The state of the mod. It lives in the closure of register. */
 const state = {
 	/** The native session id of the session. */
@@ -42,6 +50,8 @@ const state = {
 	deliveredCycleId: null,
 	/** The calls that started and did not settle. */
 	openCalls: new Map(),
+	/** The calls that started a background task, by the id of the task. */
+	backgroundCalls: new Map(),
 	/** The permission requests that no result resolved. */
 	pendingApprovals: new Map(),
 	/** The commands that the owner handed out. */
@@ -268,6 +278,67 @@ function readRowText(e) {
 }
 
 /**
+ * The result blocks of a transcript row, with their text.
+ *
+ * A tool result is a block of the type `tool_result`. The block holds the id
+ * of the call and the text of the result.
+ */
+function readResultBlocks(e) {
+	const content = e.message?.content;
+	if (!Array.isArray(content)) return [];
+	return content
+		.filter((block) => block?.type === "tool_result")
+		.map((block) => ({
+			callId: block?.tool_use_id ?? null,
+			text: typeof block?.content === "string" ? block.content : (block?.text ?? null),
+		}));
+}
+
+/**
+ * The task that a result of a background call names.
+ *
+ * The host writes the id of the task into the text of the result. The text
+ * is a host format and not a documented field, so a new build can change it.
+ */
+function readBackgroundTaskId(e) {
+	for (const block of readResultBlocks(e)) {
+		const match = block.text ? BACKGROUND_ID_PATTERN.exec(block.text) : null;
+		if (match) return match[1];
+	}
+	return null;
+}
+
+/**
+ * The task that a stop of a task names.
+ *
+ * The host writes the id of the task into the JSON text of the result. The
+ * text is a host format and not a documented field, so a new build can change
+ * it.
+ */
+function readStoppedTaskId(e) {
+	for (const block of readResultBlocks(e)) {
+		let parsed = null;
+		try {
+			parsed = JSON.parse(block.text ?? "");
+		} catch {
+			continue;
+		}
+		const message = parsed?.message;
+		if (typeof message !== "string" || !message.startsWith(STOPPED_MESSAGE_PREFIX)) continue;
+		if (typeof parsed.task_id === "string" && parsed.task_id) return parsed.task_id;
+	}
+	return null;
+}
+
+/** The text of a tag of a notification, or null when the tag is missing. */
+function readTag(text, pattern) {
+	if (typeof text !== "string") return null;
+	const match = pattern.exec(text);
+	const value = match ? match[1].trim() : "";
+	return value ? value : null;
+}
+
+/**
  * Register the hooks of the worker.
  *
  * The module exports only register. It registers no handler on a permission
@@ -331,12 +402,16 @@ export function register(on) {
 		const callId = e.tool_use_id ?? null;
 		const isReport = String(e.tool ?? "").endsWith(REPORT_TOOL);
 		if (callId && !isReport) state.openCalls.set(callId, e.tool);
-		await observe($, "tool.call.opened", {
+		const opened = {
 			callId,
 			tool: e.tool,
 			agentId: e.agentId ?? null,
 			command: typeof e.command === "string" ? e.command : null,
-		});
+		};
+		/* The host marks a call that starts a background task. The flag tells
+		   the owner that the task outlives the call. */
+		if (e.run_in_background === true) opened.background = true;
+		await observe($, "tool.call.opened", opened);
 		try {
 			const result = await next(e);
 			if (callId && !isReport) state.openCalls.delete(callId);
@@ -389,12 +464,38 @@ export function register(on) {
 		   foreground tool from the settlement of the background task. */
 		const originKind = e.origin?.kind ?? null;
 		if (originKind === "task-notification") {
+			const text = readRowText(e);
 			await observe($, "background.settled", {
 				uuid: e.uuid,
 				door: e.door ?? null,
 				originKind,
 				agentId: e.agentId ?? null,
+				callId: readTag(text, TOOL_USE_ID_TAG),
+				taskId: readTag(text, TASK_ID_TAG),
+				status: readTag(text, STATUS_TAG),
 			});
+		}
+		/* The result of a background call names the task that it started. The
+		   owner needs the id to link the notification to its call. */
+		if (e.origin?.kind === "tool" && e.origin?.tool === "Bash") {
+			const taskId = readBackgroundTaskId(e);
+			if (taskId) {
+				const callId = readResultBlocks(e)[0]?.callId ?? null;
+				if (callId) state.backgroundCalls.set(taskId, callId);
+				await observe($, "background.started", { callId, taskId });
+			}
+		}
+		/* The result of a stop names the task that the stop ended. The owner
+		   needs the id to settle the row of that task. */
+		if (e.origin?.kind === "tool" && e.origin?.tool === "TaskStop") {
+			const taskId = readStoppedTaskId(e);
+			if (taskId) {
+				/* The call that started the task ends with the task, so the
+				   stop names that call too. */
+				const callId = state.backgroundCalls.get(taskId) ?? null;
+				state.backgroundCalls.delete(taskId);
+				await observe($, "background.stopped", { callId, taskId });
+			}
 		}
 		/* A prompt that the mod submitted does not raise `prompt.submit`. It
 		   reaches the transcript as a user row that names the mod. */
