@@ -71,6 +71,15 @@ A second probe (2026-10-23, Claude Code 2.1.309, model haiku, one real worker in
 - The production mod forwards neither fact. It sends `command` but not `run_in_background` in `tool.call.opened`. It sends `uuid`, `door` and `originKind` but not the text of the notification in `background.settled`. So the supervisor cannot link the notification to its call (issue 30).
 - The probe covers one background task. It does not show a task that fails, a task that the user cancels, or two tasks that run at the same time.
 
+A third probe (2026-10-28, Claude Code 2.1.309, one real worker in a WezTerm pane) read the raw events of a background task and of a stop of a background task. The probe mod posted every raw event and changed none. These are the facts.
+
+- The foreground `tool.call.settled` observation of a background call arrives at once. The task still runs at that moment. The settlement of the call is not the settlement of the task.
+- The result of a background call is a `session.append` row whose `origin.kind` is `tool` and whose `origin.tool` is `Bash`. Its `message.content[0]` holds a block of the type `tool_result`. The text of the block starts with `Command running in background with ID: <task-id>.`. The text after `ID: ` up to the next period is the id of the task.
+- A background task ends in a `session.append` row whose `origin.kind` is `task-notification`. Its `message.content[0].text` holds these tags on separate lines: `<task-id>`, `<tool-use-id>`, `<output-file>`, `<status>` and `<summary>`. The `<tool-use-id>` equals the `tool_use_id` of the call that started the task.
+- The probe saw two values of `<status>`: `completed` for a task with the exit code 0, and `failed` for a task with the exit code 3. Each notification names its own call id. Three tasks ran at the same time, and each got its own notification.
+- A task that the worker stops with the tool `TaskStop` sends no notification. The probe stopped `sleep 600`, and no row with the origin kind `task-notification` ever came. The `TaskStop` call has the fields `task_id`, `tool` and `tool_use_id`. Its result is a `session.append` row whose `origin.kind` is `tool` and whose `origin.tool` is `TaskStop`. The text of the result is the JSON text `{"message":"Successfully stopped task: <task-id> (sleep 600)","task_id":"<task-id>","task_type":"local_bash","command":"sleep 600"}`.
+- The probe did not cover a task that the user stops with a key in the pane. It did not cover a stop with another tool. It did not cover a task that still runs when the worker ends. It did not cover a value of `<status>` other than `completed` and `failed`. The supervisor keeps the row open in each of these cases, because the data that links the task is missing.
+
 A native turn reports its usage in the `turn.complete` event. The measured fields are the five that the table names. A field that the build does not report stays missing.
 
 The session startup asks two questions: the trust of the workspace and the MCP servers of the project. The proof answers both in the pane. The MCP servers come from the global configuration of the user, so the proof enables them. The feature contract requires that a worker keeps the integrations of the user.
@@ -89,6 +98,8 @@ A permission bypass that the user already configured stays in place. The proof s
 | pending queue | The instruction ids that the native program accepted and that no cycle carries yet. |
 | tool settlement | The `tool.call.settled` event of the same call id. |
 | background execution | The `session.append` row whose `origin.kind` is `task-notification`. |
+| background start | The `session.append` row whose `origin.tool` is `Bash` and whose text names the id of the task. |
+| background stop | The `session.append` row whose `origin.tool` is `TaskStop` and whose JSON text names the id of the task. |
 | approvals | The `tool.check` decision `ask` and the settlement of the same call id. |
 | history | The native session id. A resume reuses it. |
 | usage | The `usage` object of the `turn.complete` event. |

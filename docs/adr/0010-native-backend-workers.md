@@ -96,7 +96,19 @@ A native worker keeps the execution ledger of ADR 0009. A native call opens a ro
 
 A call to the report tool opens no row. The report file is its own evidence.
 
-A background task of a native worker settles in its own right. The settlement of a background task and the return of the foreground tool are separate pieces of evidence. A native background task opens no row today. The mod does not forward the flag `run_in_background` of the call, and it does not forward the call id that the notification of the task names. The raw events carry both: a probe shows the flag in `tool.call` and the call id in the text of the notification (`docs/backend-proof-evidence.md`). Issue 30 tracks the missing forwarding. A completion report of a native run does not wait for a background result, because the run holds no row for it.
+A background task of a native worker settles in its own right. The settlement of a background task and the return of the foreground tool are separate pieces of evidence.
+
+The mod forwards the flag of a background call. It forwards the id of the task that the call started. It forwards the id of the call and the status of the notification of a task. The ids and the status are read from the text of the notification, because the host writes them there. The text is a host format and not a documented field, so a new build of the host can change it. A text without the tags gives null, and the mod never throws.
+
+The supervisor opens a row of kind background for such a call. The return of the call leaves the row open, because the task of the call still runs. A failed call settles its row, because a call that failed started no task.
+
+A notification settles the row of its call. The supervisor settles the row for every status that the notification carries, including a failure. The status names the settlement evidence.
+
+A stop of a task settles the row of that task. The tool `TaskStop` names the task and the call that started it. The supervisor settles the row by the id of the task.
+
+A row that the supervisor cannot link stays open. A notification without a call id and a notification without a status leave the row open. A stop of an unknown task changes nothing. An open row blocks a completion report, because the supervisor cannot prove that the task ended.
+
+The probe of 2026-10-28 did not cover a task that the user stops with a key in the pane. It did not cover a stop with another tool. It did not cover a task that still runs when the worker ends. It did not cover a status other than `completed` and `failed`. The supervisor keeps the row open in each of these cases, because the data that links the task is missing.
 
 A known outstanding execution blocks a completion report. An unknown execution blocks it too, because the supervisor cannot prove that the work finished.
 
