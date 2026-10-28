@@ -13,7 +13,7 @@ The extension returns an error that names the rule.
   that path.
 - The inside of the OMP build does not show the `omp` arguments in
   `process.argv`. The arguments are thus not a signal. The extension still
-  shows the spawn and resume tools. The extension rejects them. The model
+  registers the spawn and resume tools. The extension rejects them. The model
   gets the rule and not a missing tool.
 - One request lets at most `maxLaunchesPerRequest` launches (default 3). A
   request starts at each user prompt. The counters live in memory only.

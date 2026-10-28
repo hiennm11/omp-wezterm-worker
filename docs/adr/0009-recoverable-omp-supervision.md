@@ -1,6 +1,6 @@
 # Recoverable OMP supervision
 
-Status: accepted design. The runtime does not yet do this contract.
+Status: accepted design. The runtime does not yet implement this contract.
 
 ## Scope
 
@@ -8,7 +8,7 @@ Build the change in separate review steps. Release it only after one complete ac
 
 Keep the release specific to OMP. Add no daemon, routine LLM watcher, or other CLI adapter.
 
-Guarantee recovery after an OMP process failure. Recovery after a machine shutdown stays best effort.
+Guarantee recovery after an OMP process failure. Recovery after a machine shutdown remains best effort.
 
 ## Task evidence
 
@@ -16,7 +16,7 @@ A worker reports working, waiting, needs_input, or completed through a dedicated
 
 Missing or invalid reports leave the task state unknown. Ordinary answer text never proves completion.
 
-Tie each report to its current run. An earlier completion cannot finish a resumed run.
+Bind each report to its current run. An earlier completion cannot finish a resumed run.
 
 A completion report includes the result. It declares worker completion. It does not declare owner acceptance.
 
@@ -24,9 +24,9 @@ The worker records evidence. Only the supervision owner changes lifecycle state 
 
 Completion needs all task-owned work to finish. The worker must observe background execution results before reporting completion.
 
-Do not accept a completion while the known evidence of an execution stays open.
+Do not accept a completion while the known evidence of an execution remains outstanding.
 
-The supervisor does not claim to find every process that runs in the background.
+The supervisor does not claim to find every detached process.
 
 The run keeps an execution ledger. Each row holds four values: an id of the execution, the start evidence, the method of observation, and the evidence of the settlement.
 
@@ -44,7 +44,7 @@ Do not infer settlement from an open pane, from transcript growth, or from an em
 
 A waiting report names the external dependency and the condition that resumes work.
 
-The worker must keep a way to observe that condition. The supervisor does not manage external execution.
+The worker must retain a way to observe that condition. The supervisor does not manage external execution.
 
 A worker that vanishes while waiting needs intervention. The supervisor does not start another writer.
 
@@ -58,7 +58,7 @@ A cycle must hold at its terminal boundary for a settling time before the rule a
 
 A partial transcript or an open tool call does not close a cycle.
 
-The event key holds three values: the run id, the evidence id of the cycle start, and the condition type.
+The event key holds three values: the run id, the evidence id of the cycle start, and the condition kind.
 
 A report inside the cycle satisfies the report rule. Later ordinary text does not remove that report.
 
@@ -66,7 +66,7 @@ A working report followed by a verified idle execution is a separate condition. 
 
 A later valid report can resolve an obsolete event. The history of that event stays.
 
-The transcript with no new text alone stays status information. It does not stop a worker. It does not wake the main agent again and again.
+The transcript with no new text alone remains status information. It does not stop a worker. It does not wake the main agent again and again.
 
 A working report does not hide an execution gap.
 
@@ -76,7 +76,7 @@ Do not send a continue instruction automatically.
 
 Remove automatic stopping based on transcript inactivity.
 
-Reject a nonzero legacy value for idleTimeoutMs. Give guidance for the migration instead. Do not change the meaning of that value quietly.
+Reject a nonzero legacy idleTimeoutMs setting. Give the owner guidance for the migration. Do not change the meaning of that setting silently.
 
 Keep the total execution deadline.
 
@@ -88,7 +88,7 @@ Keep legacy workers without completion signals as unknown. The owner must decide
 
 Keep historical results from the old completion rule as legacy and unverified.
 
-Do not replay historical records as new work. Do not promote them to explicit completion quietly.
+Do not replay historical records as new work or silently promote them to explicit completion.
 
 A restart can drop the result of a finished run. The startup recovery sends that result again.
 
@@ -102,7 +102,7 @@ Recover the valid evidence of a completion before you stop unfinished work. Do t
 
 The supervisor can recover a completion after the deadline. That recovery needs no stop intent.
 
-The supervisor cannot obey an execution deadline while OMP is absent. Report that limit.
+The supervisor cannot enforce an execution deadline while OMP is absent. Report that limit.
 
 Each launch attempt holds a reservation with one of five states: reserved, issued, attached, unused, or unresolved.
 
@@ -116,7 +116,7 @@ The unused state means that the command failed before any worker started.
 
 The unresolved state means that a crash left the attempt without a receipt.
 
-Keep the reserved state before the command runs. Keep the issued state before the command runs.
+Persist the reserved state before the command runs. Persist the issued state before the command runs.
 
 After a crash, find the live worker. Use the process command line, the session file header id, and the pane id.
 
@@ -126,7 +126,7 @@ An unresolved attempt keeps its capacity. It creates one intervention event. Nev
 
 Only a confirmed unused attempt or an explicit owner resolution frees an uncertain reservation.
 
-A completion committed before cancellation stays completed.
+A completion committed before cancellation remains completed.
 
 A durable stop intent wins over later completion reports. Keep a later answer as evidence.
 
@@ -166,7 +166,7 @@ A disposing group refuses every resume and every launch against it. Keep the mar
 
 ## Events and handling
 
-Keep the result and its pending event in the same state update.
+Persist the result and its pending event in the same state update.
 
 Each event keeps one ID through replay. Deliver at least once and make repeated handling safe.
 
@@ -194,11 +194,11 @@ Keep the event history. Deliver a later completion as a separate event.
 
 Do not discard unresolved results.
 
-Block cleanup while a result or another actionable event stays unhandled.
+Block cleanup while a result or another actionable event remains unhandled.
 
 The owner can record an explicit discard disposition before cleanup.
 
-The force flag of the cleanup tool applies only to worktree changes. It cannot discard pending handling.
+The cleanup force option applies only to worktree changes. It cannot discard pending handling.
 
 The owner resolves an unknown task outcome through a separate operation.
 
@@ -246,13 +246,13 @@ Let a takeover happen only after the previous owner releases authority. Let it h
 
 A stale heartbeat does not prove that the owner exited.
 
-An unresponsive owner that stays alive needs manual intervention.
+An unresponsive owner that remains alive needs manual intervention.
 
 A surviving worker does not prevent recovery after its supervisor exits.
 
-If a second live process opens the same main session, the first owner keeps authority.
+If two live processes open the same main session, the first owner retains authority.
 
-The second process can examine records. It cannot control those tasks or replay their events.
+The second process can inspect records but cannot control those tasks or replay their events.
 
 Apply the active worker limit across the shared state directory. Reserve launches atomically.
 
@@ -268,9 +268,9 @@ The release waits for the actions that already started. It commits the released 
 
 A wait that times out leaves the phase releasing. The release returns the action that did not settle. It keeps the authority.
 
-The generation count cannot stop an action that already started. Do not claim that it can.
+The generation of the owner cannot fence an action that already started. Do not claim that it can.
 
-Keep a stop intent before sending a destructive pane command. A recovered owner reconciles it when the session starts. It does that before it steers, resumes, or cleans up.
+Persist a stop intent before sending a destructive pane command. A recovered owner reconciles it when the session starts. It does that before it steers, resumes, or cleans up.
 
 A command that ran before a crash cannot go back. The reconciliation reads the pane state.
 
@@ -352,7 +352,7 @@ Runtime support is necessary. Fail clearly when it is absent. Never fall back to
 
 Import the old registry once. Keep it as the migration evidence.
 
-The extension never writes the old registry file again. The records of one process survive the writes of another process.
+The extension never writes the old registry file again. The records of two processes survive each other.
 
 Do not support concurrent writes from a previous plugin version after migration.
 
@@ -360,11 +360,11 @@ The built-in SQLite API is experimental in Node 22.19.0. This release accepts th
 
 ## Host runtime facts
 
-The OMP host runs the Bun runtime. Bun does the module `node:sqlite` in full.
+The OMP host runs the Bun runtime. Bun implements the module `node:sqlite` in full.
 
 A live OMP session opened a database through `node:sqlite`. It wrote a row and read it back.
 
-The host gives a stable id for the session. The session header holds the field `id`. A session keeps it across a move.
+The host exposes a stable identity for the session. The session header holds the field `id`. A session keeps it across a move.
 
 Use that field for ownership. Do not use the session file path for that purpose.
 
@@ -372,7 +372,7 @@ A probe extension on the live host called `ctx.sessionManager.getSessionId()` in
 
 A tool call and its result share an id. A `toolCall` block holds `id`, and a `toolResult` message holds `toolCallId`.
 
-The tool result details stay in the transcript. Use them as the settlement evidence.
+The tool result details persist in the transcript. Use them as the settlement evidence.
 
 A probe of real transcripts confirmed the shape of a result that starts a background job. The details hold the job id:
 `{"details":{"async":{"state":"running","jobId":"bg_5","type":"bash"}}}`
@@ -391,13 +391,13 @@ A row that stays open becomes unknown when the worker stops. The owner resolves 
 
 The background work of the `job` tool reports its job id and status in the tool result details.
 
-The command line reference states that plugin functions still load when the host limits the built-in functions.
+The command line reference states that plugin capabilities still load when the host limits the built-in capabilities.
 
-The worker session directory names the job. The launch context ties the report to its run that way.
+The worker session directory names the job, so the launch context binds the report to its run.
 
-The launch sets the environment value `OMP_WORKER_SESSION_DIR` for the worker process.
+The launch sets the variable `OMP_WORKER_SESSION_DIR` for the worker process.
 
-The WezTerm pane inherits the environment of the process that started it. The value reaches the worker that way.
+The WezTerm pane inherits the environment of the process that started it, so the variable reaches the worker.
 
 The worker bootstrap reads the run context from that directory. It gives the worker only the report tool.
 
@@ -427,4 +427,4 @@ The release drain waits for the actions that already started. A stuck action kee
 
 This decision replaces the text-only completion rule that ADR 0001 gives.
 
-The transcript stays the evidence source. Pane text stays a diagnostic view.
+The transcript remains the evidence source. Pane text remains a diagnostic view.
