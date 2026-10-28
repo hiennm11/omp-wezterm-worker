@@ -15,7 +15,10 @@ import { createEvent, eventKey, resolveObsoleteEvent } from "./events.ts";
 import { isActive, type Job, type JobStatus, type PendingStop } from "./job.ts";
 import { completionBlockerOf, syncExecutions } from "./ledger-sync.ts";
 import { finalizeJob, stopJob } from "./lifecycle.ts";
+import { monitorVerdict } from "./monitor-authority.ts";
 import { recordNativeEvents } from "./native-events.ts";
+import { readOwnership } from "./ownership.ts";
+import { taskKey } from "./owner.ts";
 import { paneState } from "./pane.ts";
 import { decideFromReports } from "./report-decision.ts";
 import { appendReport, readReports } from "./report-store.ts";
@@ -113,6 +116,13 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 			rt.stopMonitor(job.id);
 			return;
 		}
+		// A monitor without the authority must not end the worker.
+		const verdict = monitorVerdict(readOwnership(rt.openDb(), taskKey(job.id)).owner, rt.sessionId);
+		if (verdict === "stop") {
+			rt.stopMonitor(job.id);
+			return;
+		}
+		if (verdict === "wait") return;
 		// A poll must not overlap a stop that is still waiting for confirmation.
 		if (rt.stopping.has(job.id)) return;
 		const now = Date.now();
@@ -158,6 +168,13 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 			rt.stopMonitor(job.id);
 			return;
 		}
+		// A monitor without the authority must not end the worker.
+		const verdict = monitorVerdict(readOwnership(rt.openDb(), taskKey(job.id)).owner, rt.sessionId);
+		if (verdict === "stop") {
+			rt.stopMonitor(job.id);
+			return;
+		}
+		if (verdict === "wait") return;
 		if (rt.stopping.has(job.id)) return;
 		const now = Date.now();
 		if (job.pendingStop) return stop(job.pendingStop.status, job.pendingStop.error);
@@ -254,6 +271,13 @@ export function monitorNativeJob(rt: WorkerRuntime, job: Job, notify: (job: Job)
 			rt.stopMonitor(job.id);
 			return;
 		}
+		// A monitor without the authority must not end the worker.
+		const verdict = monitorVerdict(readOwnership(rt.openDb(), taskKey(job.id)).owner, rt.sessionId);
+		if (verdict === "stop") {
+			rt.stopMonitor(job.id);
+			return;
+		}
+		if (verdict === "wait") return;
 		if (rt.stopping.has(job.id)) return;
 		const now = Date.now();
 		if (job.pendingStop) return stop(job.pendingStop.status, job.pendingStop.error);
