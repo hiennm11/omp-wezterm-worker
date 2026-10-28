@@ -14,12 +14,36 @@ import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 
+/** The options of the fake runtime. */
+export interface FakeRuntimeOptions {
+	/**
+	 * Remove the pane from the list after a kill command.
+	 *
+	 * The default is true, because a real pane list drops a closed pane.
+	 * A test that needs an unconfirmed stop sets this to false.
+	 */
+	dropPaneOnKill?: boolean;
+}
+
 /** A runtime whose pane list comes from the test and whose poll runs by hand. */
-export function fakeRuntime(stateDir: string, panes: number[]): { rt: WorkerRuntime; tick: () => void } {
+export function fakeRuntime(
+	stateDir: string,
+	panes: number[],
+	options: FakeRuntimeOptions = {},
+): { rt: WorkerRuntime; tick: () => void; commands: string[][] } {
+	const commands: string[][] = [];
 	const exec: RunFn = async (_bin, args) => {
-		if (args.join(" ").includes("list --format json")) {
+		commands.push([...args]);
+		const command = args.join(" ");
+		if (command.includes("list --format json")) {
 			const listing = panes.map((pane_id) => ({ pane_id }));
 			return { code: 0, stdout: JSON.stringify(listing), stderr: "" };
+		}
+		if (command.includes("kill-pane") && options.dropPaneOnKill !== false) {
+			const at = args.indexOf("--pane-id");
+			const paneId = Number.parseInt(args[at + 1] ?? "", 10);
+			const index = panes.indexOf(paneId);
+			if (index >= 0) panes.splice(index, 1);
 		}
 		return { code: 0, stdout: "", stderr: "" };
 	};
@@ -32,7 +56,7 @@ export function fakeRuntime(stateDir: string, panes: number[]): { rt: WorkerRunt
 			return { fake: true } as unknown as NodeJS.Timeout;
 		},
 	};
-	return { rt, tick: () => tick() };
+	return { rt, tick: () => tick(), commands };
 }
 
 /** A running native worker with a session directory. */
@@ -92,6 +116,13 @@ export async function flush(turns: number): Promise<void> {
 		setImmediate(resolve);
 		await promise;
 	}
+}
+
+/** Wait for the given number of milliseconds. */
+export async function sleep(ms: number): Promise<void> {
+	const { promise, resolve } = Promise.withResolvers<void>();
+	setTimeout(resolve, ms);
+	await promise;
 }
 
 /** Wait for the monitor to deliver the result of the worker. */
