@@ -128,6 +128,33 @@ export function attachJob(
 }
 
 /**
+ * Store the task id in the row of one call id.
+ *
+ * A native background call names its task in the result of the call. Only a
+ * row of kind background takes the task id, because a foreground call has no
+ * task. A call id without a row changes nothing.
+ */
+export function setJobIdByCallId(
+	db: LifecycleDb,
+	runId: string,
+	callId: string,
+	jobId: string,
+	now: number,
+): ExecutionRecord | null {
+	return db.write(() => {
+		const result = db.handle
+			.prepare(
+				`UPDATE executions
+				 SET job_id = ?, updated_at = ?
+				 WHERE run_id = ? AND call_id = ? AND kind = 'background'`,
+			)
+			.run(jobId, now, runId, callId);
+		if (Number(result.changes) === 0) return null;
+		return findByCallId(db, runId, callId);
+	});
+}
+
+/**
  * Settle the row of one call id.
  *
  * A result for one call never settles another call. The function returns the
