@@ -218,7 +218,7 @@ The wait for the external actions that a release started before it gives the aut
 _Avoid_: Wait, flush, cleanup
 
 **Native bridge**:
-The transport that connects a native worker to the main session. It carries the observations of the worker and the commands of the owner.
+The transport that connects a native worker to the main session. It carries the observations of the worker and the commands of the owner. A new owner starts a new bridge, and the worker follows it through the handover file.
 _Avoid_: Plugin, adapter, socket
 
 **Session-scoped mod**:

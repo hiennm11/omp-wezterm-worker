@@ -379,6 +379,12 @@ still lists workers that were running when the previous process ended, and the
 extension re-attaches a monitor to any whose pane is still alive. A worker
 whose pane was closed while OMP was down is marked `failed`.
 
+**A native worker gets a new bridge after a restart.** The new owner starts a
+new bridge for the run and writes the handover file again. The worker follows
+the new bridge through that file. The observations that the worker sent while
+the owner was away are lost. A stored open row keeps blocking the completion
+of the run until a settlement arrives or the worker stops.
+
 **A new session can take over a task of another session.** The tool
 `wezterm_worker_takeover` moves the supervision of one worker to the calling
 session. The takeover needs a released task, or an owner process that is
@@ -504,7 +510,7 @@ needed.
 | Worker dies during startup (bad model, crash) | The pane disappears with no transcript; the monitor marks the worker `failed` after a 45 s grace period and delivers the failure. |
 | Worker exceeds `timeoutMs` | The extension stops the worker. When the pane list shows the pane gone, the worker is marked `failed` with a timeout message. Until then it stays `running` with a `stop` reason. |
 | User closes the worker pane | The worker stays in the database; the isolated worktree (if any) is kept. |
-| OMP restarts while a worker runs | The worker is re-read from `lifecycle.db` and re-monitored if its pane is still alive. |
+| OMP restarts while a worker runs | The worker is re-read from `lifecycle.db` and re-monitored if its pane is still alive. A native worker also gets a new bridge, and the worker follows it through the handover file. |
 | OMP restarts after the user closed the pane | The worker is marked `failed` with "Worker pane was closed before this session re-attached". A worker with a pending stop gets the status of that stop. |
 | The pane list cannot be read | The pane state is unknown. It is never treated as gone. A stop stays unconfirmed, and the startup check does not fail the worker. |
 | A launch breaks a limit | The spawn or the resume is refused with an error that names the rule. No worker and no pane are created. |
@@ -590,6 +596,7 @@ omp-wezterm-worker/
 │   │   ├── native-usage.ts      the measured usage of a native run
 │   │   ├── native-usage-report.ts the usage report of a native run
 │   │   ├── bridge-handover.ts   the handover of a bridge to a new owner
+│   │   ├── reattach-native.ts   the re-attachment of a native worker after a restart
 │   │   ├── steer-native.ts      steering a worker that runs a native backend
 │   │   ├── limits.ts            the launch limits and the nested-worker rule
 │   │   ├── monitor.ts           watching a worker and the deadline rules
@@ -686,6 +693,8 @@ omp-wezterm-worker/
 │   ├── takeover.test.ts         the takeover of a task of another session
 │   ├── takeover-process.test.ts the process record of the new owner of a task
 │   ├── takeover-helpers.ts      the helpers of the takeover tests
+│   ├── reattach-native.test.ts  the re-attachment of a native worker after a restart
+│   ├── reattach-native-helpers.ts the helpers of the re-attachment tests
 │   ├── group-release.test.ts    the release of a resource group
 │   ├── group-holder.test.ts     the holder of a resource group that ended
 │   ├── group-holder-helpers.ts  the helpers of the group holder tests
@@ -782,8 +791,9 @@ test.
 | `wait-result.test.ts` | A wait result with a completed job settles the row of that job, and the completion blocker is null. A wait result with a failed job settles the row. A wait result with a cancelled job settles the row. A wait result with a running job keeps the row open. A wait result and an async result for the same job settle the row once, and the second signal does not overwrite the settlement evidence. A wait result without jobs changes nothing. An interrupted wait result changes nothing. An async result with a running job keeps the row open. A wait result for a job without a row creates no row. |
 | `report-poll.test.ts` | The report poll keeps a worker that has an open call. The report poll ends a worker when the result of its call arrives. |
 | `status-blocker.test.ts` | The status prints the completion blocker of a worker that cannot end. |
-| `takeover.test.ts` | A released task of another session is taken over. A dead owner process gives the task. A live owner process keeps the task. An unreadable process table refuses the takeover. A native worker refuses the takeover. An ownership that changes during the check refuses the takeover. A takeover of a live worker starts the monitor. A takeover of a finished worker keeps its status and starts no monitor. |
+| `takeover.test.ts` | A released task of another session is taken over. A dead owner process gives the task. A live owner process keeps the task. An unreadable process table refuses the takeover. A native worker is taken over and gets a bridge. An ownership that changes during the check refuses the takeover. A takeover of a live worker starts the monitor. A takeover of a finished worker keeps its status and starts no monitor. |
 | `takeover-process.test.ts` | A takeover of a session without a start time stores the start time of its process. A takeover refuses when the session cannot read the start time of its process. A task taken over with a start time is not a lock. |
+| `reattach-native.test.ts` | A native worker gets a new bridge and a new handover. The worker follows the new bridge and the old token is refused. The run state keeps the native session id of the worker. Only the open rows of the run become the open calls of the state. The new owner receives the report of the worker and ends the run. An open row blocks the completion until a settlement arrives. attachWorker gives a native worker a bridge and a monitor. attachWorker ends a native worker whose pane is gone. attachWorker keeps the old behaviour for an OMP worker. A handover that cannot be written leaves no bridge and no state. attachWorker fails the worker when the re-attachment fails. |
 | `group-release.test.ts` | A run that ends with its pane closed frees its group, and a new resume takes it. A run that ends with its pane alive keeps its group. A failed launch of a resume frees the group. The recovery frees a group whose holder ended, and it keeps a group whose holder is active, has no job, or still has a live pane. |
 | `group-holder.test.ts` | The holder of an ended run frees its group when its pane is gone. The holder of an ended run keeps its group while its pane is open, and the refusal names the pane. The holder of an ended run keeps its group when the pane list cannot be read. An active holder and a holder that this process does not know keep their group. A resume takes the group of a source run whose pane was closed by hand. A resume refuses while the pane of the holder is open. The cleanup of a task whose holder ended with its pane gone goes on. The cleanup refuses and names the pane while the pane of the holder is open. |
 | `group-recovery-panes.test.ts` | The startup recovery frees the group of a holder whose pane is gone, and it marks the pane of the run as closed. The recovery keeps the group of a holder whose pane is open, and it keeps the group when the pane list cannot be read. The recovery frees the group of a holder whose pane is closed without a pane list. The recovery reads the pane list one time for two groups. The recovery reads no pane list when no ended holder has an open pane. The recovery keeps the group of an active holder and of a holder that this process does not know. The decision names one result for every state of the pane. |
