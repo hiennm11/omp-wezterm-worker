@@ -53,6 +53,10 @@ Inspect the saved state and transcript before declaring failure when a pane disa
 Preserve legacy workers without completion signals as unknown. Require an owner decision before declaring success.
 Keep historical results from the old completion rule as legacy and unverified.
 Do not replay historical records as new work or silently promote them to explicit completion.
+A restart can lose the result of a finished run. The startup recovery sends that result again.
+The recovery sends only the results that this session owns and that never reached the main session.
+A cancelled run has no delivery row. The recovery skips it.
+The first recovery writes the mark `delivery_replay_since`. Later recoveries send only the runs that ended at or after that time.
 Recover valid completion evidence before stopping unfinished work after an expired deadline.
 A completion after the deadline can be recovered if no stop intent exists.
 The supervisor cannot enforce an execution deadline while OMP is absent. Report that limit.
@@ -100,6 +104,9 @@ Follow-up work can continue after that acknowledgement. Reading the result alone
 An acknowledged event does not wake the owner again.
 
 Attempt automatic delivery once per owner activation. Replay an unacknowledged event after recovery or takeover.
+The startup recovery replays a finished run whose result never reached the main session.
+The replay uses the same delivery as the first attempt, so it keeps the event identity.
+A delivery that fails does not stop the replay of the next run.
 Permit explicit retry. Normal observation polls do not resend a pending event.
 Resolve an obsolete input request only when recorded evidence proves its condition no longer applies.
 Keep the event history. Deliver a later completion as a separate event.

@@ -60,6 +60,11 @@ The act of putting a worker's result into the main session so the main agent
 acts on it. A delivery that does not wake the agent is not a delivery.
 _Avoid_: Notification, callback, push
 
+**Delivery replay**:
+The delivery of a result again after a restart lost it. The replay sends only
+the results that the session owns and that never reached the main session.
+_Avoid_: Redelivery, retry, resend
+
 **Registry**:
 The file that records every worker, so a worker survives an OMP restart.
 The new release keeps the records in a database. The old file stays as evidence.
