@@ -11,8 +11,8 @@ different `omp` build, and every command here would touch the wrong install.
 ## The Enter-key problem
 
 `wezterm cli send-text` pastes by default. A pasted block never submits in the
-OMP TUI: the text lands in the composer, the Enter key never arrives, and the
-target sits there waiting forever. Verified side by side:
+OMP TUI. The text lands in the composer. The Enter key never arrives, and the
+target waits there forever. Verified side by side:
 
 ```bash
 # paste mode — text lands, nothing submits
@@ -23,8 +23,8 @@ wezterm cli send-text --no-paste --pane-id 5 "hello\r"
 ```
 
 `--no-paste` delivers the bytes as individual key events, so the trailing
-`"\r"` arrives as a real Enter. Always use `--no-paste` when the text must be
-submitted, and append `"\r"` yourself.
+`"\r"` arrives as a real Enter. Always use `--no-paste` when the person
+submits the text, and append `"\r"` yourself.
 
 Paste mode additionally concatenates onto the previous line without a
 separator. Evidence: sending `"TAB\tHERE"` then, in paste mode, `"PASTED"`
@@ -32,7 +32,7 @@ produced `TAB        HEREPASTED` on one line.
 
 ### What survives the key path
 
-`--no-paste` types characters; it does not run a shell. Verified:
+`--no-paste` types characters. It does not run a shell. Verified:
 
 | Payload | Arrives as |
 |---|---|
@@ -47,7 +47,7 @@ into separate sends, one per line.
 
 ## Spawning into a pane
 
-`split-pane` splits the current pane; `spawn` opens a new tab in the current
+`split-pane` divides the current pane. `spawn` opens a new tab in the current
 window. Both take `--cwd` and both accept an argv array after `--`:
 
 ```bash
@@ -55,9 +55,8 @@ wezterm cli split-pane --right --cwd "C:/work/repo" -- omp --no-title --cwd "C:/
 wezterm cli spawn --cwd "C:/work/repo" -- omp --no-title --cwd "C:/work/repo" "the task"
 ```
 
-Each pane id prints on stdout. Every value after `--` is its own argv
-element, so a task containing spaces, quotes or `$(...)` needs no escaping and
-no shell.
+Each pane id prints on stdout. Every value after `--` is its own argv element.
+A task with a space, a quote or `$(...)` needs no escape and no shell.
 
 `wezterm cli list --format json` reports `pane_id`, `tab_id`, `window_id`,
 `title`, `cwd` and `workspace` per pane. Use it to check a pane is still
@@ -74,7 +73,7 @@ truth for a result. A result belongs in the session transcript.
 
 ## Session relocation
 
-A live session cannot be relocated from another process. `omp session pack
+Another process cannot move a live session. `omp session pack
 <session-file> <out.tar>` refuses with:
 
 ```
@@ -94,12 +93,12 @@ OMP_MOVE_TARGET="C:/target/dir" omp --mode rpc --no-ui --no-title \
 ```
 
 The helper calls `sm.ensureOnDisk()`, waits, `sm.flushSync()`, then
-`sm.moveTo(target)`. The transcript, its artifacts and its session id are
-preserved; only the owning project changes. The target directory must exist
-or be created beforehand.
+`sm.moveTo(target)`. The move keeps the transcript, its artifacts and its
+session id. Only the owning project changes. The target directory must exist
+before the move. Create it beforehand if it does not exist.
 
 Resuming a transcript in a second process while the first still holds it
-fails. The session must be released first.
+fails. The first process must release the session first.
 
 ### Pack and unpack
 
@@ -111,17 +110,17 @@ omp session unpack <out.tar> --cwd <target-dir>        # archive path + target
 omp session moved <session.jsonl> --to <machine-name>  # mark the local copy stale
 ```
 
-`pack` and `moved` take the **session .jsonl path or id**; `unpack` takes the
+`pack` and `moved` take the **session .jsonl path or id**. `unpack` takes the
 **archive path**. `unpack` prints the resulting session file path. Omitting
 `OUTPUT` reports `error: Missing session. Usage: omp session pack <session>
 <out.tar>`.
 
-A **released** session (no process owns it) packs cleanly, with its artifacts
-and image blobs. A live one refuses, as shown above.
+A **released** session (no process owns it) makes a clean archive with its
+artifacts and image blobs. A live one refuses, as shown above.
 
 Session files live under the agent dir in per-project buckets, named by the
-slugified absolute cwd. The slug keeps the drive letter, wraps the whole name
-in `--`, and turns `:` and every path separator into `-`:
+slugified absolute cwd. The slug keeps the drive letter and puts the whole
+name in `--`. It turns `:` and every path separator into `-`:
 
 | cwd | bucket under `.omp\agent\sessions\` |
 |---|---|
@@ -150,23 +149,23 @@ Invoke Git Bash explicitly for any shell script:
 Under WSL, `omp` resolves to a Linux build, so a script run there edits the
 wrong installation. Guard scripts on `OS != Windows_NT` and exit non-zero.
 
-Path forms seen in practice, and how they break:
+Path kinds seen in practice, and how they break:
 
 - `C:\Users\x` — native Windows
-- `C:/Users/x` — already converted
+- `C:/Users/x` — already uses forward slashes
 - `/d/repos/x` — Git Bash drive-root
-- `/mnt/d/repos/x` — MSYS drive mount
+- `/mnt/d/repos/x` — MSYS drive folder
 - `/home/user` — MSYS home, a **synthetic** path that does not exist on the
   Windows filesystem
 
-`cygpath` is not always on PATH, and `USERPROFILE` is not exported to every
-child process. Convert paths yourself, or read the agent dir from
+`cygpath` is not always on PATH. The shell does not export `USERPROFILE` to
+every child process. Convert paths yourself, or read the agent dir from
 `omp config path` instead of guessing `HOME`.
 
 ## Plugin linking
 
-`omp plugin link` resolves the path **against its own cwd**. Passing a
-Windows path while the cwd is POSIX produces:
+`omp plugin link` resolves the path **against its own cwd**. The plugin link
+gives this result when the cwd is POSIX and the path is a Windows path:
 
 ```
 Failed to link: package.json not found at /mnt/d/repos/x/D:/repos/x
@@ -180,9 +179,9 @@ cd /d/repos/omp-wezterm-worker && omp plugin link .
 
 ## Extension modules and restarts
 
-A newly added extension module is **not** loaded into a running session by
-`/reload-plugins`. A restart is required. Edit-then-reload leaves the agent
-running the old code while the file on disk says otherwise.
+A newly added extension module does **not** load into a running session when
+you call `/reload-plugins`. You need a restart. Edit-then-reload leaves the
+agent running the old code while the file on disk says otherwise.
 
 ## The directories that OMP scans in a plugin
 
@@ -214,23 +213,23 @@ The runtime API of an omp extension, verified against omp 18.12.3 on Windows:
 | `ctx.setInterval(fn, ms)` / `ctx.clearTimer(handle)` | Managed timers. Isolated like a handler dispatch: a throw is logged, not fatal. |
 
 The authoritative source is `docs/extensions.md` in the upstream repository
-(`can1357/oh-my-pi`). Read it before relying on an API detail; the local type
+(`can1357/oh-my-pi`). Read it before you rely on an API detail. The local type
 stub is incomplete.
 
 The `pi.sendMessage` options are **not** in the published type stub
 (`~/.omp/agent/extensions/.stubs/omp-types.d.ts` lists only `appendEntry` and
 `sendUserMessage`), so a delivery that silently does nothing is easy to miss.
-Verify a delivery by watching for a new `agent_start` / `turn_start` in the
-RPC event stream, not by comparing message timestamps — the timestamps of an
-injected message and the reply it triggers can land in the same millisecond.
+Verify a delivery by monitoring a new `agent_start` / `turn_start` in the
+RPC event stream. Do not compare message timestamps. The timestamps of an
+added message and the reply it causes can land in the same millisecond.
 
 ### Reading the RPC event stream
 
-`omp --mode rpc` emits `agent_start`, `turn_start`, `message_start`,
+`omp --mode rpc` sends `agent_start`, `turn_start`, `message_start`,
 `message_end`, `message_update`, `tool_execution_start`,
 `tool_execution_end`, `turn_end`, `agent_end`, `prompt_result` and
 `session_settled`. A tool's real result is on `tool_execution_end` under
-`result` — `message_end` carries only the assistant's tool call, not its
+`result`. `message_end` carries only the assistant's tool call, not its
 output.
 
 ## Checking a worker is alive
@@ -238,32 +237,33 @@ output.
 For a worker running in a pane, the live signals are:
 
 - the pane still listed by `wezterm cli list --format json`
-- the session transcript growing
-- the transcript's last assistant message: a text-only message ends the turn;
+- the session transcript becomes longer
+- the transcript's last assistant message: a text-only message ends the turn.
   a message that also carries a tool call is a preamble, not an answer
 
-A preamble such as *"I'll read that file."* precedes a tool call. Treating it
-as the result delivers the preamble instead of the answer.
+A preamble such as *"I'll read that file."* comes before a tool call. Apply
+it as the result and you deliver the preamble instead of the answer.
 
 ## The omp-wezterm-worker extension
 
-This skill's mechanics are packaged as an OMP extension at
+The mechanics of this skill run as an OMP extension at
 `D:\repos\omp-wezterm-worker` (public: `github.com/hiennm11/omp-wezterm-worker`).
 It registers `wezterm_spawn_worker`, `wezterm_worker_status`,
 `wezterm_worker_steer`, `wezterm_worker_peek`, `wezterm_worker_result`,
 `wezterm_worker_resume`, `wezterm_worker_cancel` and `wezterm_worker_cleanup`.
 
 **The extension's README is the source of truth for its tools and parameters.**
-Read it rather than recalling them. What belongs here is only the operating
+Read it. Do not recall them. What belongs here is only the operating
 knowledge the README cannot state:
 
 - The extension starts a real interactive CLI in a pane. The default backend
-  is OMP. Set `backend: "claude"` for Claude Code. Codex is not implemented.
+  is OMP. Set `backend: "claude"` for Claude Code. The code does not implement
+  Codex.
 - OMP activity comes from its session JSONL. Claude activity comes from the
-  native observations. Pane text is a debug view, not completion evidence.
+  native observations. Pane text is a debug view. It does not prove completion.
 - A worker gets the **exact task and cwd**, and does not inherit the main
   conversation.
-- Editing the extension source needs an **OMP restart**; `/reload-plugins`
+- Editing the extension source needs an **OMP restart**. `/reload-plugins`
   does not pick up a newly added module.
 - Installing means `omp plugin link .` from the package root plus a config
   file at `~/.omp/agent/wezterm-worker.json`. Keep one copy: a second copy in
@@ -272,22 +272,25 @@ knowledge the README cannot state:
 
 ### Claude workers and project skills
 
-Before a Claude launch, check that the mounted spawn schema exposes `backend`.
+Before a Claude launch, check that the spawn schema of OMP exposes `backend`.
 If it does not, restart OMP with the updated plugin. Do not claim a Claude launch through an OMP-only schema.
 
-Set `cwd` to the target project. Claude discovers the project's `.claude/skills/`
+Set `cwd` to the target project. Claude finds the project's `.claude/skills/`
 and the user's `~/.claude/skills/` through its own configuration.
 The extension does not copy OMP skills into Claude.
 For the discovery rules, see [Claude skills](https://code.claude.com/docs/en/skills).
 
-Put the required skill names, commands, constraints, and acceptance criteria in `task`.
-Tell the worker to load each required skill before work.
-Task text instructs the worker. It does not add CLI flags or execute a shell command at launch.
+Put the skill names, commands, constraints and acceptance criteria that the
+worker needs in `task`.
+Tell the worker to load each of these skills before work.
+Task text instructs the worker. It does not add CLI flags and it does not run
+a shell command at launch.
 
 The spawn tool has no arbitrary command, custom settings, or extra plugin option.
 For the supported parameters, read the README.
 Omit `tools` for a Claude worker. The tool refuses an OMP tool list for a native backend.
 The worker keeps the user's permission rules. A person answers a permission request in the pane.
+
 An isolated worker uses a separate checkout. Do not assume that untracked project skills exist there.
 
 ## Worker lifecycle
@@ -305,30 +308,33 @@ Four behaviours that are easy to get wrong:
 
 **Delivery must wake the agent.** The result arrives through
 `pi.sendUserMessage(text, { triggerTurn: true })`. That lands the text in the
-session as a user message and starts a new turn, so the agent acts on a
-finished worker immediately. `pi.sendMessage(..., { deliverAs: "steer" })` is
-the fallback for a host without `sendUserMessage`; a `followUp` queues behind
-whatever the agent is doing, so it must not be used for a result.
+session as a user message and starts a new turn. The agent works on a finished
+worker immediately. `pi.sendMessage(..., { deliverAs: "steer" })` is
+the fallback for a host without `sendUserMessage`. A `followUp` queues behind
+whatever the agent does, so you must not use it for a result.
 
-**The pane is closed when the worker finishes.** Reading the result must come
-first: the transcript is the result source and the worker stops writing once
-its pane is gone. `closePaneOnFinish: false` keeps the pane for inspection,
-but finished panes accumulate. A deadline (`timeoutMs`, `idleTimeoutMs`) still
-closes the pane, because the worker is still running. The job ends as `failed`
-only after the pane list shows the pane gone. Until then the job stays
-`running` with a `stop` reason, and `wezterm_worker_cancel` accepts it again.
+**The extension closes the pane when the worker finishes.** Reading the
+result must come first. The transcript is the result source. The worker stops
+writing once its pane is gone. `closePaneOnFinish: false` keeps the pane for
+inspection, but finished panes collect over time.
+
+A deadline (`timeoutMs`,
+`idleTimeoutMs`) still closes the pane, because the worker still runs. The job
+ends as `failed` only after the pane list shows the pane gone. Until then the
+job stays `running` with a `stop` reason. `wezterm_worker_cancel` accepts it
+again.
 
 **The lifecycle database holds the worker records.** `stateDir/lifecycle.db` is
 a SQLite database through `node:sqlite`. It holds every worker, the ownership,
 the launch attempts, the shared resources, the execution ledger, and the
-events. A new OMP process reads it at startup, so `wezterm_worker_status` still
-lists workers that survived the previous process, and the extension re-monitors
-any whose pane is still alive. A worker whose pane was closed while OMP was
-down is marked `failed`.
+events. A new OMP process reads it at startup. Thus `wezterm_worker_status`
+still lists workers that survived the previous process. The extension
+re-monitors each worker whose pane is still alive. The extension marks as
+`failed` a worker whose pane closed while OMP was down.
 
-The old `stateDir/registry.json` is migrated once. The file stays on disk as
-evidence. The extension never writes it again, because two processes that
-wrote the same file lost one another's records.
+The extension migrates the old `stateDir/registry.json` once. The file stays
+on disk as evidence. The extension never writes it again, because two
+processes that wrote the same file lost one another's records.
 
 **The worker reports its own task state.** The worker gets the tool
 `wezterm_worker_report`. That tool is worker-only. The main session never
@@ -340,89 +346,98 @@ prompt that states the reporting contract, and the launch sets
 `OMP_WORKER_SESSION_DIR` so the worker process knows that it is a worker.
 A WezTerm pane inherits the environment of the process that started it.
 
-**A launch that lost its receipt does not start a second worker.** A crash
+**A launch that lost its receipt does not start a second worker**. A crash
 between the pane creation and the receipt leaves a launch attempt without a
 receipt. The recovery finds the live worker by its command line, which
-carries the `--session-dir` of the worker. A worker that is not found leaves
-the attempt unresolved. The attempt keeps its capacity, and the owner settles
-it with `wezterm_worker_resolve`. The extension never sends the launch
-command again.
+carries the `--session-dir` of the worker. A worker that the recovery does not
+find leaves the attempt unresolved. The attempt keeps its capacity, and the
+owner settles it with `wezterm_worker_resolve`. The extension never sends the
+launch command again.
 
-**A finished worker is continued with `--resume`, not with steering.**
+**A finished worker continues with `--resume`, not with steering.**
 Steering needs a live pane, and a completed worker has none.
 `wezterm_worker_resume` starts `omp --resume <transcript>` in a fresh pane,
 so the worker returns with its whole history and accepts a follow-up
 instruction. The resumed run shares the transcript and the worktree of its
 source run, so a resource group keeps a second writer out.
 
-**Completion is counted from the newest user message.** A resumed transcript
-already holds a finished turn, so a completion check over the absolute counts
-reports the *previous* answer as the new result before the worker did any
-work. Count assistant turns and tool calls only since the last user message,
-and require at least one assistant turn in that window.
+**The count starts at the newest user message.** A resumed transcript
+already holds a finished turn. Thus a completion check over the absolute
+counts reports the *previous* answer as the new result before the worker did
+any work. Count assistant turns and tool calls only since the last user
+message. You need at least one assistant turn in that window.
 
 **A worker's worktree outlives the worker.** An isolated worker owns a `git
 worktree` on branch `omp/worker/<jobId>`. The extension never removes it —
-not on completion, not on cancel, not on timeout. `wezterm_worker_cleanup` is
+not on completion, not on cancel, not on timeout.
+
+`wezterm_worker_cleanup` is
 the only thing that removes one, and it checks `git status --porcelain`
-first: a checkout with uncommitted changes or untracked files is **kept** and
-the changed paths are listed, because those changes are the worker's output.
-`force: true` discards them. The branch is never deleted by the extension, so
+first. A checkout with uncommitted changes or untracked files is **kept**. The
+tool lists the changed paths, because those changes are the worker's output.
+`force: true` discards them. The extension never deletes the branch, so
 commits survive the worktree.
 
-**A steering message is confirmed, not assumed.** `wezterm cli send-text`
-returns success as soon as the keystrokes reach the pane. A worker needs a
+**The extension confirms a steering message. It never guesses.**
+`wezterm cli send-text`
+returns success when the keystrokes reach the pane. A worker needs a
 few seconds to start its interface, and keystrokes that arrive before that
-go nowhere. The extension therefore sends the instruction once and reads the
-worker's transcript after the send. The transcript confirms the delivery only
+go nowhere. Thus the extension sends the instruction once and reads the
+worker's transcript after the send.
+
+The transcript confirms the delivery only
 when it records the requested text. Any other growth of the transcript is not
 a confirmation. A delivery that the transcript does not confirm stays
 unconfirmed, and the extension never sends the instruction again. A second
 copy of the same instruction reaches the worker as a second instruction.
 
-**A cancel and a deadline stop are confirmed.** `kill-pane` returns success
+**The extension confirms a cancel and a deadline stop.** `kill-pane` returns
+success
 when WezTerm accepts the request, not when the pane is gone. The extension
-polls the pane list and ends the job only when the pane is missing. An
+polls the pane list and ends the job only when the pane is gone. An
 unreadable list means unknown, never gone. An unconfirmed stop leaves the job
 `running`. Call `wezterm_worker_cancel` again to retry.
 
-**Limits are enforced in code.** Three workers are active at most by default
-(`maxActiveWorkers`). The main session is not counted. One request launches at
+**The code enforces the limits.** Three workers are active at most by default
+(`maxActiveWorkers`). The count does not include the main session. One request
+launches at
 most three workers (`maxLaunchesPerRequest`). A worker cannot launch a worker.
-A refused launch returns an error that names the rule. Raise the limits in the
+
+A refused launch returns an error that names the rule. Set the limits in the
 config file when you need more. A user prompt starts a new request.
 
-**Tokens are measured, not estimated.** `wezterm_worker_status` shows the
+**The tool measures the tokens.** `wezterm_worker_status` shows the
 tokens of each worker and of the request, read from the transcripts. The value
 `unknown` means that the transcript holds no usage data. Report it as unknown.
-The main session is not counted.
+The count does not include the main session.
 
 ## Extension runtime rules (OMP)
 
 From the official extension docs (`can1357/oh-my-pi` → `docs/extensions.md`):
 
-- **The extension factory parameter is named `pi` and its type is
+- **The extension factory parameter is `pi` and its type is
   `ExtensionAPI`.** That is the host's own convention, not a legacy name.
-- **Do not call action methods during extension load.** `pi.sendMessage()` and
+- **Do not call any action method while the extension loads.**
+  `pi.sendMessage()` and
   friends throw `ExtensionRuntimeNotInitializedError` while the factory runs.
-  Register first; do runtime work from `pi.on("session_start", ...)`, a
+  Register first. Do the runtime work from `pi.on("session_start", ...)`, a
   command, or a tool.
 - **Background work must use `ctx.setInterval`, not a raw `setInterval`.**
-  Extensions run in-process with no isolation: a throw in a raw timer callback
-  becomes a process-level `uncaughtException` and tears the **whole session**
-  down. `ctx.setInterval` contains the failure, is `unref`'d, and is cleared
-  automatically on `session_shutdown`.
+  Extensions run in-process with no isolation. A throw in a raw timer callback
+  becomes a process-level `uncaughtException`. It then stops the **whole
+  session**. `ctx.setInterval` contains the failure, is `unref`'d, and the host
+  clears it automatically on `session_shutdown`.
 - **`pi.setLabel(label)`** sets the extension's display label. It is not a
   session-entry labelling action.
-- `pi.zod` is the schema builder; `pi.registerTool`, `pi.registerCommand` and
+- `pi.zod` is the schema builder. `pi.registerTool`, `pi.registerCommand` and
   `pi.on` are the registration methods.
 
 ## The domain vocabulary
 
-The repository holds a glossary at `GLOSSARY.md`. It defines the terms of
+The repository holds a glossary at `GLOSSARY.md`. It names the terms of
 this domain: **worker**, **result**, **preamble**, **turn**, **steering
 message**, **resume**, **transcript**, **delivery**, **registry**,
-**worktree**. It also defines the supervision terms: **report**, **task
+**worktree**. It also names the supervision terms: **report**, **task
 state**, **execution condition**, **instruction cycle**, **execution
 record**, **resource group**, **launch attempt**, **unresolved launch**,
 **owner resolution**, **release**, **drain**. Use these words. A term with a
@@ -446,7 +461,7 @@ Technical English, and check the result.
 Apply these rules:
 
 - Use one word for one concept.
-- Use one instruction per sentence.
+- Use one instruction in each sentence.
 - Use the active voice and name the actor.
 - Use simple tenses. Write "the worker reads the file", not "the worker is
   reading the file".
@@ -464,7 +479,7 @@ that an agent reads. It fails below 80.
 The extension scores the `task` of a spawn, the `message` of a steer and the `result` of a report. The setting `commsStandard` in the config file sets the mode and the minimum score. The default is mode `warn` and score 80.
 
 - Write the `task` and the `message` in English. The check skips a text that is mostly Vietnamese.
-- Use one instruction per sentence. Keep each sentence to 20 words or fewer.
+- Use one instruction in each sentence. Keep each sentence to 20 words or fewer.
 - Name the file, the command and the expected output.
 - In mode `warn`, a low score adds one line to the reply. The line holds the score only. The findings are in `details.commsCheck`.
 - In mode `enforce`, the tool refuses a low score and lists the findings. Rewrite the text and send it again.
