@@ -37,6 +37,7 @@ import { recoverTask } from "./lib/recover-task.ts";
 import { reconcileAttempts } from "./lib/recovery.ts";
 import { detectRole, ownSessionDir } from "./lib/role.ts";
 import { createRuntime } from "./lib/runtime.ts";
+import { reconcileStopIntents } from "./lib/stop-reconcile.ts";
 import { registerWorkerBootstrap } from "./lib/worker-bootstrap.ts";
 import { registerAckTool } from "./worker-tools/ack.ts";
 import { registerCancelTool } from "./worker-tools/cancel.ts";
@@ -138,6 +139,17 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			// forever. An unreadable pane list keeps the monitor, which retries
 			// any pending stop.
 			await attachWorker(rt, job, deps.deliver);
+		}
+
+		// A crash can leave a stop intent pending. The reconciliation settles
+		// the intents of the runs that this session owns, so a later action
+		// does not act on a worker whose pane may already be closed.
+		const intents = await reconcileStopIntents(rt, [...rt.jobs.values()], Date.now());
+		if (intents.confirmed.length > 0 || intents.failed.length > 0) {
+			pi.logger?.info?.(
+				`[wezterm-worker] The startup recovery settled ${intents.confirmed.length} confirmed and ` +
+					`${intents.failed.length} failed stop intent(s).`,
+			);
 		}
 
 		// A crash can end a run without the code that frees its resource
