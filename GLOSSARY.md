@@ -240,6 +240,10 @@ _Avoid_: Approval, tool check, dialog
 **Native cycle**:
 The native turn that carries one instruction. A cycle starts at the accepted instruction and ends when its turn ends.
 
+**Run snapshot**:
+The account that a native worker gives to a new owner about its own state: the current cycle, the instruction that waits for a cycle, the calls that run and the permission requests that wait.
+_Avoid_: Checkpoint, state dump, sync
+
 **Native background task**:
 A command that a native worker starts in the background. It settles through its own notification or through a stop of the task, and not through the return of the call that started it.
 _Avoid_: Background call, foreground tool, background job

@@ -24,13 +24,7 @@ import { executionsOfRun, openExecution } from "../extensions/lib/executions.ts"
 import { recordNativeCall } from "../extensions/lib/native-ledger.ts";
 import { reattachNative } from "../extensions/lib/reattach-native.ts";
 import { freshDb } from "./execution-helpers.ts";
-import {
-	cleanup,
-	fakeRuntime,
-	makeDirs,
-	nativeJob,
-	postObservation,
-} from "./reattach-native-helpers.ts";
+import { cleanup, fakeRuntime, makeDirs, nativeJob, postObservation } from "./reattach-native-helpers.ts";
 
 /** One observation of a native program. */
 function observation(source: string, payload: unknown) {
@@ -70,10 +64,7 @@ test("a report of the cycle of the snapshot binds after the snapshot", () => {
 test("a second snapshot is valid and holds the newer state", () => {
 	const state = createClaudeRunState("run-1");
 	assert.equal(applyObservation(state, observation("state.snapshot", snapshot())), true);
-	assert.equal(
-		applyObservation(state, observation("state.snapshot", snapshot({ takenAt: 3000 }))),
-		true,
-	);
+	assert.equal(applyObservation(state, observation("state.snapshot", snapshot({ takenAt: 3000 }))), true);
 	assert.equal(state.snapshotAt, 3000, "the newer snapshot holds the time");
 });
 
@@ -88,20 +79,14 @@ test("a snapshot of a closed turn lets the run finish", () => {
 test("a snapshot of an open turn blocks the run until the turn ends", () => {
 	const state = createClaudeRunState("run-1");
 	applyObservation(state, observation("state.snapshot", snapshot({ turnOpen: true })));
-	assert.ok(
-		(claudeCompletionBlocker(state) ?? "").includes("turn"),
-		"the open turn blocks the completion",
-	);
+	assert.ok((claudeCompletionBlocker(state) ?? "").includes("turn"), "the open turn blocks the completion");
 	applyObservation(state, observation("turn.complete", { turnId: "turn-1", usage: null }));
 	assert.equal(claudeCompletionBlocker(state), null, "the end of the turn clears the blocker");
 });
 
 test("a pending instruction of the snapshot blocks the run until it is delivered", () => {
 	const state = createClaudeRunState("run-1");
-	applyObservation(
-		state,
-		observation("state.snapshot", snapshot({ pendingInstructionId: "inst-1" })),
-	);
+	applyObservation(state, observation("state.snapshot", snapshot({ pendingInstructionId: "inst-1" })));
 	assert.ok(
 		(claudeCompletionBlocker(state) ?? "").includes("instruction"),
 		"the pending instruction blocks the completion",
@@ -181,18 +166,7 @@ test("a background row stays open even when the snapshot does not hold it", () =
 	const { db, dir } = freshDb();
 	try {
 		const state = createClaudeRunState("run-1");
-		openExecution(
-			db,
-			"ex-1",
-			"run-1",
-			"background",
-			"Bash",
-			"call-1",
-			"job-1",
-			"opened",
-			"bridge",
-			1000,
-		);
+		openExecution(db, "ex-1", "run-1", "background", "Bash", "call-1", "job-1", "opened", "bridge", 1000);
 		const snap = snapshot();
 		applyObservation(state, observation("state.snapshot", snap));
 		recordNativeCall(db, "run-1", observation("state.snapshot", snap), 3000);

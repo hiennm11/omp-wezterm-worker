@@ -11,6 +11,7 @@ import type { BridgeObservation } from "./claude-bridge.ts";
 import { applyObservation, type ClaudeRunState } from "./claude-run-state.ts";
 import type { LifecycleDb } from "./db.ts";
 import {
+	executionsOfRun,
 	findByCallId,
 	openExecution,
 	setJobIdByCallId,
@@ -40,6 +41,12 @@ const BACKGROUND_SETTLED = "background.settled";
 /** The observation that settles a row of a background task that a stop ended. */
 const STOPPED = "background.stopped";
 
+/** The observation that carries the run snapshot of the worker. */
+const SNAPSHOT = "state.snapshot";
+
+/** The evidence that a row settles because the snapshot does not hold it. */
+const OUTSIDE_SNAPSHOT = "call not open in the snapshot of the worker";
+
 /**
  * Write the evidence of one native observation into the ledger of a run.
  *
@@ -55,6 +62,10 @@ export function recordNativeCall(
 ): void {
 	const payload = (observation.payload ?? {}) as Record<string, unknown>;
 	const callId = (payload.callId as string) ?? null;
+	if (observation.source === SNAPSHOT) {
+		settleRowsOutsideSnapshot(db, runId, payload, now);
+		return;
+	}
 	if (observation.source === STOPPED) {
 		/* A stop of a task names the task and not the call. The row of that
 		   task settles, and a task without a row changes nothing. */
@@ -102,6 +113,46 @@ export function recordNativeCall(
 		if (!status) return;
 		settleByCallId(db, runId, callId, `background task ${status}`, now);
 	}
+}
+
+/**
+ * Settle the open rows of kind tool that the snapshot does not hold.
+ *
+ * The snapshot is the direct word of the worker about its own state. A tool
+ * row that began before the snapshot and that the snapshot does not name
+ * settled while the owner was away. A row of kind background stays open,
+ * because a task settles through its own notification. A row that began at or
+ * after the snapshot stays open, because the worker may still run it.
+ */
+function settleRowsOutsideSnapshot(
+	db: LifecycleDb,
+	runId: string,
+	payload: Record<string, unknown>,
+	now: number,
+): void {
+	const takenAt = typeof payload.takenAt === "number" ? payload.takenAt : null;
+	if (takenAt === null) return;
+	const held = new Set(snapshotCallIds(payload.openCalls));
+	for (const row of executionsOfRun(db, runId)) {
+		if (row.kind !== "tool") continue;
+		if (row.state !== "open") continue;
+		if (row.callId === null) continue;
+		if (row.createdAt >= takenAt) continue;
+		if (held.has(row.callId)) continue;
+		settleByCallId(db, runId, row.callId, OUTSIDE_SNAPSHOT, now);
+	}
+}
+
+/** The call ids of a snapshot list of open calls. */
+function snapshotCallIds(value: unknown): string[] {
+	if (!Array.isArray(value)) return [];
+	const ids: string[] = [];
+	for (const item of value) {
+		if (!Array.isArray(item)) continue;
+		const id = item[0];
+		if (typeof id === "string" && id.length > 0) ids.push(id);
+	}
+	return ids;
 }
 
 /**

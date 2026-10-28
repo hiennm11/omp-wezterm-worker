@@ -47,6 +47,8 @@ export interface ClaudeRunState {
 	lastActivityAt: number;
 	/** The cycles whose turn ended. The usage of a turn arrives with its end. */
 	completedTurns: Set<string>;
+	/** The time of the last run snapshot, in epoch milliseconds. */
+	snapshotAt: number | null;
 }
 
 /** Create the state of one run. */
@@ -68,6 +70,7 @@ export function createClaudeRunState(runId: string): ClaudeRunState {
 		seenObservations: new Set(),
 		lastActivityAt: Date.now(),
 		completedTurns: new Set(),
+		snapshotAt: null,
 	};
 }
 
@@ -86,6 +89,28 @@ export function applyObservation(state: ClaudeRunState, observation: BridgeObser
 	switch (observation.source) {
 		case "session.start": {
 			state.sessionId = (payload.sessionId as string) ?? state.sessionId;
+			return true;
+		}
+		case "state.snapshot": {
+			/* A snapshot replaces what the owner knows about the run. The
+			   worker names the cycle, the calls that run and the permission
+			   requests that wait. */
+			const deliveredCycleId = typeof payload.deliveredCycleId === "string" ? payload.deliveredCycleId : null;
+			if (deliveredCycleId !== null) {
+				state.currentCycleId = deliveredCycleId;
+				/* A closed turn ended. Its usage arrived before the
+				   restart, so the turn counts as completed. */
+				if (payload.turnOpen === false) state.completedTurns.add(deliveredCycleId);
+			}
+			state.openCalls = new Map(snapshotPairs(payload.openCalls));
+			state.openApprovals = new Map(snapshotPairs(payload.pendingApprovals));
+			const pendingInstructionId =
+				typeof payload.pendingInstructionId === "string" ? payload.pendingInstructionId : null;
+			if (pendingInstructionId !== null) {
+				state.pendingInstructions.set(pendingInstructionId, pendingInstructionId);
+			}
+			const takenAt = typeof payload.takenAt === "number" ? payload.takenAt : null;
+			if (takenAt !== null) state.snapshotAt = takenAt;
 			return true;
 		}
 		case "turn.start": {
@@ -201,6 +226,25 @@ export function applyObservation(state: ClaudeRunState, observation: BridgeObser
 		default:
 			return false;
 	}
+}
+
+/**
+ * The pairs of a snapshot list, as a map.
+ *
+ * The snapshot sends the calls and the permission requests as lists of
+ * `[id, tool]`. A pair without an id names nothing, so it leaves the map.
+ */
+function snapshotPairs(value: unknown): Array<[string, string]> {
+	if (!Array.isArray(value)) return [];
+	const pairs: Array<[string, string]> = [];
+	for (const item of value) {
+		if (!Array.isArray(item)) continue;
+		const id = item[0];
+		if (typeof id !== "string" || id.length === 0) continue;
+		const tool = typeof item[1] === "string" ? item[1] : "unknown";
+		pairs.push([id, tool]);
+	}
+	return pairs;
 }
 
 /**
