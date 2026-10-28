@@ -274,4 +274,3 @@ test("attachWorker stops the worker when the re-attachment fails", async () => {
 		await cleanup(rt, dir);
 	}
 });
-

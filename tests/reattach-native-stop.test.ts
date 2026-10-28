@@ -15,13 +15,7 @@ import { attachWorker } from "../extensions/lib/attach.ts";
 import { executionsOfRun, openExecution } from "../extensions/lib/executions.ts";
 import { createGroup, readGroup, reserveExecution } from "../extensions/lib/groups.ts";
 import type { Job } from "../extensions/lib/job.ts";
-import {
-	cleanup,
-	fakeRuntime,
-	makeDirs,
-	nativeJob,
-	sleep,
-} from "./reattach-native-helpers.ts";
+import { cleanup, fakeRuntime, makeDirs, nativeJob, sleep } from "./reattach-native-helpers.ts";
 
 /** A job whose handover file cannot be written. */
 function unattachableJob(dir: string): Job {
@@ -44,11 +38,7 @@ test("a failed re-attachment closes the open rows of the run", async () => {
 		const rows = executionsOfRun(db, job.id);
 		assert.equal(rows.length, 1, "the run keeps its row");
 		assert.equal(rows[0].state, "unknown", "the open row becomes unknown");
-		assert.equal(
-			rows.filter((row) => row.state === "open").length,
-			0,
-			"no row of the run stays open",
-		);
+		assert.equal(rows.filter((row) => row.state === "open").length, 0, "no row of the run stays open");
 	} finally {
 		await cleanup(rt, dir);
 	}
