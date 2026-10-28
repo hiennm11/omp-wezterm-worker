@@ -5,6 +5,10 @@
  * worker a bridge again. The worker finds the new bridge through the handover
  * file of its session directory, and it follows it on its next poll.
  *
+ * The worker sends a run snapshot to the new owner. The snapshot names the
+ * cycle of the run, the instruction that waits, the calls that run and the
+ * permission requests that wait.
+ *
  * The new owner keeps the rows of the run. An open row blocks the completion
  * of the run until a settlement arrives, so the state of the run names the
  * calls that still run.
