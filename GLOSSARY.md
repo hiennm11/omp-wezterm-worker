@@ -240,6 +240,10 @@ _Avoid_: Approval, tool check, dialog
 **Native cycle**:
 The native turn that carries one instruction. A cycle starts at the accepted instruction and ends when its turn ends.
 
+**Native background task**:
+A command that a native worker starts in the background. It settles through its own notification or through a stop of the task, and not through the return of the call that started it.
+_Avoid_: Background call, foreground tool, background job
+
 **Measured usage**:
 The token counts that the native program reported for its turns. A count that the program did not report stays missing.
 _Avoid_: Estimated cost, token estimate, zero usage
