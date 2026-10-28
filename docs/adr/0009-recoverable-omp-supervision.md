@@ -155,8 +155,13 @@ The release moves the phase to releasing in one transaction. It refuses new exte
 The release waits for the actions that already started. It commits the released phase only after they finish.
 A wait that times out leaves the phase releasing. The release returns the action that did not settle and keeps the authority.
 A generation number cannot fence an action that already started. Do not claim that it can.
-Persist a stop intent before sending a destructive pane command. A recovered owner reconciles it before it steers, resumes, or cleans up.
+Persist a stop intent before sending a destructive pane command. A recovered owner reconciles it when the session starts, before it steers, resumes, or cleans up.
 A command that ran before a crash cannot be taken back. The reconciliation reads the pane state.
+The reconciliation handles the intents of the runs that the session owns.
+It confirms an intent whose pane is gone, and it fails an intent whose pane still exists.
+An unreadable pane list keeps the intent pending, because the code never guesses.
+A pending intent refuses the tools steer, resume, and cleanup.
+The tool cancel stays open, because it retries the stop.
 
 ### Takeover
 

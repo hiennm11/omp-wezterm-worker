@@ -621,6 +621,7 @@ omp-wezterm-worker/
 │   │   ├── resolution.ts        the owner resolution of an unknown outcome
 │   │   ├── delivery.ts          the delivery attempts of a pending event
 │   │   ├── stop-intent.ts       the stop intents of a run
+│   │   ├── stop-reconcile.ts    the reconciliation of the pending stop intents
 │   │   ├── recovery.ts          the recovery of the stored records
 │   │   ├── recover-task.ts      the replay of a result that a restart lost
 │   │   ├── correlation.ts       finding a live worker by its command line
@@ -669,6 +670,8 @@ omp-wezterm-worker/
 │   ├── config.test.ts           the config file
 │   ├── registry.test.ts         the registry file
 │   ├── stop.test.ts             a stop that waits for the pane to close
+│   ├── stop-reconcile.test.ts   the reconciliation of the pending stop intents
+│   ├── stop-intent-gate.test.ts the gate of a pending stop intent
 │   ├── limits.test.ts           the launch limits
 │   ├── usage.test.ts            the measured token usage
 │   ├── monitor.test.ts          the timeout, the idle limit and the result rule
@@ -774,6 +777,8 @@ test.
 | `config.test.ts` | The environment wins over the file. A value of the wrong type leaves the default. A malformed file leaves the defaults. A nonzero idle deadline is refused with guidance. A score outside the range is refused with guidance. The settings function refuses a score outside the range. The settings function keeps a wrong mode and a wrong score type. Two problems in one file give both guidance messages. |
 | `registry.test.ts` | A running worker with a pane comes back as alive. A job of the wrong shape does not break the load. The write is atomic. |
 | `stop.test.ts` | A cancel ends a worker only when the pane list shows the pane gone. An unreadable pane list does not count as a closed pane. An unconfirmed stop leaves the worker running, and a retry ends it. |
+| `stop-reconcile.test.ts` | The verdict follows the pane state and never guesses. A pending intent is confirmed when its pane is gone. A run without a pane counts as gone. A pending intent fails when its pane still exists. A pending intent stays pending when the pane list cannot be read. The reconciliation leaves the intent of another session alone. A pending intent refuses the action and a settled intent does not. |
+| `stop-intent-gate.test.ts` | The cleanup refuses a run with a pending stop intent and goes on after the confirmation. The status shows the pending stop intent of a run. |
 | `steer.test.ts` | A steer call sends the instruction once. The transcript confirms the delivery. An unrelated message does not confirm it. An old message with the same text does not confirm it. An unconfirmed delivery is not sent again. |
 | `monitor.test.ts` | A worker with no deadline never times out. An active worker still times out at the total deadline. A worker that keeps writing is not stopped as idle. A resumed worker does not report its old answer. |
 | `architecture.test.ts` | No source file exceeds 350 lines. The `lib/` folder never imports the entry or `worker-tools/`. Only `lib/process.ts` starts a child process. Only the entry creates the runtime. |
