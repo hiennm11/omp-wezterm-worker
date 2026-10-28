@@ -218,6 +218,8 @@ test("a native worker is taken over and gets a bridge", async () => {
 		assert.equal(result.details.taken, true);
 		assert.ok(rt.bridges.has(job.id), "the new owner has a bridge");
 	} finally {
+		await Promise.all([...rt.bridges.values()].map((bridge) => bridge.close()));
+		rt.bridges.clear();
 		finish(rt, dir, "wz-1");
 	}
 });
