@@ -14,13 +14,26 @@ import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { monitorJob, monitorNativeJob } from "../extensions/lib/monitor.ts";
 import { monitorVerdict } from "../extensions/lib/monitor-authority.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
-import { acquireOwnership, beginRelease, commitRelease, type Ownership } from "../extensions/lib/ownership.ts";
+import {
+	acquireOwnership,
+	beginRelease,
+	commitRelease,
+	type Ownership,
+} from "../extensions/lib/ownership.ts";
 import type { WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { fakeWezterm, jobOf, runtimeFor } from "./group-holder-helpers.ts";
 
 /** An ownership row of the given session and phase. */
 function ownerOf(sessionId: string, phase: Ownership["phase"]): Ownership {
-	return { taskKey: "task-wz-1", sessionId, processId: 1, processStartedAt: "t", generation: 1, phase, updatedAt: 1 };
+	return {
+		taskKey: "task-wz-1",
+		sessionId,
+		processId: 1,
+		processStartedAt: "t",
+		generation: 1,
+		phase,
+		updatedAt: 1,
+	};
 }
 
 /** A runtime whose polls the test runs by hand. */
@@ -91,7 +104,9 @@ test("a task that another session took stops the monitor of the old session", as
 	const db = rt.openDb();
 	acquireOwnership(db, taskKey(job.id), "s1", 1, "t", 1000);
 	monitorJob(rt, job, () => {});
-	db.handle.prepare("UPDATE ownership SET session_id = 's2', generation = 2 WHERE task_key = ?").run(taskKey(job.id));
+	db.handle
+		.prepare("UPDATE ownership SET session_id = 's2', generation = 2 WHERE task_key = ?")
+		.run(taskKey(job.id));
 
 	for (const tick of ticks) tick();
 
