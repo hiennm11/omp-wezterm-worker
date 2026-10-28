@@ -1,13 +1,13 @@
 # WezTerm Pane Workers
 
-An OMP extension that runs an independent worker session inside a WezTerm pane
-or tab, so the user watches a long task live while the main agent keeps
-working. The worker runs in OMP, in Claude Code CLI, or in Codex CLI.
+An OMP extension that runs a worker session independently inside a WezTerm pane
+or tab. The user sees a long task run live, and the main agent keeps working.
+The worker runs in OMP, in Claude Code CLI, or in Codex CLI.
 
 ## Language
 
 **Worker**:
-An independent CLI session that runs a task in a WezTerm pane and reports to a
+A separate CLI session that runs a task in a WezTerm pane and reports to a
 main session. It does not inherit the main conversation.
 _Avoid_: Agent, subtask, background job
 
@@ -16,48 +16,48 @@ The OMP session that spawned the worker and receives its events.
 _Avoid_: Parent session, host session
 
 **Worker backend**:
-The CLI that executes the worker: OMP, Claude Code CLI, or Codex CLI.
+The CLI that runs the worker: OMP, Claude Code CLI, or Codex CLI.
 _Avoid_: Model, provider, agent type
 
 **Task**:
-The self-contained instruction a worker receives. It is the worker's entire
-input; the worker never sees the main conversation.
+The self-contained instruction that a worker receives. It is the full input of
+the worker. The worker never sees the main conversation.
 _Avoid_: Prompt, request, job
 
 **Result**:
-The final task answer carried by a valid completion report for the current run
-and instruction cycle.
+The final task answer that a valid completion report transmits for the current
+run and instruction cycle.
 _Avoid_: Output, reply, response
 
 **Preamble**:
-The text an assistant message carries alongside a tool call ("I'll read that
-file."). It announces work, it does not answer.
+The text that an assistant message carries alongside a tool call ("I'll read
+that file."). It announces work. It does not answer.
 _Avoid_: Lead-in, narration
 
 **Steering message**:
-A follow-up instruction sent into a worker that is still running, so it
-changes course without restarting.
+A follow-up instruction sent to a running worker, so it changes course
+without a restart.
 _Avoid_: Follow-up, interrupt, correction
 
 **Resume**:
-Reopening a finished worker in a new pane from its own transcript, so it
+Reopening a finished worker in a new pane from its own transcript. The worker
 continues with its full history.
 _Avoid_: Restart, continue, reopen
 
 **Transcript**:
-The worker's session JSONL file. It is the authoritative record of what the
-worker did and said.
+The session JSONL file of the worker. It is the authoritative record of what
+the worker did and said.
 _Avoid_: Log, history, session file
 
 **Turn**:
 One assistant message. A turn that issues a tool call is not the end of the
-worker's work; only a text-only turn concludes it.
-The missing report rule uses the instruction cycle instead of the turn.
+worker's work. Only a text-only turn concludes it. The missing report rule
+uses the instruction cycle instead of the turn.
 _Avoid_: Message, response, step
 
 **Delivery**:
-The act of putting a worker's result into the main session so the main agent
-acts on it. A delivery that does not wake the agent is not a delivery.
+The act of putting a worker's result into the main session. The main agent
+then reacts to it. A delivery that does not wake the agent is not a delivery.
 _Avoid_: Notification, callback, push
 
 **Delivery replay**:
@@ -75,13 +75,13 @@ The isolated git checkout an isolated worker works in, on its own branch.
 _Avoid_: Sandbox, clone, workspace
 
 **Clean worktree**:
-A worktree with no uncommitted changes and no untracked files. Only a clean
-worktree may be removed without the user saying so.
+A worktree with no uncommitted changes and no untracked files. The extension
+removes only a clean worktree without the user saying so.
 _Avoid_: Untouched worktree, pristine worktree
 
 **Stopped**:
-The state of a worker whose pane is confirmed gone. A close request that
-WezTerm accepted is not enough.
+The state of a worker whose pane the pane list confirms is gone. A close
+request that WezTerm accepted is not enough.
 _Avoid_: Killed, terminated, closed
 
 **Launch**:
@@ -107,7 +107,7 @@ _Avoid_: Style check, lint, grammar check
 
 ## Agreed supervision terms
 
-These terms describe the supervision model. The runtime enforces the acquisition, the release and the takeover of a task. It also checks the authority of the control tools `steer`, `cancel`, `cleanup` and `resume`, of the record tools `ack` and `resolve`, and of the delivery of a result. The automatic paths are not checked yet.
+These terms describe the supervision model. The runtime enforces the acquisition, the release and the takeover of a task. It also checks the authority of the control tools `steer`, `cancel`, `cleanup` and `resume`, of the record tools `ack` and `resolve`, and of the delivery of a result. The runtime does not check the automatic paths yet.
 
 **Task state**:
 The worker's declared condition: working, waiting, needs input, or completed.
@@ -124,11 +124,14 @@ It does not control the worker.
 _Avoid_: Observer, guest
 
 **Acquisition**:
-The first claim of a task by the main session that started its worker, and the renewed claim of the same session after a restart.
+The first claim of a task by the main session that started its worker. The
+same session claims the task again after a restart.
 _Avoid_: Claim, lock, registration
 
 **Takeover**:
-The explicit transfer of supervision to a different main session. The previous owner must have released the task, or its process must be confirmed gone.
+The explicit handover of supervision to a different main session. The previous
+owner must release the task, or the extension must confirm that the process of
+the previous owner ended.
 _Avoid_: Resume, restart
 
 **Worker event**:
@@ -136,12 +139,13 @@ A result, input request, or intervention condition that the main session must ha
 _Avoid_: Task, turn, notification text
 
 **Handling acknowledgement**:
-The main session's record that it handled a worker event and chose a disposition.
-Receipt or inspection alone is not handling acknowledgement.
+The main session's record that it handled a worker event and chose a
+disposition. Receipt or inspection alone does not count as handling
+acknowledgement.
 _Avoid_: Delivery, acceptance
 
 **Result acceptance**:
-The main session's decision that a worker result meets its requirements.
+The main session's decision that a worker result satisfies its requirements.
 _Avoid_: Task completion, delivery
 
 **External wait**:
@@ -149,11 +153,11 @@ A declared pause for a named dependency whose change the worker can observe.
 _Avoid_: Stall, task completion
 
 **Pending worker event**:
-A worker event that remains unhandled and still requires action from the main session.
+A worker event that remains unhandled and still needs action from the main session.
 _Avoid_: Unread message, undelivered result
 
 **Execution loss**:
-The confirmed end of a worker's execution without evidence that settles its task outcome.
+The confirmed end of a worker's execution when no evidence settles its task outcome.
 _Avoid_: Task failure, completion
 
 **Legacy result**:
@@ -165,7 +169,8 @@ The state that a worker declares through its own tool. It is the only evidence t
 _Avoid_: Answer, message, result
 
 **Execution condition**:
-What the supervisor knows about the execution of a worker: it started, it runs, it stopped, it is lost, or its health is unknown.
+What the supervisor knows about the execution of a worker. The worker started,
+it runs, it stopped, it had an execution loss, or its health is unknown.
 _Avoid_: Task state, worker state
 
 **Instruction cycle**:
@@ -174,8 +179,9 @@ It ends at a terminal assistant boundary with no open tool call.
 _Avoid_: Turn, assistant message, step
 
 **Execution record**:
-A durable row that holds one unit of worker execution, its start evidence, and its settlement evidence.
-A record that never settles keeps an unknown state.
+A durable row that holds one unit of worker execution. The row holds the start
+evidence and the settlement evidence. A record that never settles keeps an
+unknown state.
 _Avoid_: Tool call, task, background job
 
 **Job result**:
@@ -223,7 +229,9 @@ The wait for the external actions that a release started before it gives the aut
 _Avoid_: Wait, flush, cleanup
 
 **Native bridge**:
-The transport that connects a native worker to the main session. It carries the observations of the worker and the commands of the owner. A new owner starts a new bridge, and the worker follows it through the handover file.
+The link that connects a native worker to the main session. It carries the
+observations of the worker and the commands of the owner. A new owner starts a
+new bridge, and the worker follows it through the handover file.
 _Avoid_: Plugin, adapter, socket
 
 **Session-scoped mod**:
@@ -235,22 +243,27 @@ An instruction that the native program accepted. It is not yet a delivered input
 _Avoid_: Received message, queued message, receipt
 
 **Delivered input**:
-An accepted instruction that the native program carried into a cycle.
+An accepted instruction that the native program transmitted into a cycle.
 _Avoid_: Accepted input, processed message
 
 **Permission request**:
-A native request for the person to allow a call. The person answers it in the pane.
+A native request that asks the person for the approval of a call. The person
+answers it in the pane.
 _Avoid_: Approval, tool check, dialog
 
 **Native cycle**:
 The native turn that carries one instruction. A cycle starts at the accepted instruction and ends when its turn ends.
 
 **Run snapshot**:
-The account that a native worker gives to a new owner about its own state: the current cycle, the instruction that waits for a cycle, the calls that run and the permission requests that wait.
+The account that a native worker gives to a new owner about its own state. The
+account names the current cycle, the instruction that waits for a cycle, the
+calls that run and the permission requests that wait.
 _Avoid_: Checkpoint, state dump, sync
 
 **Restored run**:
-A native run whose owner restarted. The run holds only what the new owner saw since then and what the run snapshot told it. Its counts of turns and tokens start at the restart.
+A native run whose owner starts again. The run holds only what the new owner
+saw since then and what the run snapshot told it. Its counts of turns and
+tokens start at the restart.
 _Avoid_: Recovered run, resumed run
 
 **Native background task**:
