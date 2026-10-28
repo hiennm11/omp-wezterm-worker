@@ -6,6 +6,7 @@
  *  - a report tool. A report is the only evidence that the owner accepts.
  *  - a command poll. The owner sends a steering instruction through it.
  *  - the observation of the native events that the owner needs.
+ *  - the snapshot of the run, which a new owner gets when its address changes.
  *
  * The mod never approves a tool and never refuses a native denial. Every
  * observer passes its event on unchanged. The mod imports no Node module, so
@@ -70,6 +71,10 @@ const state = {
 	commands: new Map(),
 	/** The instruction that the mod submitted and that no turn carries yet. */
 	pendingInstructionId: null,
+	/** True while a turn of the session runs. */
+	turnOpen: false,
+	/** True when a new owner needs the snapshot of the run. */
+	snapshotDue: false,
 	/** True when the owner closed the bridge. The mod stops then. */
 	closed: false,
 };
@@ -128,6 +133,49 @@ async function observe($, source, payload) {
 	}
 }
 
+/**
+ * Send the snapshot of the run to the current owner.
+ *
+ * A new owner starts with an empty memory of the run. The mod sends the
+ * snapshot when the address of the owner changes. The mod sends it again
+ * until the owner accepts it, because a lost snapshot leaves the new owner
+ * blind.
+ */
+async function sendSnapshot($) {
+	if (!state.snapshotDue) return;
+	if (state.closed) return;
+	if (!state.baseUrl || !state.token) return;
+	const payload = {
+		takenAt: Date.now(),
+		deliveredCycleId: state.deliveredCycleId,
+		turnOpen: state.turnOpen,
+		pendingInstructionId: state.pendingInstructionId,
+		openCalls: [...state.openCalls],
+		pendingApprovals: [...state.pendingApprovals],
+	};
+	try {
+		const response = await $.http.fetch(`${state.baseUrl}/observations`, {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				authorization: `Bearer ${state.token}`,
+			},
+			body: JSON.stringify({
+				backend: "claude",
+				runId: state.runId,
+				sessionId: state.sessionId,
+				source: "state.snapshot",
+				payload,
+			}),
+		});
+		/* The owner accepted the snapshot only with a status below 300.
+		   Any other status leaves the flag, so the next poll tries again. */
+		if (response.status < 300) state.snapshotDue = false;
+	} catch {
+		/* the next poll sends the snapshot again */
+	}
+}
+
 /** Report the result of one command to the owner. */
 async function reportCommand($, id, phase, nativeId, error) {
 	if (!state.baseUrl || !state.token) return;
@@ -157,8 +205,14 @@ async function pollCommands($) {
 		const handover = await readHandover($);
 		const url = handover?.url ?? (await $.env.get("WEZTERM_WORKER_URL")) ?? state.baseUrl;
 		const token = handover?.token ?? (await $.env.get("WEZTERM_WORKER_TOKEN")) ?? state.token;
+		/* A different address means a different owner. The new owner knows
+		   nothing about the run, so the mod owes it a snapshot. */
+		if (handover && (handover.url !== state.baseUrl || handover.token !== state.token)) {
+			state.snapshotDue = true;
+		}
 		state.baseUrl = url;
 		state.token = token;
+		await sendSnapshot($);
 		const response = await $.http.fetch(
 			`${url}/commands?runId=${encodeURIComponent(state.runId ?? "")}`,
 			{ headers: { authorization: `Bearer ${token}` } },
@@ -172,8 +226,12 @@ async function pollCommands($) {
 				state.closed = true;
 				return;
 			}
+			if (next.url !== state.baseUrl || next.token !== state.token) {
+				state.snapshotDue = true;
+			}
 			state.baseUrl = next.url;
 			state.token = next.token;
+			await sendSnapshot($);
 			return;
 		}
 		if (!response.ok) return;
@@ -368,6 +426,7 @@ export function register(on) {
 
 	on("turn.start", async ($, e, next) => {
 		state.deliveredCycleId = e.turnId ?? null;
+		state.turnOpen = true;
 		/* The turn that starts carries the instruction that the mod
 		   submitted. The owner needs that identity, because an accepted
 		   instruction blocks the completion until its cycle starts. */
@@ -382,6 +441,7 @@ export function register(on) {
 	});
 
 	on("turn.complete", async ($, e, next) => {
+		state.turnOpen = false;
 		await observe($, "turn.complete", {
 			turnId: e.turnId ?? null,
 			reason: e.reason ?? null,
