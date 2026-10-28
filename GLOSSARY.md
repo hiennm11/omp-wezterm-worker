@@ -268,3 +268,7 @@ _Avoid_: Open event, unread event, notification
 **Stop intent reconciliation**:
 The act of settling the stop intents that a restart left pending. It reads the pane state of each run. A gone pane confirms the intent, and an existing pane fails the intent.
 _Avoid_: Stop retry, pane check, intent repair
+
+**Monitor authority**:
+The authority that a session needs to end a worker with its monitor. A session that released its task, or that lost it to another session, has no monitor authority and its monitor stops without a write.
+_Avoid_: Ownership, monitor, session identity
