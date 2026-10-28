@@ -158,7 +158,8 @@ report tool and the command bridge.
 | The resume | A resume reuses the native session id. The worker comes back with its history and a new run id. |
 | The stop | The stop closes the pane of the worker only, and it confirms that the pane is gone. |
 
-No code does the Codex backend. The extension refuses a spawn that names it.
+No code implements the Codex backend. The extension refuses a spawn that names
+it.
 
 ### Long tasks
 
@@ -201,10 +202,10 @@ sends the instruction a second time. A second copy of the same
 instruction would reach the worker as a second instruction.
 
 Implementation note: `wezterm cli send-text` pastes by default. A pasted block
-never submits in the OMP TUI. The text lands in the composer but the submit
+never submits in the OMP TUI. The text lands in the composer but the Enter
 key never arrives. So steering uses `--no-paste`, which delivers the bytes
 as individual key events. Steering also adds a trailing `"\r"` that the worker
-receives as a real key press.
+receives as a real Enter.
 
 ### Watching a worker
 
@@ -297,14 +298,14 @@ Environment overrides: `OMP_WORKER_OMP_BIN`, `OMP_WORKER_WEZTERM_BIN`,
 ## The communication check
 
 The communication check scores the text that the main session and the workers
-interchange. The score comes from the same Simplified Technical English checker
+exchange. The score comes from the same Simplified Technical English checker
 that scores the documents of this repository. A low score means that a reader
 can read the text in more than one way.
 
 The check reads three texts: the `task` of a spawn, the `message` of a steer
 and the `result` of a report.
 
-The adjustment `commsStandard` holds the mode and the minimum score:
+The setting `commsStandard` holds the mode and the minimum score:
 
 | Field | Values | Meaning |
 |---|---|---|
@@ -356,13 +357,13 @@ verified idle worker is a separate condition.
 
 The supervisor refuses a completion report while a tool call or a background
 execution has no evidence of a settlement. The supervisor cannot see every
-disconnected process, so it does not claim that it can.
+detached process, so it does not claim that it can.
 
 **The result wakes the main agent.** The extension sends the finished result
 with `pi.sendUserMessage(text, { triggerTurn: true })`. The text lands in the
 session as a user message and starts a new turn. The agent works on a finished
 worker right away. `pi.sendMessage` with `deliverAs: "steer"` is the fallback
-for a host that does not give `sendUserMessage`.
+for a host that does not expose `sendUserMessage`.
 
 **The pane is closed when the worker finishes.** A finished worker leaves its
 pane open by default, and those panes collect. `closePaneOnFinish` closes
@@ -388,9 +389,8 @@ worker `failed` when the user closed its pane while OMP was down.
 **A native worker gets a new bridge after a restart.** The new owner starts a
 new bridge for the run. The new owner writes the handover file again. The
 worker follows the new bridge through that file. The observations that the
-worker sent while the owner was away are gone. A row that the database keeps
-open blocks the completion of the run until a settlement arrives or the worker
-stops.
+worker sent while the owner was away are gone. A stored open row keeps blocking
+the completion of the run until a settlement arrives or the worker stops.
 
 **A new session can take over a task of another session.** The tool
 `wezterm_worker_takeover` moves the supervision of one worker to the calling
@@ -444,7 +444,7 @@ task never reaches the worker.
 
 The extension moves the old `registry.json` into the database once. The file
 stays on disk as evidence. The extension never writes it again, so two
-instances cannot remove one another's records.
+processes cannot remove one another's records.
 
 **A launch without a receipt starts no second worker.** A crash
 between the pane creation and the receipt leaves a launch attempt without a
@@ -489,7 +489,7 @@ Two workers that edit the same checkout are a real risk. Two options:
   the worker finishes, when the user cancels it, or when it times out. See
   "Isolated worktrees" below.
 - **Decrease the worker tools** — pass `tools: ["read","grep","glob"]` so the worker
-  cannot write at all. Use this for inspection and analysis work.
+  cannot write at all. Use this for survey and analysis work.
 
 The default of `maxActiveWorkers` is `3`, so the extension refuses a fourth
 worker while three are active. Use `isolated: true` for the workers that write,
@@ -514,9 +514,9 @@ anything. The tool reports a worktree with changes and does not delete it. The
 changes are the worker's output. Pass `force: true` only when you plan to
 discard them.
 
-The extension never erases the branch. Remove it yourself with
-`git branch -d omp/worker/<jobId>` once its content is in the main branch or
-no longer needed.
+The extension never deletes the branch. Remove it yourself with
+`git branch -d omp/worker/<jobId>` once you merge its content or no longer
+need it.
 
 ## Failure handling
 
@@ -539,7 +539,7 @@ not finish.
 ## Cancellation safety
 
 `wezterm_worker_cancel` closes **only** the pane id recorded for that worker.
-It never enumerates or kills unrelated panes, and it never signals programs the
+It never enumerates or kills unrelated panes, and it never signals processes the
 plugin did not create. The tool never touches panes of the user.
 
 A worker ends only after the pane list shows its pane is gone. If the list
@@ -553,16 +553,17 @@ retry. The monitor also retries on every poll. See
 - You can steer a worker **while it runs** (`wezterm_worker_steer`). The tool
   `wezterm_worker_resume` continues a worker that finished already. It
   reopens the worker in a new pane from its transcript.
-- The worker records stay in memory per process and in `lifecycle.db`. A
-  worker that one OMP process spawned is visible in another through the
-  database. But a **result** only goes to the process that spawned it.
+- The worker records stay in memory per process. The database stores them in
+  `lifecycle.db`. A worker that one OMP process spawned is visible in another
+  through the database. But a **result** only goes to the process that spawned
+  it.
 - `omp --cwd` inside the home directory auto-switches to a temp directory, so a
   worker needs a real repository path.
 - `isolated: true` needs a git repository. On Windows, `git worktree add` can
   fall back to a plain checkout when block cloning is unavailable.
-- The extension never erases a worktree or its branch. Worktrees collect
+- The extension never deletes a worktree or its branch. Worktrees collect
   under `stateDir/worktrees/` until `wezterm_worker_cleanup` runs on them.
-  The repository also collects their branch names until you erase them by hand.
+  The repository also collects their branch names until you delete them by hand.
 - The extension module loads at OMP startup. OMP does not load a new module
   with `/reload-plugins`. Restart OMP.
 
@@ -572,13 +573,13 @@ retry. The monitor also retries on every poll. See
 `~/.omp/agent/skills/wezterm-omp-pane-ops/SKILL.md`.
 
 It carries the operating knowledge this README cannot state. It explains how to
-deliver a submit key to a WezTerm pane (`send-text` pastes by default, and a
+deliver an Enter key to a WezTerm pane (`send-text` pastes by default, and a
 paste never submits). It explains how to relocate a session transcript.
 
 It also gives the Windows shell traps. One trap says that `bash` on PATH is
-WSL. Another trap gives the shapes of paths. Another trap shows how you
-connect a plugin with a relative path. The skill is model-invoked, so an agent
-reaches for it on its own when a task involves a pane or a session move.
+WSL. Another trap gives the shapes of paths. Another trap shows how you link a
+plugin with a relative path. The skill is model-invoked, so an agent reaches for
+it on its own when a task involves a pane or a session move.
 
 ## Repository layout
 
@@ -856,12 +857,12 @@ take about a minute each.
 
 ### The Windows trial
 
-`npm run trial` runs four real tasks with real workers: an inspection, a fix
-that a test proves, a timeout and a cancel. It writes the report to
+`npm run trial` runs four real tasks with real workers: a survey, a fix that a
+test proves, a timeout and a cancel. It writes the report to
 `docs/trials/windows-trial.md` and exits with 1 when a check fails.
 
 The trial keeps its state, its fixture and its worktrees under `.trial/` in
-the project. The directory is in `.gitignore`, and the trial never erases it.
+the project. The directory is in `.gitignore`, and the trial never deletes it.
 The transcripts are the evidence of the run.
 
 The report is a public document, so it holds no path of the machine that ran
