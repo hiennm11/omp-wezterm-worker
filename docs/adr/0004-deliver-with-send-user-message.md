@@ -13,7 +13,7 @@ A live probe found this fact. The probe did not read the API. The upstream
 docs describe `deliverAs` for steering a *running* turn. The docs say nothing
 about a message that arrives while the agent is idle.
 
-`sendMessage` stays as the fallback for a host that does not give
+`sendMessage` stays as the fallback for a host that does not expose
 `sendUserMessage`. The upstream type stub lists only `appendEntry` and
 `sendUserMessage`. The options of `sendMessage` are undocumented there. A
 delivery that silently does nothing is easy to miss. Check a delivery by

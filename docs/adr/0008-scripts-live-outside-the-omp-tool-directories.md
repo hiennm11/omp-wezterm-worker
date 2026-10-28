@@ -18,7 +18,7 @@ four seconds.
 
 The cost is that the repository cannot use `tools/` for a custom tool later.
 A custom tool of this plugin goes into `extensions/worker-tools/`. The
-extension shows the tool there. The name of a directory then decides what the
+extension registers it. The name of a directory then decides what the
 program does. The test
 `no script sits in a directory that OMP scans as a tool` holds that rule.
 
