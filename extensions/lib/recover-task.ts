@@ -76,12 +76,7 @@ export function replayUndelivered(
  * The first recovery writes the mark and replays no run that ended before
  * it. A later recovery uses the stored mark.
  */
-export function recoverTask(
-	rt: WorkerRuntime,
-	jobs: Job[],
-	notify: (job: Job) => void,
-	now: number,
-): Job[] {
+export function recoverTask(rt: WorkerRuntime, jobs: Job[], notify: (job: Job) => void, now: number): Job[] {
 	const db = rt.openDb();
 	const mark = db.meta(REPLAY_MARK);
 	let since: number;
