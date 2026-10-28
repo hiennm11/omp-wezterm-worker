@@ -163,6 +163,16 @@ An unreadable pane list keeps the intent pending, because the code never guesses
 A pending intent refuses the tools steer, resume, and cleanup.
 The tool cancel stays open, because it retries the stop.
 
+### Monitor authority
+
+Every poll of a monitor reads the ownership row of its task.
+The monitor of a session that released the task, or that lost the task to another session, stops.
+Such a monitor ends no worker. It writes no ledger row and delivers nothing.
+The phase releasing is temporary, because the release can fail and give the task back to the owner.
+A monitor in the phase releasing waits. It does not stop the worker.
+A task without an owner and a session without an identity keep the old behaviour.
+The new owner attaches the worker at its own session start.
+
 ### Takeover
 
 The tool `wezterm_worker_takeover` moves the supervision of one worker to another main session.
