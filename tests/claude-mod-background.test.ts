@@ -88,7 +88,7 @@ function ofSource(mod: Mod, source: string): Array<Record<string, unknown>> {
 }
 
 /** The row of the result of a background call. */
-function bashResultRow(): ModEvent {
+function bashResultRow(taskId = "b9sc69vt8"): ModEvent {
 	return {
 		uuid: "row-1",
 		door: "prompt",
@@ -99,8 +99,7 @@ function bashResultRow(): ModEvent {
 				{
 					tool_use_id: "toolu_01AXV1mqUmoMbmMwGAKkpNfo",
 					type: "tool_result",
-					content:
-						"Command running in background with ID: b9sc69vt8. Output is being written to: /tmp/b9sc69vt8.output. You will be notified when it completes.",
+					content: `Command running in background with ID: ${taskId}. Output is being written to: /tmp/${taskId}.output. You will be notified when it completes.`,
 				},
 			],
 		},
@@ -108,7 +107,7 @@ function bashResultRow(): ModEvent {
 }
 
 /** The row of the result of a stop of a task. */
-function taskStopRow(): ModEvent {
+function taskStopRow(taskId = "bz6x2vjdv"): ModEvent {
 	return {
 		uuid: "row-2",
 		door: "prompt",
@@ -119,8 +118,7 @@ function taskStopRow(): ModEvent {
 				{
 					tool_use_id: "toolu_01STOP",
 					type: "tool_result",
-					content:
-						'{"message":"Successfully stopped task: bz6x2vjdv (sleep 600)","task_id":"bz6x2vjdv","task_type":"local_bash","command":"sleep 600"}',
+					content: `{"message":"Successfully stopped task: ${taskId} (sleep 600)","task_id":"${taskId}","task_type":"local_bash","command":"sleep 600"}`,
 				},
 			],
 		},
@@ -215,6 +213,18 @@ test("a stop of an unknown task posts no call id", async () => {
 	const stopped = ofSource(mod, "background.stopped");
 	assert.equal(stopped.length, 1);
 	assert.equal(stopped[0].callId, null);
+});
+
+test("a stop names the call that started its task", async () => {
+	const mod = await startMod();
+	const handler = mod.handler("session.append");
+	assert.ok(handler);
+	await handler(mod.dollar, bashResultRow("b9sc69vt8"), () => undefined);
+	await handler(mod.dollar, taskStopRow("b9sc69vt8"), () => undefined);
+	const stopped = ofSource(mod, "background.stopped");
+	assert.equal(stopped.length, 1);
+	assert.equal(stopped[0].callId, "toolu_01AXV1mqUmoMbmMwGAKkpNfo");
+	assert.equal(stopped[0].taskId, "b9sc69vt8");
 });
 
 test("a notification posts the settled observation with its ids", async () => {

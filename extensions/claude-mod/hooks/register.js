@@ -295,15 +295,15 @@ function readResultBlocks(e) {
 }
 
 /**
- * The task that a result of a background call names.
+ * The task that a result of a background call names, with its call id.
  *
  * The host writes the id of the task into the text of the result. The text
  * is a host format and not a documented field, so a new build can change it.
  */
-function readBackgroundTaskId(e) {
+function readBackgroundTask(e) {
 	for (const block of readResultBlocks(e)) {
 		const match = block.text ? BACKGROUND_ID_PATTERN.exec(block.text) : null;
-		if (match) return match[1];
+		if (match) return { taskId: match[1], callId: block.callId };
 	}
 	return null;
 }
@@ -464,25 +464,24 @@ export function register(on) {
 		   foreground tool from the settlement of the background task. */
 		const originKind = e.origin?.kind ?? null;
 		if (originKind === "task-notification") {
-			const text = readRowText(e);
+			const notice = readRowText(e);
 			await observe($, "background.settled", {
 				uuid: e.uuid,
 				door: e.door ?? null,
 				originKind,
 				agentId: e.agentId ?? null,
-				callId: readTag(text, TOOL_USE_ID_TAG),
-				taskId: readTag(text, TASK_ID_TAG),
-				status: readTag(text, STATUS_TAG),
+				callId: readTag(notice, TOOL_USE_ID_TAG),
+				taskId: readTag(notice, TASK_ID_TAG),
+				status: readTag(notice, STATUS_TAG),
 			});
 		}
 		/* The result of a background call names the task that it started. The
 		   owner needs the id to link the notification to its call. */
 		if (e.origin?.kind === "tool" && e.origin?.tool === "Bash") {
-			const taskId = readBackgroundTaskId(e);
-			if (taskId) {
-				const callId = readResultBlocks(e)[0]?.callId ?? null;
-				if (callId) state.backgroundCalls.set(taskId, callId);
-				await observe($, "background.started", { callId, taskId });
+			const task = readBackgroundTask(e);
+			if (task) {
+				if (task.callId) state.backgroundCalls.set(task.taskId, task.callId);
+				await observe($, "background.started", { callId: task.callId, taskId: task.taskId });
 			}
 		}
 		/* The result of a stop names the task that the stop ended. The owner

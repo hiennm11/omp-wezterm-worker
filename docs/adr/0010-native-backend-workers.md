@@ -104,7 +104,7 @@ The supervisor opens a row of kind background for such a call. The return of the
 
 A notification settles the row of its call. The supervisor settles the row for every status that the notification carries, including a failure. The status names the settlement evidence.
 
-A stop of a task settles the row of that task. The tool `TaskStop` names the task and the call that started it. The supervisor settles the row by the id of the task.
+A stop of a task settles the row of that task. The tool `TaskStop` names the task in the text of its result. The mod keeps the call that started each task, so the stop names that call too. The supervisor settles the row by the id of the task.
 
 A row that the supervisor cannot link stays open. A notification without a call id and a notification without a status leave the row open. A stop of an unknown task changes nothing. An open row blocks a completion report, because the supervisor cannot prove that the task ended.
 
