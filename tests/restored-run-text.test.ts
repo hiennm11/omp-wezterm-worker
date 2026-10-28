@@ -11,8 +11,8 @@ import { test } from "node:test";
 import { createClaudeRunState } from "../extensions/lib/claude-run-state.ts";
 import { formatDelivery } from "../extensions/lib/deliver.ts";
 import { freshRunState } from "../extensions/lib/job.ts";
-import type { WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { snapshotNotice, turnsLabel } from "../extensions/lib/restored-run.ts";
+import type { WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { registerStatusTool } from "../extensions/worker-tools/status.ts";
 import { cleanup, fakeRuntime, makeDirs, nativeJob } from "./reattach-native-helpers.ts";
 

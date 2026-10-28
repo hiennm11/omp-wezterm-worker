@@ -16,6 +16,7 @@ import type { ExtensionAPI } from "./host.ts";
 import type { Job } from "./job.ts";
 import { nativeJobUsageReport, requestUsageOf } from "./native-usage-report.ts";
 import { generationOf } from "./owner.ts";
+import { turnsLabel } from "./restored-run.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { formatUsage, jobUsage, type UsageReport } from "./usage.ts";
 import { writeUnderAuthority } from "./write-authority.ts";
@@ -26,8 +27,11 @@ export interface DeliveryUsage {
 	request: UsageReport;
 }
 
-export function formatDelivery(job: Job, usage: DeliveryUsage, nativeCycles = 0): string {
+export function formatDelivery(job: Job, usage: DeliveryUsage, nativeCycles = 0, restored = false): string {
 	const pending = job.pendingStop;
+	/* A restart cut the counts of a restored run. The delivery says that the
+	   counts start at the restart. */
+	const wasRestored = restored || typeof job.nativeUsage?.restoredAt === "number";
 	const header =
 		pending !== null
 			? `Async worker ${job.id} is not stopped (${job.label}).`
@@ -45,7 +49,11 @@ export function formatDelivery(job: Job, usage: DeliveryUsage, nativeCycles = 0)
 		`backend: ${backendLabel(readBackend(job))}`,
 		job.model ? `model: ${job.model}` : null,
 		job.paneId !== null ? `pane: ${job.paneId}` : null,
-		job.turns > 0 ? `turns: ${job.turns}` : nativeCycles > 0 ? `turns: ${nativeCycles}` : null,
+		job.turns > 0
+			? `turns: ${job.turns}`
+			: nativeCycles > 0
+				? `turns: ${turnsLabel(nativeCycles, wasRestored)}`
+				: null,
 		`tokens: ${formatUsage(usage.worker)}`,
 		job.steers > 0 ? `steers: ${job.steers}` : null,
 		job.worktreePath ? `worktree: ${job.worktreePath}` : null,
@@ -71,6 +79,11 @@ export function createDeliver(pi: ExtensionAPI, rt: WorkerRuntime): (job: Job) =
 		   the count of a finished run. */
 		const nativeCycles =
 			readBackend(job) === "omp" ? 0 : (rt.claudeStates.get(job.id)?.cycles.length ?? job.nativeCycles ?? 0);
+		/* A restart cut the counts of a native run. The delivery says that
+		   the counts start at the restart. */
+		const restored =
+			readBackend(job) !== "omp" &&
+			typeof (rt.claudeStates.get(job.id)?.usage.restoredAt ?? job.nativeUsage?.restoredAt) === "number";
 		const text = formatDelivery(
 			job,
 			{
@@ -78,6 +91,7 @@ export function createDeliver(pi: ExtensionAPI, rt: WorkerRuntime): (job: Job) =
 				request: requestUsageOf(rt.jobs, rt.requestLaunches, rt.claudeStates),
 			},
 			nativeCycles,
+			restored,
 		);
 		// The delivery attempt is recorded before the message goes out. The
 		// attempt keeps the event identity and the owner generation. A
