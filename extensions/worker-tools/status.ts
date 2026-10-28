@@ -11,6 +11,7 @@ import { completionBlockerOf } from "../lib/ledger-sync.ts";
 import { nativeJobUsageReport, requestUsageOf } from "../lib/native-usage-report.ts";
 import { reportState } from "../lib/report-decision.ts";
 import { readReports } from "../lib/report-store.ts";
+import { snapshotNotice, turnsLabel } from "../lib/restored-run.ts";
 import type { WorkerRuntime } from "../lib/runtime.ts";
 import { listSessionFiles, summarizeSession } from "../lib/transcript.ts";
 import { formatUsage, jobUsage, requestWorkerIds, type UsageReport } from "../lib/usage.ts";
@@ -53,6 +54,8 @@ interface StatusRow {
 	idleMs: number;
 	currentTool: string | null;
 	turns: number;
+	/** The turn count with the words of a restored run. */
+	turnsText: string;
 	/** The measured token usage of this worker. */
 	usage: UsageReport;
 	steers: number;
@@ -76,6 +79,11 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime): Status
 	/* A native worker reports its usage through its bridge. The OMP reader
 	   finds no transcript, so the native totals are the measured ones. */
 	const measured = backend === "omp" ? usage : nativeJobUsageReport(j, rt.claudeStates.get(j.id) ?? null);
+	/* A restart cut the counts of a native run. The row says that the
+	   counts start at the restart. */
+	const restored = isRestored(rt, j);
+	const turns =
+		backend === "omp" ? j.turns : (rt.claudeStates.get(j.id)?.cycles.length ?? j.nativeCycles ?? 0);
 	return {
 		workerId: j.id,
 		label: j.label,
@@ -88,7 +96,8 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime): Status
 		elapsedMs: (j.finishedAt ?? now) - (j.startedAt ?? j.createdAt),
 		idleMs: j.finishedAt ? 0 : now - j.lastActivityAt,
 		currentTool: j.currentTool,
-		turns: backend === "omp" ? j.turns : (rt.claudeStates.get(j.id)?.cycles.length ?? j.nativeCycles ?? 0),
+		turns,
+		turnsText: turnsLabel(turns, restored),
 		usage: measured,
 		steers: j.steers,
 		timeoutMs: j.timeoutMs,
@@ -107,6 +116,17 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime): Status
 		native: nativeSummary(rt, j),
 		blocked: completionBlocker(rt, j),
 	};
+}
+
+/**
+ * The truth that a restart cut the counts of a native run.
+ *
+ * The live state holds the time of the restart. A finished run keeps it on
+ * the job.
+ */
+function isRestored(rt: WorkerRuntime, job: Job): boolean {
+	if (readBackend(job) === "omp") return false;
+	return typeof (rt.claudeStates.get(job.id)?.usage.restoredAt ?? job.nativeUsage?.restoredAt) === "number";
 }
 
 /**
@@ -139,9 +159,11 @@ function nativeSummary(rt: WorkerRuntime, job: Job): string | null {
 		if (job.nativeCycles === undefined) return "no native state";
 		return `${job.nativeCycles} cycle(s), finished`;
 	}
+	const notice = snapshotNotice(isRestored(rt, job), state.snapshotAt);
 	return (
 		`cycle ${state.currentCycleId ?? "-"}, ${state.openCalls.size} open call(s), ` +
-		`${state.openApprovals.size} open approval(s), ${state.reports.length} report(s)`
+		`${state.openApprovals.size} open approval(s), ${state.reports.length} report(s)` +
+		(notice === null ? "" : `, ${notice}`)
 	);
 }
 
@@ -172,7 +194,7 @@ function formatRow(r: StatusRow): string {
 		r.currentTool ? `  running   : ${r.currentTool}` : null,
 		r.result ? `  result    : ${r.result}` : null,
 		r.native ? `  native    : ${r.native}` : null,
-		`  turns     : ${r.turns}${r.steers > 0 ? ` (${r.steers} steering message(s))` : ""}`,
+		`  turns     : ${r.turnsText}${r.steers > 0 ? ` (${r.steers} steering message(s))` : ""}`,
 		`  tokens    : ${formatUsage(r.usage)}`,
 		r.worktreePath
 			? `  worktree  : ${r.worktreePath} (branch ${r.worktreeBranch ?? "-"})` +
