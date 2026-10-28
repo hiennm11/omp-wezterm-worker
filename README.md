@@ -158,8 +158,8 @@ report tool and the command bridge.
 | The resume | A resume reuses the native session id. The worker comes back with its history and a new run id. |
 | The stop | The stop closes the pane of the worker only, and it confirms that the pane is gone. |
 
-No code implements the Codex backend. The extension refuses a spawn that names
-it.
+The Codex backend has no implementation. The extension refuses a spawn that
+names it.
 
 ### Long tasks
 
@@ -488,7 +488,7 @@ Two workers that edit the same checkout are a real risk. Two options:
   The worktree **survives the worker**: the extension does not remove it when
   the worker finishes, when the user cancels it, or when it times out. See
   "Isolated worktrees" below.
-- **Decrease the worker tools** — pass `tools: ["read","grep","glob"]` so the worker
+- **Limit the worker tools** — pass `tools: ["read","grep","glob"]` so the worker
   cannot write at all. Use this for survey and analysis work.
 
 The default of `maxActiveWorkers` is `3`, so the extension refuses a fourth
@@ -553,10 +553,9 @@ retry. The monitor also retries on every poll. See
 - You can steer a worker **while it runs** (`wezterm_worker_steer`). The tool
   `wezterm_worker_resume` continues a worker that finished already. It
   reopens the worker in a new pane from its transcript.
-- The worker records stay in memory per process. The database stores them in
-  `lifecycle.db`. A worker that one OMP process spawned is visible in another
-  through the database. But a **result** only goes to the process that spawned
-  it.
+- The worker records are per-process in memory and stored in `lifecycle.db`. A
+  worker spawned in one OMP process is visible in another through the database.
+  But a **result** goes only to the process that spawned it.
 - `omp --cwd` inside the home directory auto-switches to a temp directory, so a
   worker needs a real repository path.
 - `isolated: true` needs a git repository. On Windows, `git worktree add` can
