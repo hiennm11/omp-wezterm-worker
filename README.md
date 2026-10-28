@@ -595,6 +595,7 @@ omp-wezterm-worker/
 │   │   ├── native-events.ts     the events of a native run
 │   │   ├── native-usage.ts      the measured usage of a native run
 │   │   ├── native-usage-report.ts the usage report of a native run
+│   │   ├── restored-run.ts      the words of a restored native run
 │   │   ├── bridge-handover.ts   the handover of a bridge to a new owner
 │   │   ├── reattach-native.ts   the re-attachment of a native worker after a restart
 │   │   ├── steer-native.ts      steering a worker that runs a native backend
@@ -701,6 +702,7 @@ omp-wezterm-worker/
 │   ├── reattach-native-stop.test.ts the stop of a native worker whose re-attachment fails
 │   ├── reattach-native-helpers.ts the helpers of the re-attachment tests
 │   ├── restored-run.test.ts    the usage of a native run that a restart restored
+│   ├── restored-run-text.test.ts the texts of a restored native run
 │   ├── group-release.test.ts    the release of a resource group
 │   ├── group-holder.test.ts     the holder of a resource group that ended
 │   ├── group-holder-helpers.ts  the helpers of the group holder tests
@@ -806,6 +808,7 @@ test.
 | `reattach-native.test.ts` | A native worker gets a new bridge and a new handover. The worker follows the new bridge and the old token is refused. The run state keeps the native session id of the worker. Only the open rows of the run become the open calls of the state. The new owner receives the report of the worker and ends the run. An open row blocks the completion until a settlement arrives. attachWorker gives a native worker a bridge and a monitor. attachWorker ends a native worker whose pane is gone. attachWorker keeps the old behaviour for an OMP worker. A handover that cannot be written leaves no bridge and no state. attachWorker fails the worker when the re-attachment fails. |
 | `reattach-native-stop.test.ts` | A failed re-attachment closes the pane of the native worker, and the open rows of the run become unknown. A failed re-attachment frees the execution of the group. A stop that the pane list does not confirm leaves the worker running with a pending stop and a monitor, and the next poll ends the worker as failed. |
 | `restored-run.test.ts` | The re-attachment marks the usage of the run with the time of the restart. A restored run with a measured turn has a partial usage, and the note says that the counts start at the restart of OMP. A run that never restarted keeps a measured usage. A restored run without a measured turn stays unknown. A restored run with a turn without usage keeps both reasons. |
+| `restored-run-text.test.ts` | The turn label says that a restart cut the count. The snapshot notice shows only for a restored run without a snapshot. The delivery of a restored native run says since the restart. The status of a live restored run names the missing snapshot. The status of a run that never restarted shows no restart text. The status of a finished restored run still says since the restart. |
 | `group-release.test.ts` | A run that ends with its pane closed frees its group, and a new resume takes it. A run that ends with its pane alive keeps its group. A failed launch of a resume frees the group. The recovery frees a group whose holder ended, and it keeps a group whose holder is active, has no job, or still has a live pane. |
 | `group-holder.test.ts` | The holder of an ended run frees its group when its pane is gone. The holder of an ended run keeps its group while its pane is open, and the refusal names the pane. The holder of an ended run keeps its group when the pane list cannot be read. An active holder and a holder that this process does not know keep their group. A resume takes the group of a source run whose pane was closed by hand. A resume refuses while the pane of the holder is open. The cleanup of a task whose holder ended with its pane gone goes on. The cleanup refuses and names the pane while the pane of the holder is open. |
 | `group-recovery-panes.test.ts` | The startup recovery frees the group of a holder whose pane is gone, and it marks the pane of the run as closed. The recovery keeps the group of a holder whose pane is open, and it keeps the group when the pane list cannot be read. The recovery frees the group of a holder whose pane is closed without a pane list. The recovery reads the pane list one time for two groups. The recovery reads no pane list when no ended holder has an open pane. The recovery keeps the group of an active holder and of a holder that this process does not know. The decision names one result for every state of the pane. |
