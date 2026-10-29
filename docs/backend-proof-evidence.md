@@ -143,6 +143,22 @@ No scenario of the Codex backend passed yet. The proof of the Codex backend stay
 
 The version that `codex` resolves on this machine is 0.142.0. The plan observed 0.157.1. A node `spawn` of `codex` reaches a different binary than `cmd /c codex`, so the probe must resolve the binary before it plans around a protocol version.
 
+The run of 2026-10-29 with all nine scenarios showed that the scenarios shared one list of observations. The runner made one array and gave it to every scenario. A scenario read that array to decide its verdict, so a scenario that ran later read the report of an earlier scenario. The run gave the wrong verdict in three places.
+
+| Scenario | Verdict of the run | The verdict of its own evidence |
+| :- | :- | :- |
+| `no-report` | fail, a report arrived although none was requested | The scenario holds no report. The report came from the scenario `observe`. |
+| `background` | pass, report recorded | The scenario holds no report. The report came from the scenario `observe`. The pass was wrong. |
+| `resume` | fail, the first turn produced no report | The scenario holds two reports of its own. The first report of the run was the report of the scenario `observe`. |
+
+Each scenario has its own list of observations now. The runner makes a new list for each scenario, and a verdict reads only the list of its own scenario. The file `observations.jsonl` stays one file for the whole run, and each line keeps its field `scenario`. The scenario `resume` reads its first report from the reports that the first server of the scenario recorded.
+
+A second defect of that run touched the cleanup and the evidence. The stop of a scenario closed the pane of the TUI and left the pane of the app server open. The scenarios `observe`, `queue`, `approval` and `stop` wrote the pane of the TUI into the field of the pane of the server. The run left 4 panes and 9 `codex.exe` processes on the machine. The handle of a scenario keeps two fields now. The field `serverPaneId` holds the pane of the app server, and the field `tuiPaneId` holds the pane of the TUI. A scenario sets the field `tuiPaneId`. The stop of a scenario closes both panes. It ends the process of the server with the command `taskkill /PID <pid> /T /F`, so the child `codex-code-mode-host.exe` ends too. The proof reads the name of the process before it ends it. A pid that the system reused for another program stays alive.
+
+The scenarios `settings-usage` and `recovery` wrote no line of evidence in that run. The scenario `settings-usage` records the messages of its client now. The scenario `recovery` records the messages of the client that it makes after the reconnect. A scenario that records no line of its own does not pass. Its verdict is `fail` and its detail names the missing evidence.
+
+No scenario of the Codex backend passed yet. The proof of the Codex backend stays open. The next run of the proof shows which scenarios pass with the own list of each scenario.
+
 Ticket 1 stays open. Tickets 2 to 5 stay blocked for the Codex half of the feature.
 
 ## The production Claude Code backend
