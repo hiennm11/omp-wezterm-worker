@@ -225,4 +225,9 @@ test("the decision of the recovery follows the owner of the task", () => {
 		false,
 		"a session without an identity owns no task",
 	);
+	assert.equal(
+		mayReconcileAttempt({ jobId: "wz-2" }, owner, "session-old"),
+		false,
+		"a row of another task says nothing about this attempt",
+	);
 });

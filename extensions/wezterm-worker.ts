@@ -108,10 +108,14 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			pi.logger?.error?.(`[wezterm-worker] The registry file was not migrated: ${migration.failure.detail}`);
 		}
 
+		// The session identity comes first. The recovery decides which
+		// attempts this session may settle.
+		bindSession(rt, ctx.sessionManager);
+
 		// The recovery reconciles the attempts that a crash left open. It
 		// never sends a launch command again.
 		const workers = await findLiveWorkers(rt);
-		const outcomes = reconcileAttempts(db, workers, Date.now());
+		const outcomes = reconcileAttempts(db, workers, rt.sessionId, Date.now());
 		for (const outcome of outcomes) {
 			if (outcome.kind === "unresolved") {
 				pi.logger?.warn?.(
@@ -121,7 +125,6 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			}
 		}
 
-		bindSession(rt, ctx.sessionManager);
 		for (const job of restored.alive) {
 			rt.jobs.set(job.id, job);
 			// A task that another session or another live process owns stays
