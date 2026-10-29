@@ -818,6 +818,8 @@ omp-wezterm-worker/
 │   ├── resume-pane.test.ts      the pane of the source run of a resume
 │   ├── resume-group.test.ts     the group of a resume and of a resumed run
 │   ├── cleanup-group.test.ts    the cleanup of a resumed run
+│   ├── cleanup-native.test.ts   the cleanup of a native run
+│   ├── native-run-helpers.ts    the helpers of the tests of a native run
 │   ├── authority.test.ts       the authority rules of the control and cleanup tools
 │   ├── authority-tools.test.ts the authority check of the four control tools
 │   ├── authority-record.test.ts the authority check of the record tools and of the delivery
@@ -936,9 +938,11 @@ breaks a test.
 | `group-lookup.test.ts` | A run finds its group through its session directory. A run without a group has no group. |
 | `resume-group.test.ts` | A resume of a resumed run takes the group of the first run. A native resume of a resumed run takes the group of the first run. A resume of a source run without a group refuses, and it changes no group. |
 | `cleanup-group.test.ts` | The cleanup of a resumed run refuses while another run holds the group, and the transcript stays. The cleanup of a run without a group deletes the transcript. |
+| `cleanup-native.test.ts` | The cleanup of a native run refuses while an event waits for the owner, and the transcript stays. The cleanup deletes the transcript after the owner handled the event. The cleanup of a running native run refuses. The cleanup keeps the worktree while the pane of the native run is open. |
 | `authority.test.ts` | A task without an ownership row and a session without an identity pass both rules. The owner of an active task passes both rules. The owner of a releasing task and the owner of a released task fail the control rule. Another session fails both rules while the task is active or releasing. Another session passes the cleanup rule while the task is released. The control rule of a released task names the takeover tool. The details of a refusal name the worker, the owner and the phase. |
 | `authority-tools.test.ts` | The cancel of a worker of another session is refused, and the pane stays. The steer of a worker of another session is refused, and the pane receives nothing. The cleanup of a worker of another session is refused, and the transcript stays. The resume of a worker of another session is refused, and the request counts no launch. A session without an identity cancels a worker. A worker without an ownership row is cancelled. A release that starts during a cancel waits for the cancel. The cancel of a task that this session is releasing or released is refused. |
 | `authority-record.test.ts` | The ack of a session that does not own the task is refused, and the table of the handling holds no row. The resolve of a session that does not own the task is refused, and the table of the resolutions holds no row. The ack checks the worker of the event, not the worker of the parameter. The owner of a task records an ack and a resolve with the generation. An event without a worker is acknowledged. A session without an identity acknowledges an event. A task without an ownership row acknowledges an event. The delivery of a session that does not own the task sends no message, writes no attempt, and warns once. The delivery of the owner sends the message and writes one sent attempt. |
+| `ack-native.test.ts` | The owner acknowledges the event of a native run, and the event leaves the pending events. A second acknowledgement of the same event has no second effect. A different disposition of a handled event is refused. A session that does not own the native task cannot acknowledge its event. An unknown event id is refused. The status tool stops listing the event after the acknowledgement. |
 
 The integration tests run a real `omp` worker in a real WezTerm pane. They
 take about a minute each.
