@@ -15,6 +15,7 @@ import { createEvent, eventKey, resolveObsoleteEvent } from "./events.ts";
 import { isActive, type Job, type JobStatus, type PendingStop } from "./job.ts";
 import { completionBlockerOf, syncExecutions } from "./ledger-sync.ts";
 import { finalizeJob, stopJob } from "./lifecycle.ts";
+import { runMonitorAction } from "./monitor-actions.ts";
 import { monitorVerdict } from "./monitor-authority.ts";
 import { recordNativeEvents } from "./native-events.ts";
 import { taskKey } from "./owner.ts";
@@ -95,20 +96,20 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 	const cycleStates = new Map<string, CycleState>();
 
 	const end = (status: JobStatus, error: string | null, result: string | null) => {
-		void (async () => {
+		void runMonitorAction(rt, job.id, async () => {
 			await finalizeJob(rt, job, status, error, result);
 			notify(job);
-		})();
+		});
 	};
 
 	// Notify on a confirmed stop and on the first unconfirmed attempt. A
 	// failure that is already reported is not delivered again.
 	const stop = (status: PendingStop["status"], error: string) => {
-		void (async () => {
+		void runMonitorAction(rt, job.id, async () => {
 			const hadFailure = job.pendingStop?.failure != null;
 			const outcome = await stopJob(rt, job, status, error);
 			if (outcome.stopped || !hadFailure) notify(job);
-		})();
+		});
 	};
 
 	const tick = () => {
@@ -137,7 +138,7 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 			// during startup; wait out the grace period before declaring it.
 			const paneId = job.paneId;
 			if (now - (job.startedAt ?? job.createdAt) < STARTUP_GRACE_MS || paneId === null) return;
-			void (async () => {
+			void runMonitorAction(rt, job.id, async () => {
 				if ((await paneState(rt, paneId)) !== "gone") return;
 				if (listSessionFiles(job.sessionDir).length > 0) return;
 				await finalizeJob(
@@ -148,7 +149,7 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 					null,
 				);
 				notify(job);
-			})();
+			});
 			return;
 		}
 
@@ -252,18 +253,18 @@ export function monitorNativeJob(rt: WorkerRuntime, job: Job, notify: (job: Job)
 	rt.stopMonitor(job.id);
 
 	const end = (status: JobStatus, error: string | null, result: string | null) => {
-		void (async () => {
+		void runMonitorAction(rt, job.id, async () => {
 			await finalizeJob(rt, job, status, error, result);
 			notify(job);
-		})();
+		});
 	};
 
 	const stop = (status: PendingStop["status"], error: string) => {
-		void (async () => {
+		void runMonitorAction(rt, job.id, async () => {
 			const hadFailure = job.pendingStop?.failure != null;
 			const outcome = await stopJob(rt, job, status, error);
 			if (outcome.stopped || !hadFailure) notify(job);
-		})();
+		});
 	};
 
 	const tick = () => {

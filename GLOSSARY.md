@@ -109,7 +109,7 @@ _Avoid_: Style check, lint, grammar check
 
 ## Agreed supervision terms
 
-These terms describe the supervision model. The runtime enforces the acquisition, the release and the takeover of a task. It also checks the authority of the control tools `steer`, `cancel`, `cleanup` and `resume`, of the record tools `ack` and `resolve`, and of the delivery of a result. The runtime does not check the automatic paths yet.
+These terms describe the supervision model. The runtime enforces the acquisition, the release and the takeover of a task. It also checks the authority of the control tools `steer`, `cancel`, `cleanup` and `resume`, of the record tools `ack` and `resolve`, and of the delivery of a result. The runtime checks the authority of the automatic path of a monitor too. The end and the stop of a monitor run as counted actions, so the release waits for them.
 
 **Task state**:
 The worker's declared condition: working, waiting, needs input, or completed.
@@ -287,3 +287,7 @@ _Avoid_: Stop retry, pane check, intent repair
 **Monitor authority**:
 The authority that a session needs to end a worker with its monitor. A session that released its task, or that lost it to another session, has no monitor authority and its monitor stops without a write.
 _Avoid_: Ownership, monitor, session identity
+
+**Counted action**:
+An external action that the runtime counts until it settles. The release waits for the counted actions that started before it. The end and the stop of a monitor run as counted actions.
+_Avoid_: Operation, call, write

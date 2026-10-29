@@ -298,6 +298,30 @@ A monitor in the phase releasing waits. It does not stop the worker.
 
 A task without an owner and a session without an identity keep the old behaviour.
 
+The end of a monitor runs as a counted action. The stop of a monitor runs as a counted action too.
+
+A counted action appears in the list of the actions that did not settle yet.
+
+The release waits for that list. So the release cannot move the authority while a monitor still writes the lifecycle.
+
+Each action reads the ownership row again when it starts. The check of the tick is not enough.
+
+An action whose verdict is not act writes nothing. It tells nothing. The next tick decides again.
+
+A finished run never returns to an active status in the database.
+
+The guard sits in the write of the runs. A stale copy of a run cannot revive a finished run.
+
+The other fields of a finished run still change. A closed pane and a new result stay readable.
+
+The function attachWorker runs right after the acquisition of the task. So it needs no check.
+
+The function releaseEndedGroups frees a group only from facts that every session can read. So it needs no check.
+
+A probe of the function reconcileAttempts shows that a new session marks the open launch attempt of another session as unresolved.
+
+The probe does not fix the behaviour. The fix needs its own design.
+
 The new owner attaches the worker at its own session start.
 
 ### Takeover

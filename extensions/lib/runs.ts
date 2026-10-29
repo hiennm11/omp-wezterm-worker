@@ -20,8 +20,10 @@ export interface RunRows {
 /**
  * Write the runs of this process into the database.
  *
- * A run that the database holds already is not written again. The status of
- * a finished run stays, so a recovery cannot revive it.
+ * A run that the database holds already is not written again. A finished run
+ * keeps its finished status, so a stale copy of a run cannot revive it. The
+ * other fields of a finished run still change, because a reader needs the
+ * new flag of a closed pane and the new result.
  */
 export function persistRuns(db: LifecycleDb, jobs: Iterable<Job>): void {
 	db.write(() => {
@@ -39,7 +41,11 @@ export function persistRuns(db: LifecycleDb, jobs: Iterable<Job>): void {
 					   finished_at = excluded.finished_at,
 					   result = excluded.result,
 					   error = excluded.error,
-					   payload = excluded.payload`,
+					   payload = excluded.payload
+					 WHERE NOT (
+					   runs.status IN ('completed', 'failed', 'cancelled')
+					   AND excluded.status IN ('queued', 'running')
+					 )`,
 				)
 				.run(
 					job.id,
