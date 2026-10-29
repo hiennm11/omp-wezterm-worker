@@ -178,6 +178,26 @@ export async function connectAppServer(
 }
 
 /**
+ * Build the configuration options that load the report server.
+ *
+ * The app server does not pass its own environment to a stdio MCP server.
+ * The option `env_vars` names the variables that the child inherits from the
+ * app server. The option `env` would put the token value into the command
+ * line of the process, and every process of the user can read that line.
+ */
+export function reportServerArgs(path: string): string[] {
+	const serverPath = path.replace(/\\/g, "/");
+	return [
+		"-c",
+		'mcp_servers.wezterm_worker_proof.command="node"',
+		"-c",
+		`mcp_servers.wezterm_worker_proof.args=["${serverPath}"]`,
+		"-c",
+		'mcp_servers.wezterm_worker_proof.env_vars=["WEZTERM_PROOF_URL","WEZTERM_PROOF_TOKEN","WEZTERM_PROOF_RUN_ID"]',
+	];
+}
+
+/**
  * Start one dedicated app server in a proof-owned pane.
  *
  * The server runs with the working directory of the fixture. It uses the
@@ -194,10 +214,7 @@ export function startAppServer(options: {
 		"app-server",
 		"--listen",
 		`ws://127.0.0.1:${options.port}`,
-		"-c",
-		`mcp_servers.wezterm_worker_proof.command="node"`,
-		"-c",
-		`mcp_servers.wezterm_worker_proof.args=["${options.reportServer.replace(/\\/g, "/")}"]`,
+		...reportServerArgs(options.reportServer),
 	];
 	const child = spawn(options.bin, args, {
 		cwd: options.cwd,
