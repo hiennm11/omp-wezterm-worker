@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { observationOf } from "../tooling/backend-proof/codex.ts";
+import { initializeParams, observationOf, secretFields } from "../tooling/backend-proof/codex.ts";
 
 test("a notification gives the source of its method", () => {
 	const observation = observationOf({ method: "turn/started", params: { turn: { id: "t1" } } });
@@ -23,4 +23,8 @@ test("a response gives the source of a response and keeps its id", () => {
 test("a message without a method and without an id gives the unknown source", () => {
 	const observation = observationOf({});
 	assert.equal(observation.source, "codex.unknown");
+});
+
+test("the initialize request holds no token", () => {
+	assert.deepEqual(secretFields(initializeParams()), []);
 });

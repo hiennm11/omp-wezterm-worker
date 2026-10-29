@@ -23,6 +23,7 @@
 		"ste100": "node tooling/ste100-docs.ts",
 		"trial": "node tooling/trial.ts",
 		"proof:claude": "node tooling/backend-proof.ts --backend claude --scenario all",
+		"proof:codex": "node tooling/backend-proof.ts --backend codex --scenario all",
 		"smoke:claude": "node tooling/claude-smoke.ts",
 		"typecheck": "tsc --noEmit -p tsconfig.json",
 		"check": "npm run lint && npm run typecheck && npm run ste100 && npm run test"

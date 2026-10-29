@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { createServer } from "node:net";
 import { join } from "node:path";
 
-import { connectAppServer, endpointFor, type ProtocolMessage } from "./codex.ts";
+import { type AppServerClient, connectAppServer, endpointFor, observationOf } from "./codex.ts";
 import type { EvidenceStore } from "./evidence.ts";
 import { type ProofListener, startListener } from "./listener.ts";
 import type { ScenarioOutcome } from "./scenarios.ts";
@@ -10,6 +10,14 @@ import { type ProofArgs, runProgram } from "./shared.ts";
 
 /** The model that the proof uses for a Codex session. */
 export const PROOF_CODEX_MODEL = "gpt-6-luna";
+
+/** The Codex binary of the machine. */
+export interface CodexBinary {
+	/** The path of the binary. */
+	bin: string;
+	/** The version of the binary, or null when it holds no version. */
+	version: string | null;
+}
 
 /** The options that one proof run passes to the Codex scenarios. */
 export interface CodexProofOptions {
@@ -21,6 +29,8 @@ export interface CodexProofOptions {
 	evidence: EvidenceStore;
 	/** The observations that the listener received. */
 	observations: Array<{ source: string; payload: unknown }>;
+	/** The Codex binary that the runner found. */
+	binary?: CodexBinary | null;
 }
 
 /** The result of one proof run. */
@@ -62,7 +72,7 @@ function reportServerPath(): string {
  * the proof looks for the npm build first and records the version that it
  * used.
  */
-export async function findCodexBinary(): Promise<{ bin: string; version: string | null } | null> {
+export async function findCodexBinary(): Promise<CodexBinary | null> {
 	const candidates = [
 		"C:/Program Files/nodejs/node_modules/@openai/codex/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe",
 	];
@@ -264,15 +274,23 @@ export async function stopHandle(handle: CodexHandle): Promise<void> {
 	await handle.listener.close();
 }
 
-/** Record the native events of the app server as observations. */
-export function recordMessages(
-	options: CodexProofOptions,
-	messages: ProtocolMessage[],
-	scenario: string,
-): void {
-	for (const message of messages) {
+/**
+ * Record the native events of the app server as observations.
+ *
+ * Every protocol message of the app server becomes one line of the evidence
+ * file. The file holds both directions, so a reader sees the request that
+ * never got a response. The observations of the run keep their old shape:
+ * they hold the notifications and the requests of the server.
+ */
+export function recordMessages(options: CodexProofOptions, client: AppServerClient, scenario: string): void {
+	for (const message of client.messages) {
+		const observation = observationOf(message);
+		options.evidence.observe(scenario, observation.source, observation.payload);
 		if (!message.method) continue;
-		options.observations.push({ source: `codex.${message.method}`, payload: message.params ?? {} });
+		options.observations.push({ source: observation.source, payload: observation.payload });
 	}
-	void scenario;
+	for (const message of client.sent) {
+		const observation = observationOf(message);
+		options.evidence.observe(scenario, observation.source, observation.payload);
+	}
 }

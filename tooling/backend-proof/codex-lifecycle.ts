@@ -19,8 +19,8 @@ import {
 	stopHandle,
 	wait,
 } from "./codex-server.ts";
+import { listPanes } from "./codex-tui.ts";
 import type { ScenarioOutcome } from "./scenarios.ts";
-import { runProgram } from "./shared.ts";
 
 export async function runSettingsUsage(
 	options: CodexProofOptions,
@@ -85,7 +85,7 @@ export async function runApproval(
 			],
 		});
 		await wait(15000);
-		recordMessages(options, handle.client.messages, scenario);
+		recordMessages(options, handle.client, scenario);
 		const requests = handle.client.messages.filter(
 			(message) => message.method === "item/commandExecution/requestApproval",
 		);
@@ -122,7 +122,7 @@ export async function runBackground(
 			],
 		});
 		await wait(45000);
-		recordMessages(options, handle.client.messages, scenario);
+		recordMessages(options, handle.client, scenario);
 		const terminals = options.observations.filter(
 			(o) => o.source === "codex.thread/backgroundTerminals/list",
 		);
@@ -212,7 +212,7 @@ export async function runStop(
 		await wait(5000);
 		await handle.client.request("turn/interrupt", { threadId: handle.threadId, turnId });
 		await wait(3000);
-		recordMessages(options, handle.client.messages, scenario);
+		recordMessages(options, handle.client, scenario);
 
 		const interrupted = options.observations.filter(
 			(o) =>
@@ -228,18 +228,5 @@ export async function runStop(
 		};
 	} finally {
 		await stopHandle(handle);
-	}
-}
-
-/** The pane ids that WezTerm holds. */
-
-/** The pane ids that WezTerm holds. */
-export async function listPanes(): Promise<number[]> {
-	const result = await runProgram("wezterm", ["cli", "list", "--format", "json"]);
-	try {
-		const panes = JSON.parse(result.stdout) as Array<{ pane_id: number }>;
-		return panes.map((pane) => pane.pane_id);
-	} catch {
-		return [];
 	}
 }
