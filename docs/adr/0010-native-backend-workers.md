@@ -140,7 +140,7 @@ A session-scoped mod and a loopback bridge add a native dependency. They buy the
 
 A native worker does not share the transcript format of an OMP worker. The supervisor thus reads the native state of a native run instead of the transcript. The decision functions stay pure, so they are still testable without a pane.
 
-The Codex backend needs a different bridge. It speaks to a dedicated app server over a websocket. The bridge only carries data, so the second backend uses the same decision functions and the event model.
+The Codex backend needs a different bridge. It speaks to a dedicated app server over a websocket. The bridge only carries data, so the second backend uses the same decision functions and the event model. ADR 0012 proposes the design of that backend.
 
 ## What this replaces
 

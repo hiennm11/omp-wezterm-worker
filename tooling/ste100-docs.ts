@@ -34,6 +34,7 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0009-recoverable-omp-supervision.md",
 	"docs/adr/0010-native-backend-workers.md",
 	"docs/adr/0011-the-ste100-skill-is-the-only-checker.md",
+	"docs/adr/0012-codex-backend-workers.md",
 	"docs/plans/recoverable-omp-supervision.md",
 ];
 
