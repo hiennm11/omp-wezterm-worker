@@ -1,0 +1,156 @@
+
+=== at 3s ===
+
+  >_ OpenAI Codex (v0.165.0)
+     C:\tmp\codex-explore\fixture
+                                                                                        
+  To get started, describe a task or try one of these commands:
+
+  /init - create an AGENTS.md file with instructions for Codex
+  /status - show current session configuration
+  /permissions - choose what Codex is allowed to do
+  /model - choose what model and reasoning effort to use
+  /review - review any changes and find issues
+
+
+› Call the wezterm_worker_report tool with state working and detail PROOF-E.
+
+
+• I’ll locate the wezterm_worker_report tool and send the requested status.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Working (2s • esc to interrupt)                                                         
+
+
+› Ask Codex to do anything
+
+  GPT-6-Luna default · C:\tmp\codex-explore\fixture · proof-worker
+  ? for shortcuts
+
+
+=== at 6s ===
+
+  >_ OpenAI Codex (v0.165.0)
+     C:\tmp\codex-explore\fixture
+                                                                                        
+  To get started, describe a task or try one of these commands:
+
+  /init - create an AGENTS.md file with instructions for Codex
+  /status - show current session configuration
+  /permissions - choose what Codex is allowed to do
+  /model - choose what model and reasoning effort to use
+  /review - review any changes and find issues
+
+
+› Call the wezterm_worker_report tool with state working and detail PROOF-E.
+
+
+• I’ll locate the wezterm_worker_report tool and send the requested status.
+
+• Calling wezterm_worker_proof.wezterm_worker_report
+    + Show details                                                                      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  Field 1/1
+  Allow the wezterm_worker_proof MCP server to run tool "wezterm_worker_report"?
+
+  detail: PROOF-E
+  state: working
+
+  › 1. Allow                   Run the tool and continue                                
+    2. Allow for this session  Run the tool and remember this choice for this session
+    3. Always allow            Run the tool and remember this choice for future tool
+                               calls
+    4. Cancel                  Cancel this tool call
+  enter to submit | esc to cancel
+                                                                                        
+
