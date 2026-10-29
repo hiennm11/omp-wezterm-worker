@@ -11,14 +11,8 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { connectAppServer, endpointFor } from "./codex.ts";
-import {
-	attachTui,
-	type CodexProofOptions,
-	recordMessages,
-	startServer,
-	stopHandle,
-	wait,
-} from "./codex-server.ts";
+import { type CodexProofOptions, stopHandle } from "./codex-handle.ts";
+import { attachTui, recordMessages, startServer, wait } from "./codex-server.ts";
 import { listPanes } from "./codex-tui.ts";
 import type { ScenarioOutcome } from "./scenarios.ts";
 
@@ -39,6 +33,7 @@ export async function runSettingsUsage(
 		const names = data.map((server) => server.name ?? "");
 		const usage = await handle.client.request("account/usage/read", {});
 		const usageMissing = Boolean(usage.error);
+		recordMessages(options, handle.client, scenario);
 		return {
 			scenario,
 			verdict: "pass",
@@ -70,7 +65,7 @@ export async function runApproval(
 			WEZTERM_PROOF_TOKEN: handle.listener.token,
 		};
 		const tui = await attachTui(handle, bin, env);
-		handle.paneId = tui.paneId;
+		handle.tuiPaneId = tui.paneId;
 		if (tui.paneId === null) {
 			return { scenario, verdict: "fail", detail: tui.error ?? "the TUI did not start" };
 		}
@@ -157,17 +152,24 @@ export async function runRecovery(
 			input: [{ type: "text", text: "Read baseline.txt." }],
 		});
 		await wait(6000);
+		/* The messages of the first client are the evidence of the first
+		   part of the scenario. */
+		recordMessages(options, handle.client, scenario);
 		handle.client.close();
 		await wait(2000);
 
 		const reconnected = await connectAppServer(endpointFor(handle.port));
 		const resumed = await reconnected.request("thread/resume", { threadId });
 		if (resumed.error) {
+			recordMessages(options, reconnected, scenario);
 			reconnected.close();
 			return { scenario, verdict: "fail", detail: resumed.error.message };
 		}
 		const status = await reconnected.request("thread/turns/list", { threadId });
 		const history = (status.result as { data?: unknown[] } | undefined)?.data ?? [];
+		/* The messages of the reconnected client are the evidence of the
+		   scenario. Without them nobody can check the reconnect. */
+		recordMessages(options, reconnected, scenario);
 		reconnected.close();
 		return {
 			scenario,
@@ -199,7 +201,7 @@ export async function runStop(
 			WEZTERM_PROOF_TOKEN: handle.listener.token,
 		};
 		const tui = await attachTui(handle, bin, env);
-		handle.paneId = tui.paneId;
+		handle.tuiPaneId = tui.paneId;
 		if (tui.paneId === null) {
 			return { scenario, verdict: "fail", detail: tui.error ?? "the TUI did not start" };
 		}

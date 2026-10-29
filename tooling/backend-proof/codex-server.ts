@@ -9,35 +9,13 @@ import {
 	observationOf,
 	reportServerArgs,
 } from "./codex.ts";
-import type { EvidenceStore } from "./evidence.ts";
-import { type ProofListener, startListener } from "./listener.ts";
+import type { CodexBinary, CodexHandle, CodexProofOptions } from "./codex-handle.ts";
+import { startListener } from "./listener.ts";
 import type { ScenarioOutcome } from "./scenarios.ts";
-import { type ProofArgs, runProgram } from "./shared.ts";
+import { runProgram } from "./shared.ts";
 
 /** The model that the proof uses for a Codex session. */
 export const PROOF_CODEX_MODEL = "gpt-6-luna";
-
-/** The Codex binary of the machine. */
-export interface CodexBinary {
-	/** The path of the binary. */
-	bin: string;
-	/** The version of the binary, or null when it holds no version. */
-	version: string | null;
-}
-
-/** The options that one proof run passes to the Codex scenarios. */
-export interface CodexProofOptions {
-	/** The arguments of the runner. */
-	args: ProofArgs;
-	/** The proof run id. */
-	runId: string;
-	/** The evidence store of the run. */
-	evidence: EvidenceStore;
-	/** The observations that the listener received. */
-	observations: Array<{ source: string; payload: unknown }>;
-	/** The Codex binary that the runner found. */
-	binary?: CodexBinary | null;
-}
 
 /** The result of one proof run. */
 export interface ProofOutcome {
@@ -45,17 +23,6 @@ export interface ProofOutcome {
 	verdict: "pass" | "fail" | "unavailable";
 	/** The result of each scenario. */
 	results: ScenarioOutcome[];
-}
-
-/** The state that one Codex scenario shares. */
-interface CodexHandle {
-	client: Awaited<ReturnType<typeof connectAppServer>>;
-	threadId: string;
-	port: number;
-	listener: ProofListener;
-	paneId: number | null;
-	serverPid: number | null;
-	fixture: string;
 }
 
 /** Wait for a number of milliseconds. */
@@ -230,7 +197,8 @@ export async function startServer(
 			threadId,
 			port,
 			listener,
-			paneId,
+			serverPaneId: paneId,
+			tuiPaneId: null,
 			serverPid: serverProcess.pid,
 			fixture,
 		},
@@ -286,15 +254,6 @@ export async function attachTui(
 	const paneId = Number.parseInt(result.stdout.trim(), 10);
 	if (!Number.isFinite(paneId)) return { paneId: null, error: "wezterm did not return a pane id" };
 	return { paneId, error: null };
-}
-
-/** Close the panes of a handle. */
-export async function stopHandle(handle: CodexHandle): Promise<void> {
-	if (handle.paneId !== null) {
-		await runProgram("wezterm", ["cli", "kill-pane", "--pane-id", String(handle.paneId)]);
-	}
-	handle.client.close();
-	await handle.listener.close();
 }
 
 /**
