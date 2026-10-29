@@ -27,6 +27,16 @@ export interface CodexBinary {
 	version: string | null;
 }
 
+/** One observation that a Codex scenario made. */
+export interface CodexObservation {
+	/** The native event or call that produced the observation. */
+	source: string;
+	/** The native payload, unchanged. */
+	payload: unknown;
+	/** The time of the observation, in epoch milliseconds. */
+	at: number;
+}
+
 /** The options that one proof run passes to the Codex scenarios. */
 export interface CodexProofOptions {
 	/** The arguments of the runner. */
@@ -36,7 +46,7 @@ export interface CodexProofOptions {
 	/** The evidence store of the run. */
 	evidence: EvidenceStore;
 	/** The observations that one scenario made. */
-	observations: Array<{ source: string; payload: unknown }>;
+	observations: CodexObservation[];
 	/** The Codex binary that the runner found. */
 	binary?: CodexBinary | null;
 }

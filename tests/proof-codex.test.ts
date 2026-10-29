@@ -5,16 +5,16 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import {
-	type BackgroundFacts,
-	backgroundTaskText,
-	backgroundVerdict,
-} from "../tooling/backend-proof/codex-background.ts";
-import {
 	initializeParams,
 	observationOf,
 	reportServerArgs,
 	secretFields,
 } from "../tooling/backend-proof/codex.ts";
+import {
+	type BackgroundFacts,
+	backgroundTaskText,
+	backgroundVerdict,
+} from "../tooling/backend-proof/codex-background.ts";
 import {
 	type CodexProofOptions,
 	mayEndCodexProcess,
