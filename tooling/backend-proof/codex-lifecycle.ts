@@ -120,6 +120,10 @@ export async function runBackground(
 		const pane = attached.pane;
 		await checkTuiPane(options, scenario, pane);
 
+		/* The poll of the file starts before the turn starts. A poll that
+		   starts after the turn reads the file too late, and the time of the
+		   read then hides a file that the process wrote before the report. */
+		const poll = waitForBackgroundFile(join(fixture, "bg.txt"));
 		await handle.client.request("turn/start", {
 			threadId: handle.threadId,
 			input: [
@@ -133,7 +137,7 @@ export async function runBackground(
 		recordMessages(options, handle.client, scenario);
 		/* The background task settles after the report of the turn. The proof
 		   waits for its file, and the wait replaces the old fixed wait. */
-		const file = await waitForBackgroundFile(join(fixture, "bg.txt"));
+		const file = await poll;
 		recordMessages(options, handle.client, scenario);
 		await checkTuiPane(options, scenario, pane);
 		recordTuiText(options, scenario, pane);
