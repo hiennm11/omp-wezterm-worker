@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TestContext } from "node:test";
 
+import { markIssued, readAttempt, reserveAttempt } from "../extensions/lib/attempts.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
 import {
@@ -40,6 +41,8 @@ export interface FakeTable {
 	code: number;
 	/** The panes that the fake WezTerm reports. */
 	panes: number[];
+	/** The command lines of the worker processes that run on the machine. */
+	workers?: string[];
 	/** The processes whose start time the table cannot read. */
 	failFor?: number[];
 	/** A hook that runs while the process table is read. */
@@ -75,6 +78,13 @@ export function fakeRuntime(table: FakeTable, options: FakeOptions = {}): { rt: 
 		if (command.includes("list --format json")) {
 			const panes = table.panes.map((pane_id) => ({ pane_id }));
 			return { code: 0, stdout: JSON.stringify(panes), stderr: "" };
+		}
+		if (command.includes("Get-CimInstance Win32_Process")) {
+			const rows = (table.workers ?? []).map((commandLine, index) => ({
+				ProcessId: 800 + index,
+				CommandLine: commandLine,
+			}));
+			return { code: 0, stdout: JSON.stringify(rows), stderr: "" };
 		}
 		return { code: 0, stdout: "", stderr: "" };
 	};
@@ -220,6 +230,31 @@ export function ownTaskCase(
 		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });
 	});
+	return { rt, dir, job };
+}
+
+/** The state of a launch attempt, or null when the id is unknown. */
+export function attemptState(rt: WorkerRuntime, attemptId: string): string | null {
+	return readAttempt(rt.openDb(), attemptId)?.state ?? null;
+}
+
+/** An open launch attempt of a task, as a crash leaves it. */
+export function seedAttempt(rt: WorkerRuntime, jobId: string, attemptId: string): void {
+	const db = rt.openDb();
+	reserveAttempt(db, attemptId, jobId, 1000);
+	markIssued(db, attemptId, 1001);
+}
+
+/** A runtime with a worker that another session owns. */
+export function ownedTask(
+	table: FakeTable,
+	overrides: Partial<Job> = {},
+): { rt: WorkerRuntime; dir: string; job: Job } {
+	const { rt, dir } = fakeRuntime(table);
+	rt.sessionId = "session-new";
+	const job = makeJob(dir, "wz-1", overrides);
+	rt.jobs.set(job.id, job);
+	seedOwner(rt, job.id, OLD_PID, OLD_START);
 	return { rt, dir, job };
 }
 

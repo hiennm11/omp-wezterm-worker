@@ -10,6 +10,7 @@ import { test } from "node:test";
 import { taskKey } from "../extensions/lib/owner.ts";
 import { beginRelease, commitRelease, takeOverOwnership } from "../extensions/lib/ownership.ts";
 import {
+	attemptState,
 	type FakeTable,
 	fakeRuntime,
 	finish,
@@ -20,17 +21,15 @@ import {
 	OWN_START,
 	ownerOf,
 	ownTakeover,
+	ownedTask,
+	seedAttempt,
 	seedOwner,
 	takeOver,
 } from "./takeover-helpers.ts";
 
 test("a released task of another session is taken over", async () => {
-	const { rt, dir } = fakeRuntime({ starts: {}, code: 0, panes: [3] });
+	const { rt, dir, job } = ownedTask({ starts: {}, code: 0, panes: [3] });
 	try {
-		rt.sessionId = "session-new";
-		const job = makeJob(dir, "wz-1");
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
 		beginRelease(rt.openDb(), taskKey(job.id), "session-old", 1, 1100);
 		commitRelease(rt.openDb(), taskKey(job.id), "session-old", 1, 1200);
 
@@ -48,13 +47,8 @@ test("a released task of another session is taken over", async () => {
 });
 
 test("a task of another session with a dead owner is taken over", async () => {
-	const { rt, dir } = fakeRuntime({ starts: { [OLD_PID]: "" }, code: 0, panes: [3] });
+	const { rt, dir, job } = ownedTask({ starts: { [OLD_PID]: "" }, code: 0, panes: [3] });
 	try {
-		rt.sessionId = "session-new";
-		const job = makeJob(dir, "wz-1");
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
-
 		const result = await takeOver(rt, job.id);
 		assert.equal(result.details.taken, true);
 		assert.equal(result.details.generation, 2);
@@ -65,12 +59,8 @@ test("a task of another session with a dead owner is taken over", async () => {
 });
 
 test("a task of another session that is releasing is taken over when the owner is dead", async () => {
-	const { rt, dir } = fakeRuntime({ starts: { [OLD_PID]: "" }, code: 0, panes: [3] });
+	const { rt, dir, job } = ownedTask({ starts: { [OLD_PID]: "" }, code: 0, panes: [3] });
 	try {
-		rt.sessionId = "session-new";
-		const job = makeJob(dir, "wz-1");
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
 		beginRelease(rt.openDb(), taskKey(job.id), "session-old", 1, 1100);
 
 		const result = await takeOver(rt, job.id);
@@ -82,17 +72,12 @@ test("a task of another session that is releasing is taken over when the owner i
 });
 
 test("a reused process id does not keep the task", async () => {
-	const { rt, dir } = fakeRuntime({
+	const { rt, dir, job } = ownedTask({
 		starts: { [OLD_PID]: "2026-10-23T05:00:00.000Z" },
 		code: 0,
 		panes: [3],
 	});
 	try {
-		rt.sessionId = "session-new";
-		const job = makeJob(dir, "wz-1");
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
-
 		const result = await takeOver(rt, job.id);
 		assert.equal(result.details.taken, true);
 		assert.equal(ownerOf(rt, job.id)?.sessionId, "session-new");
@@ -102,13 +87,8 @@ test("a reused process id does not keep the task", async () => {
 });
 
 test("a live owner keeps the task", async () => {
-	const { rt, dir } = fakeRuntime({ starts: { [OLD_PID]: OLD_START }, code: 0, panes: [3] });
+	const { rt, dir, job } = ownedTask({ starts: { [OLD_PID]: OLD_START }, code: 0, panes: [3] });
 	try {
-		rt.sessionId = "session-new";
-		const job = makeJob(dir, "wz-1");
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
-
 		const result = await takeOver(rt, job.id);
 		assert.equal(result.isError, true);
 		assert.equal(result.details.taken, false);
@@ -122,13 +102,8 @@ test("a live owner keeps the task", async () => {
 });
 
 test("an unreadable process table refuses the takeover", async () => {
-	const { rt, dir } = fakeRuntime({ starts: {}, code: 1, panes: [3] });
+	const { rt, dir, job } = ownedTask({ starts: {}, code: 1, panes: [3] });
 	try {
-		rt.sessionId = "session-new";
-		const job = makeJob(dir, "wz-1");
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
-
 		const result = await takeOver(rt, job.id);
 		assert.equal(result.isError, true);
 		assert.equal(result.details.reason, "process-unknown");
@@ -173,13 +148,9 @@ test("a task without an owner refuses the takeover", async () => {
 });
 
 test("a session without an identity refuses the takeover", async () => {
-	const { rt, dir } = fakeRuntime({ starts: {}, code: 0, panes: [3] });
+	const { rt, dir, job } = ownedTask({ starts: {}, code: 0, panes: [3] });
 	try {
 		rt.sessionId = null;
-		const job = makeJob(dir, "wz-1");
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
-
 		const result = await takeOver(rt, job.id);
 		assert.equal(result.isError, true);
 		assert.equal(result.details.reason, "no-identity");
@@ -221,13 +192,8 @@ test("a session takes back a task that it released", async (t) => {
 });
 
 test("a native worker is taken over and gets a bridge", async () => {
-	const { rt, dir } = fakeRuntime({ starts: {}, code: 0, panes: [3] });
+	const { rt, dir, job } = ownedTask({ starts: {}, code: 0, panes: [3] }, { backend: "claude" });
 	try {
-		rt.sessionId = "session-new";
-		const job = makeJob(dir, "wz-1", { backend: "claude" });
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
-
 		const result = await takeOver(rt, job.id);
 		assert.equal(result.isError, undefined);
 		assert.equal(result.details.taken, true);
@@ -241,12 +207,8 @@ test("a native worker is taken over and gets a bridge", async () => {
 
 test("an ownership that changes during the check refuses the takeover", async () => {
 	const table: FakeTable = { starts: { [OLD_PID]: "" }, code: 0, panes: [3] };
-	const { rt, dir } = fakeRuntime(table);
+	const { rt, dir, job } = ownedTask(table);
 	try {
-		rt.sessionId = "session-new";
-		const job = makeJob(dir, "wz-1");
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
 		// Another owner takes the task while the process table is read.
 		table.onProbe = () => {
 			takeOverOwnership(rt.openDb(), taskKey(job.id), "session-third", OWN_PID, OWN_START, 1, 1300);
@@ -264,13 +226,8 @@ test("an ownership that changes during the check refuses the takeover", async ()
 });
 
 test("a takeover of a live worker starts the monitor", async () => {
-	const { rt, dir } = fakeRuntime({ starts: { [OLD_PID]: "" }, code: 0, panes: [3] });
+	const { rt, dir, job } = ownedTask({ starts: { [OLD_PID]: "" }, code: 0, panes: [3] });
 	try {
-		rt.sessionId = "session-new";
-		const job = makeJob(dir, "wz-1");
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
-
 		await takeOver(rt, job.id);
 		assert.equal(rt.monitors.has(job.id), true);
 	} finally {
@@ -279,13 +236,8 @@ test("a takeover of a live worker starts the monitor", async () => {
 });
 
 test("a takeover of a worker whose pane is gone ends the worker", async () => {
-	const { rt, dir } = fakeRuntime({ starts: { [OLD_PID]: "" }, code: 0, panes: [] });
+	const { rt, dir, job } = ownedTask({ starts: { [OLD_PID]: "" }, code: 0, panes: [] });
 	try {
-		rt.sessionId = "session-new";
-		const job = makeJob(dir, "wz-1");
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
-
 		await takeOver(rt, job.id);
 		assert.equal(rt.monitors.has(job.id), false);
 		assert.equal(job.status, "failed");
@@ -306,13 +258,11 @@ test("a session that takes back a released task of a worker whose pane is gone e
 });
 
 test("a takeover of a completed worker keeps its status and starts no monitor", async () => {
-	const { rt, dir } = fakeRuntime({ starts: { [OLD_PID]: "" }, code: 0, panes: [] });
+	const { rt, dir, job } = ownedTask(
+		{ starts: { [OLD_PID]: "" }, code: 0, panes: [] },
+		{ status: "completed", result: "DONE" },
+	);
 	try {
-		rt.sessionId = "session-new";
-		const job = makeJob(dir, "wz-1", { status: "completed", result: "DONE" });
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
-
 		const result = await takeOver(rt, job.id);
 		assert.equal(result.details.taken, true);
 		assert.equal(result.details.generation, 2);
@@ -329,13 +279,11 @@ test("a takeover of a completed worker keeps its status and starts no monitor", 
 });
 
 test("a takeover of a failed worker keeps its error and starts no monitor", async () => {
-	const { rt, dir } = fakeRuntime({ starts: { [OLD_PID]: "" }, code: 0, panes: [] });
+	const { rt, dir, job } = ownedTask(
+		{ starts: { [OLD_PID]: "" }, code: 0, panes: [] },
+		{ status: "failed", error: "the worker failed" },
+	);
 	try {
-		rt.sessionId = "session-new";
-		const job = makeJob(dir, "wz-1", { status: "failed", error: "the worker failed" });
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
-
 		const result = await takeOver(rt, job.id);
 		assert.equal(result.details.taken, true);
 		assert.equal(ownerOf(rt, job.id)?.sessionId, "session-new");
@@ -343,6 +291,37 @@ test("a takeover of a failed worker keeps its error and starts no monitor", asyn
 		assert.equal(job.error, "the worker failed");
 		assert.equal(rt.monitors.has(job.id), false);
 		assert.match(result.content[0]?.text ?? "", /already failed/);
+	} finally {
+		finish(rt, dir, "wz-1");
+	}
+});
+
+test("a takeover of a task with an open attempt attaches the attempt to its worker", async () => {
+	const { rt, dir, job } = ownedTask({
+		starts: { [OLD_PID]: "" },
+		code: 0,
+		panes: [3],
+		workers: ["omp.exe --session-dir C:\\state\\sessions\\wz-1"],
+	});
+	try {
+		seedAttempt(rt, job.id, "att-1");
+
+		const result = await takeOver(rt, job.id);
+		assert.equal(result.details.taken, true);
+		assert.equal(attemptState(rt, "att-1"), "attached");
+	} finally {
+		finish(rt, dir, "wz-1");
+	}
+});
+
+test("a takeover of a task with an open attempt leaves the attempt unresolved without a worker", async () => {
+	const { rt, dir, job } = ownedTask({ starts: { [OLD_PID]: "" }, code: 0, panes: [3] });
+	try {
+		seedAttempt(rt, job.id, "att-1");
+
+		const result = await takeOver(rt, job.id);
+		assert.equal(result.details.taken, true);
+		assert.equal(attemptState(rt, "att-1"), "unresolved");
 	} finally {
 		finish(rt, dir, "wz-1");
 	}
