@@ -4,6 +4,9 @@
  * A main session takes the supervision of a worker that another session
  * owned. The previous owner must have released the task, or its process must
  * be confirmed gone. A live owner keeps the task.
+ *
+ * A session can also take back a task that it released itself. That task has
+ * no other owner that could close the worker.
  */
 
 import { attachWorker } from "../lib/attach.ts";
@@ -36,7 +39,8 @@ export function registerTakeoverTool({ pi, rt, deliver }: ToolDeps): void {
 		description:
 			"Take the supervision of a worker that another session owned. " +
 			"The takeover needs a released task or a confirmed dead owner process. " +
-			"A live owner keeps the task. The takeover does not replay pending events.",
+			"A live owner keeps the task. A session can take back a task that it released itself. " +
+			"The takeover does not replay pending events.",
 		parameters: z.object({
 			workerId: z.string().describe("Id of the worker to take over."),
 		}),
@@ -57,7 +61,9 @@ export function registerTakeoverTool({ pi, rt, deliver }: ToolDeps): void {
 					`This session has no identity, so it cannot take over worker ${job.id}.`,
 				);
 			}
-			if (held.sessionId === sessionId) {
+			// A session that released a task can take it back. Without this
+			// path the task has no owner that can close the worker.
+			if (held.sessionId === sessionId && held.phase !== "released") {
 				return refuse(job.id, "own", `This session already owns worker ${job.id}.`);
 			}
 			if (held.phase !== "released") {
