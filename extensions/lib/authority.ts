@@ -31,10 +31,7 @@ export function controlRefusal(
 		);
 	}
 	if (owner.phase === "released") {
-		return (
-			`This session released worker ${workerId}. ` +
-			"Take it back with wezterm_worker_takeover."
-		);
+		return `This session released worker ${workerId}. Take it back with wezterm_worker_takeover.`;
 	}
 	if (owner.phase === "releasing") return `This session is releasing worker ${workerId}.`;
 	return null;
