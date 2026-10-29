@@ -135,6 +135,10 @@ The scenario `observe` now answers that dialog. The proof reads the text of the 
 
 The other scenarios keep their behaviour. A scenario that tests an approval or a refusal does not answer.
 
+The app server does not pass its own environment to a stdio MCP server. The report server reads the variables `WEZTERM_PROOF_URL`, `WEZTERM_PROOF_TOKEN` and `WEZTERM_PROOF_RUN_ID` from the environment. The report server found no variable, so the tool call `wezterm_worker_report` failed with `Mcp error: -32000: The proof listener did not record the report.`
+
+The option `env_vars` passes the named variables of the app server to the MCP server. The option `env` sets the values directly. The proof uses `env_vars`, because `env` puts the token value into the command line of the process. Every process of the user can read that line.
+
 No scenario of the Codex backend passed yet. The proof of the Codex backend stays open.
 
 The version that `codex` resolves on this machine is 0.142.0. The plan observed 0.157.1. A node `spawn` of `codex` reaches a different binary than `cmd /c codex`, so the probe must resolve the binary before it plans around a protocol version.
