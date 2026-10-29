@@ -110,6 +110,10 @@ A permission bypass that the user already configured stays in place. The proof s
 
 The Codex backend is not proven. The proof of it needs a dedicated app server, a generated protocol schema, a real TUI that attaches to that server, and a report server that the TUI loads.
 
+The probe ran once on 2026-10-29. The run failed. It printed `FAIL observe: turns started: 1, completed: 0, report: missing`. The run left only `report.md` and `versions.json`. A failed run gives no raw evidence, so nobody can find why the turn did not finish.
+
+The run now leaves `observations.jsonl`. The file holds one line for each protocol message of the app server, in both directions. The file also holds the text of the pane of the TUI. The run still fails. The proof of the Codex backend stays open.
+
 The version that `codex` resolves on this machine is 0.142.0. The plan observed 0.157.1. A node `spawn` of `codex` reaches a different binary than `cmd /c codex`, so the probe must resolve the binary before it plans around a protocol version.
 
 Ticket 1 stays open. Tickets 2 to 5 stay blocked for the Codex half of the feature.

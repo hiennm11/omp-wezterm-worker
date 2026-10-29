@@ -754,6 +754,7 @@ omp-wezterm-worker/
 │   ├── trial-fixture.ts         the repository that the trial workers use
 │   ├── backend-proof.ts         the compatibility probe of the native backends
 │   └── backend-proof/           the modules of the probe
+│       └── codex-tui.ts         the pane evidence of the Codex TUI
 ├── resources/
 │   └── ste100-dictionary.json   the word list of the ste100 checker
 ├── tests/
@@ -854,6 +855,7 @@ so the suite needs no build step and no test framework.
 | `npm run ste100` | Score every agent-facing document with the checker of the ste100 skill. The score must reach 80. |
 | `npm run trial` | Run the Windows trial with real workers. It writes `docs/trials/windows-trial.md`. |
 | `npm run proof:claude` | Run the compatibility probe against a real Claude Code session. It needs an evidence directory. |
+| `npm run proof:codex` | Run the compatibility probe against a real Codex session. It starts an app server and a TUI. It needs an evidence directory. |
 | `npm run smoke:claude` | Run the smoke test of the Claude Code backend. It starts a real session, reports, resumes and steers. |
 | `npm run typecheck` | Type check the extension, the tools and the tests. |
 | `npm run check` | Run the lint, the type check, the scores and the tests. |
