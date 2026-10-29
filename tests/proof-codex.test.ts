@@ -16,13 +16,23 @@ import {
 	optionsForScenario,
 	verdictWithEvidence,
 } from "../tooling/backend-proof/codex-handle.ts";
-import { approvalDialogShown } from "../tooling/backend-proof/codex-tui.ts";
+import {
+	approvalDialogShown,
+	commandDialogShown,
+	dialogKind,
+} from "../tooling/backend-proof/codex-tui.ts";
 import { createEvidenceStore } from "../tooling/backend-proof/evidence.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
 /** The text of a real pane of the Codex TUI that shows the approval dialog. */
 const APPROVAL_PANE = readFileSync(join(ROOT, "tests", "fixtures", "codex-approval-pane.txt"), "utf8");
+
+/** The text of a real pane of the Codex TUI that shows the command dialog. */
+const COMMAND_PANE = readFileSync(
+	join(ROOT, "tests", "fixtures", "codex-command-dialog-pane.txt"),
+	"utf8",
+);
 
 /** The options of one proof run, for the tests of the Codex scenarios. */
 function testOptions(): CodexProofOptions {
@@ -71,6 +81,42 @@ test("a pane text without a dialog does not show the dialog", () => {
 
 test("an empty pane text does not show the dialog", () => {
 	assert.equal(approvalDialogShown(""), false);
+});
+
+test("the real pane text of the command dialog shows the command dialog", () => {
+	assert.equal(commandDialogShown(COMMAND_PANE), true);
+});
+
+test("the pane text of the MCP dialog does not show the command dialog", () => {
+	assert.equal(commandDialogShown(APPROVAL_PANE), false);
+});
+
+test("an empty pane text does not show the command dialog", () => {
+	assert.equal(commandDialogShown(""), false);
+});
+
+test("the pane text of the command dialog shows the command kind", () => {
+	assert.equal(dialogKind(COMMAND_PANE), "command");
+});
+
+test("the pane text of the MCP dialog shows the MCP kind", () => {
+	assert.equal(dialogKind(APPROVAL_PANE), "mcp");
+});
+
+test("a pane text without a dialog shows no kind", () => {
+	assert.equal(dialogKind("OpenAI Codex (v0.165.0)\nAsk Codex to do anything"), null);
+});
+
+test("an empty pane text shows no kind", () => {
+	assert.equal(dialogKind(""), null);
+});
+
+test("the newest dialog wins when the command dialog is the last one", () => {
+	assert.equal(dialogKind(`${APPROVAL_PANE}\n${COMMAND_PANE}`), "command");
+});
+
+test("the newest dialog wins when the MCP dialog is the last one", () => {
+	assert.equal(dialogKind(`${COMMAND_PANE}\n${APPROVAL_PANE}`), "mcp");
 });
 
 test("the report server options name the proof variables", () => {
