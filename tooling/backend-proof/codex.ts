@@ -80,6 +80,10 @@ export interface AppServerClient {
 	messages: ProtocolMessage[];
 	/** The messages that the client sent. */
 	sent: ProtocolMessage[];
+	/** The number of the messages of the server that the proof recorded. */
+	recorded: number;
+	/** The number of the messages of the client that the proof recorded. */
+	recordedSent: number;
 	/** Send one request and wait for its response. */
 	request: (method: string, params?: Record<string, unknown>) => Promise<ProtocolMessage>;
 	/** Send one notification. */
@@ -171,6 +175,8 @@ export async function connectAppServer(
 		},
 		messages,
 		sent,
+		recorded: 0,
+		recordedSent: 0,
 		request,
 		notify,
 		close: () => socket.close(),

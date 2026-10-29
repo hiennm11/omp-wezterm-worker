@@ -230,6 +230,7 @@ export async function attachTui(
 	handle: CodexHandle,
 	bin: string,
 	env: Record<string, string>,
+	threadId: string = handle.threadId,
 ): Promise<{ paneId: number | null; error: string | null }> {
 	const result = await runProgram(
 		"wezterm",
@@ -243,7 +244,7 @@ export async function attachTui(
 			"--remote",
 			endpointFor(handle.port),
 			"resume",
-			handle.threadId,
+			threadId,
 			"-m",
 			PROOF_CODEX_MODEL,
 		],
@@ -263,16 +264,21 @@ export async function attachTui(
  * file. The file holds both directions, so a reader sees the request that
  * never got a response. The observations of the run keep their old shape:
  * they hold the notifications and the requests of the server.
+ *
+ * The function records only the messages that it did not record before. A
+ * scenario that polls the client records every message one time.
  */
 export function recordMessages(options: CodexProofOptions, client: AppServerClient, scenario: string): void {
-	for (const message of client.messages) {
+	for (const message of client.messages.slice(client.recorded)) {
 		const observation = observationOf(message);
 		options.evidence.observe(scenario, observation.source, observation.payload);
 		if (!message.method) continue;
 		options.observations.push({ source: observation.source, payload: observation.payload });
 	}
-	for (const message of client.sent) {
+	client.recorded = client.messages.length;
+	for (const message of client.sent.slice(client.recordedSent)) {
 		const observation = observationOf(message);
 		options.evidence.observe(scenario, observation.source, observation.payload);
 	}
+	client.recordedSent = client.sent.length;
 }
