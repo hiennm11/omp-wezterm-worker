@@ -206,15 +206,17 @@ Ticket 1 stays open. Tickets 2 to 5 stay blocked for the Codex half of the featu
 
 ### The scenario background of the Codex proof
 
-The scenario `background` proves the difference between the return of the foreground tool and the later settlement of a background task. The model starts a detached background process, calls the report tool, and ends its turn. The proof then waits for the file of that process. The file appears after the report only when the task really ran in the background.
+The scenario `background` proves the difference between the return of the foreground tool and the later settlement of a background task. The model starts a detached background process that waits 60 seconds, calls the report tool, and ends its turn. The text tells the model not to wait for the process. The proof polls the file of the process while the turn runs, so it can see the file at the right time. The file comes after the report only when the task really ran in the background.
 
-The scenario records three facts as observations. The source `background.command-completed` holds the time of the first `codex.item/completed` of type `commandExecution`. The source `background.report` holds the time of the first report of the scenario. The source `background.file-seen` holds the time at which the file first existed and its content. The source `background.file-missing` replaces it when the file never appeared. The times of the Codex events are the field `at` of the observations of the scenario.
+The scenario records four facts as observations. The source `background.command-completed` holds the time of the first `codex.item/completed` of type `commandExecution`. The source `background.report` holds the time of the first report of the scenario. The source `background.turn-completed` holds the time of the first `codex.turn/completed`. The source `background.file-seen` holds the time of the last write of the file and its content. The source `background.file-missing` replaces it when the file never came. The times of the Codex events are the field `at` of the observations of the scenario.
 
-The verdict is a pure function of those facts. It passes only when a command completed, a report arrived, and the file appeared with the content `BG-DONE` after the report. It fails when the file appeared before the report, because the turn then waited for the task. It fails when the file never appeared, because the background task did not settle in the wait. It fails when no report arrived.
+The time of the file is its time of last write, from the stat of the file. It is not the time of the read. The fourth full run showed why. The poll started after the turn, and its first read already found the file. The proof used the time of that read, so a file that the process wrote 8 seconds before the report looked like a file that came after it. The scenario passed, and the pass was wrong. The time of last write shows the real order.
 
-The task text names the absolute path of the file in the fixture. The third full run named a relative path. The detached process then wrote the file in a directory that nobody watched, so the scenario could not see it.
+The verdict is a pure function of those facts. It passes only when a command completed, a report arrived, and the file came with the content `BG-DONE` after the report. It fails when the file came before the report, because the turn then waited for the task. It fails when the file never came, because the background task did not settle in the wait. It fails when no report arrived.
 
-The scenario does not run yet. The next run of the proof shows its verdict.
+The task text names the absolute path of the file in the fixture. The third full run named a relative path, and the file did not show.
+
+The scenario with these changes did not run yet. The next run of the proof shows its verdict.
 
 ## The production Claude Code backend
 
