@@ -70,6 +70,12 @@ The file that records every worker, so a worker survives an OMP restart.
 The new release keeps the records in a database. The old file stays as evidence.
 _Avoid_: Index, cache, state
 
+**Run row**:
+The row of the database that holds the state of one run. A main session writes
+the row only when it holds the authority of the task of that run. A session
+that does not hold the authority writes no row.
+_Avoid_: Registry, execution record, worker event
+
 **Worktree**:
 The isolated git checkout an isolated worker works in, on its own branch.
 _Avoid_: Sandbox, clone, workspace
@@ -122,7 +128,7 @@ _Avoid_: Watcher, daemon, recipient
 
 **Read-only session**:
 A main session that sees the records of a worker and does not hold its authority.
-It does not control the worker.
+It does not control the worker. It writes no row of a run of that worker.
 _Avoid_: Observer, guest
 
 **Acquisition**:

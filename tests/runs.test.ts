@@ -59,7 +59,7 @@ function job(overrides: Partial<Job> = {}): Job {
 test("a finished run comes back as history", () => {
 	const { db, dir } = freshDb();
 	try {
-		persistRuns(db, [job()]);
+		persistRuns(db, null, [job()]);
 		const { finished, alive } = loadRuns(db);
 		assert.equal(finished.length, 1);
 		assert.equal(alive.length, 0);
@@ -74,7 +74,7 @@ test("a finished run comes back as history", () => {
 test("a run that was active comes back as alive", () => {
 	const { db, dir } = freshDb();
 	try {
-		persistRuns(db, [job({ id: "wz-live", status: "running", paneId: 3 })]);
+		persistRuns(db, null, [job({ id: "wz-live", status: "running", paneId: 3 })]);
 		const { finished, alive } = loadRuns(db);
 		assert.equal(finished.length, 0);
 		assert.equal(alive.length, 1);
@@ -90,7 +90,7 @@ test("a pending stop survives the round trip", () => {
 	const { db, dir } = freshDb();
 	try {
 		const pendingStop = { status: "failed" as const, error: "x", failure: "y" };
-		persistRuns(db, [job({ id: "wz-pending", status: "running", paneId: 3, pendingStop })]);
+		persistRuns(db, null, [job({ id: "wz-pending", status: "running", paneId: 3, pendingStop })]);
 		const { alive } = loadRuns(db);
 		assert.deepEqual(alive.find((j) => j.id === "wz-pending")?.pendingStop, pendingStop);
 	} finally {
@@ -102,7 +102,7 @@ test("a pending stop survives the round trip", () => {
 test("a run without a pane comes back as history", () => {
 	const { db, dir } = freshDb();
 	try {
-		persistRuns(db, [job({ id: "wz-orphan", status: "running", paneId: null })]);
+		persistRuns(db, null, [job({ id: "wz-orphan", status: "running", paneId: null })]);
 		const { finished, alive } = loadRuns(db);
 		assert.equal(alive.length, 0);
 		assert.equal(finished.length, 1);
@@ -160,8 +160,8 @@ test("a payload of the wrong shape is skipped", () => {
 test("a run that the database holds already is not written twice", () => {
 	const { db, dir } = freshDb();
 	try {
-		persistRuns(db, [job()]);
-		persistRuns(db, [job()]);
+		persistRuns(db, null, [job()]);
+		persistRuns(db, null, [job()]);
 		const { finished } = loadRuns(db);
 		assert.equal(finished.length, 1);
 	} finally {
@@ -173,8 +173,8 @@ test("a run that the database holds already is not written twice", () => {
 test("the status of a run follows the last write", () => {
 	const { db, dir } = freshDb();
 	try {
-		persistRuns(db, [job({ status: "running" })]);
-		persistRuns(db, [job({ status: "completed" })]);
+		persistRuns(db, null, [job({ status: "running" })]);
+		persistRuns(db, null, [job({ status: "completed" })]);
 		const { finished, alive } = loadRuns(db);
 		assert.equal(alive.length, 0);
 		assert.equal(finished.length, 1);
@@ -188,10 +188,10 @@ test("the status of a run follows the last write", () => {
 test("a stale running copy does not revive a finished run", () => {
 	const { db, dir } = freshDb();
 	try {
-		persistRuns(db, [job({ status: "completed", result: "done", finishedAt: 9, paneClosed: false })]);
+		persistRuns(db, null, [job({ status: "completed", result: "done", finishedAt: 9, paneClosed: false })]);
 		// A read-only session keeps a stale copy of the run. Its write must
 		// not bring the finished run back to life.
-		persistRuns(db, [job({ status: "running", result: null, finishedAt: null, paneClosed: false })]);
+		persistRuns(db, null, [job({ status: "running", result: null, finishedAt: null, paneClosed: false })]);
 		const { finished, alive } = loadRuns(db);
 		assert.equal(alive.length, 0, "a finished run must not return to an active status");
 		assert.equal(finished.length, 1);
@@ -207,8 +207,8 @@ test("a stale running copy does not revive a finished run", () => {
 test("a finished run still accepts a new pane flag", () => {
 	const { db, dir } = freshDb();
 	try {
-		persistRuns(db, [job({ status: "completed", paneClosed: false })]);
-		persistRuns(db, [job({ status: "completed", paneClosed: true })]);
+		persistRuns(db, null, [job({ status: "completed", paneClosed: false })]);
+		persistRuns(db, null, [job({ status: "completed", paneClosed: true })]);
 		const { finished } = loadRuns(db);
 		assert.equal(finished.length, 1);
 		assert.equal(finished[0].status, "completed");

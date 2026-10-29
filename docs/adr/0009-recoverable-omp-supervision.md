@@ -304,6 +304,14 @@ A counted action appears in the list of the actions that did not settle yet.
 
 The release waits for that list. So the release cannot move the authority while a monitor still writes the lifecycle.
 
+A session writes the row of a run only when it holds the authority of the task of that run.
+
+A session that does not hold the authority keeps a stale copy of the run. Its write changes no row.
+
+The check and the write of a run run in one transaction. So a session that lost the task writes nothing.
+
+A run without an ownership row gets its first row. A session without an identity writes as it did before.
+
 Each action reads the ownership row again when it starts. The check of the tick is not enough.
 
 An action whose verdict is not act writes nothing. It tells nothing. The next tick decides again.

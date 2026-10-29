@@ -453,6 +453,17 @@ read-only session that keeps a stale copy of a run cannot revive it. The other
 fields of a finished run still change. A closed pane and a new result stay
 readable.
 
+**Only the owner writes the row of a run.** A session writes the row of a run
+only when it holds the authority of the task of that run. The startup handler
+keeps every restored worker in the runtime, so a session that did not get the
+authority keeps a stale copy of the run. Its write changes no row. The check
+and the write run in one transaction, so a session that lost the task writes
+nothing. A run without an ownership row gets its first row, and a session
+without an identity writes as it did before.
+
+The release writes the row of the run that it releases before it moves the
+phase. So the next owner reads the state of the run.
+
 **The record tools and the delivery check the same row.** The tools
 `wezterm_worker_ack` and `wezterm_worker_resolve` read the ownership row of
 the event task before they write. A session that does not hold the
@@ -724,6 +735,7 @@ omp-wezterm-worker/
 │   ├── transcript.test.ts       reading a transcript
 │   ├── config.test.ts           the config file
 │   ├── registry.test.ts         the registry file
+│   ├── run-authority.test.ts    the authority of a write of a run
 │   ├── stop.test.ts             a stop that waits for the pane to close
 │   ├── stop-reconcile.test.ts   the reconciliation of the pending stop intents
 │   ├── stop-intent-gate.test.ts the gate of a pending stop intent
@@ -835,6 +847,7 @@ breaks a test.
 | `transcript.test.ts` | A preamble is not the result. A new user message resets the counts. A resumed worker reports only a turn beyond its baseline. |
 | `config.test.ts` | The environment wins over the file. A value of the wrong type leaves the default. A malformed file leaves the defaults. A nonzero idle deadline is refused with guidance. A score outside the range is refused with guidance. The settings function refuses a score outside the range. The settings function keeps a wrong mode and a wrong score type. Two problems in one file give both guidance messages. |
 | `registry.test.ts` | A running worker with a pane comes back as alive. A job of the wrong shape does not break the load. The write is atomic. |
+| `run-authority.test.ts` | A session that does not hold the authority keeps the row of the owner. A run without an ownership row gets its first row. A session without an identity writes the row of the run. A run of a task that another session released gets no row. The release writes the row of the run that it releases. |
 | `stop.test.ts` | A cancel ends a worker only when the pane list shows the pane gone. An unreadable pane list does not count as a closed pane. An unconfirmed stop leaves the worker running, and a retry ends it. |
 | `stop-reconcile.test.ts` | The verdict follows the pane state and never guesses. A pending intent is confirmed when its pane is gone. A run without a pane counts as gone. A pending intent fails when its pane still exists. A pending intent stays pending when the pane list cannot be read. The reconciliation leaves the intent of another session alone. A pending intent refuses the action and a settled intent does not. |
 | `stop-intent-gate.test.ts` | The cleanup refuses a run with a pending stop intent and goes on after the confirmation. The status shows the pending stop intent of a run. |
