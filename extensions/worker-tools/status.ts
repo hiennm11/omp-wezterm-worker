@@ -178,7 +178,9 @@ function nativeSummary(rt: WorkerRuntime, job: Job): string | null {
  * acknowledges the event with its id.
  */
 function formatEvent(event: WorkerEvent): string {
-	return `  ${event.id}  ${event.condition}  (worker ${event.runId})`;
+	const line = `  ${event.id}  ${event.condition}  (worker ${event.runId})`;
+	if (event.condition !== "startup_blocked") return line;
+	return `${line}  The session waits at the trust dialog of Claude Code. Accept it in the pane.`;
 }
 
 function formatRow(r: StatusRow): string {

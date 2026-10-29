@@ -62,6 +62,14 @@ The modern permission path of Claude Code does not call the classic permission h
 
 Pane text is a diagnostic view. It never proves that a request exists or that the person resolved it.
 
+## Startup block
+
+A Claude Code worker in a new repository waits at the trust dialog of Claude Code. The session does not start while the dialog is open, so the run stays running and nobody gets a message.
+
+The missing `session.start` is the fact. The pane text only names the cause. The supervisor reads the pane only while the session did not start, and the text of the pane never proves that the worker waits.
+
+The supervisor creates one event for the startup block, and the event keeps the identity of the run. The person accepts the trust dialog in the pane. A session that starts later resolves the event. The extension never answers the dialog and never edits the configuration of Claude Code.
+
 ## Native configuration
 
 A native worker keeps the configuration, the credentials, the MCP servers and the permission rules of the user. The extension never edits a global setting and never changes a native home directory to control storage.

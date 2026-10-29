@@ -253,6 +253,11 @@ A native request that asks the person for the approval of a call. The person
 answers it in the pane.
 _Avoid_: Approval, tool check, dialog
 
+**Startup block**:
+The state of a native worker whose session did not start. The worker waits
+for the person, who accepts the trust dialog of Claude Code in the pane.
+_Avoid_: Dialog, permission request, idle worker
+
 **Native cycle**:
 The native turn that carries one instruction. A cycle starts at the accepted instruction and ends when its turn ends.
 

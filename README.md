@@ -152,7 +152,8 @@ report tool and the command bridge.
 | The report | The mod binds the report to the run id and to the native turn id. A report of an earlier turn cannot finish newer work. |
 | The steering | A steering instruction goes through the bridge. The native session queues it, and a running tool is not interrupted. |
 | The permission | A permission request raises an event for the owner. The person answers it in the pane. A steering instruction is refused while the request is open. |
-| The events | The status tool lists the events that wait for the owner. The owner acknowledges each one with its event id. |
+| The events | The status tool lists the events that wait for the owner. The owner acknowledges each one with its event id. The conditions are `result`, `needs_input`, `missing_report`, `idle_after_working`, `execution_loss`, `unresolved_launch`, `unknown_outcome`, `permission_request` and `startup_blocked`. |
+| The startup | A Claude worker in a new repository raises `startup_blocked`, because the session waits at the trust dialog of Claude Code. The person accepts the dialog in the pane. |
 | The usage | The native CLI reports the usage of a turn when the turn ends. A run waits for the end of its turn, so the measured counts survive the end of the run. The usage of a request adds the native workers to the OMP ones. |
 | The activity | A native worker writes no OMP transcript. Its activity comes from the native observations, so the idle deadline never stops a worker that is still working. |
 | The resume | A resume reuses the native session id. The worker comes back with its history and a new run id. |
@@ -642,6 +643,7 @@ omp-wezterm-worker/
 │   │   ├── claude-run-state.ts  the native state of a Claude Code run
 │   │   ├── native-ledger.ts     the execution ledger of a native run
 │   │   ├── native-events.ts     the events of a native run
+│   │   ├── native-report.ts     the report of a native run
 │   │   ├── native-usage.ts      the measured usage of a native run
 │   │   ├── native-usage-report.ts the usage report of a native run
 │   │   ├── restored-run.ts      the words of a restored native run
@@ -652,6 +654,7 @@ omp-wezterm-worker/
 │   │   ├── monitor.ts           watching a worker and the deadline rules
 │   │   ├── monitor-authority.ts the authority of a monitor to end a worker
 │   │   ├── monitor-actions.ts   the counted actions of a monitor
+│   │   ├── startup-block.ts     the startup block of a native run
 │   │   ├── lifecycle.ts         finishing and cancelling a worker
 │   │   ├── steer.ts             steering a running worker
 │   │   ├── deliver.ts           delivering a result to the main session
@@ -750,6 +753,8 @@ omp-wezterm-worker/
 │   ├── claude-mod-background.test.ts the background tasks of the Claude Code mod
 │   ├── claude-mod-snapshot.test.ts the run snapshot of the Claude Code mod
 │   ├── monitor-native.test.ts   the monitor of a native worker and its outstanding rows
+│   ├── startup-block.test.ts    the startup block of a native worker
+│   ├── startup-block-monitor.test.ts the startup block in the monitor and in the status
 │   ├── wait-result.test.ts      the settlement of a background job that a wait result names
 │   ├── report-poll.test.ts      the report poll and the outstanding executions
 │   ├── status-blocker.test.ts   the completion blocker in the status tool
@@ -859,6 +864,8 @@ breaks a test.
 | `ledger-sync.test.ts` | A call without a result leaves one outstanding row, and the result settles it. A call at or before the baseline turn opens no row. A call to the report tool opens no row. A background call stays outstanding until the async result names its job. A second sync of the same transcript writes nothing. The close of a run turns an open row into unknown and creates one execution loss event. A sync never reopens a row that is unknown. |
 | `native-ledger.test.ts` | An opened native call opens one row. A settled native call settles its row. A failed native call settles its row. A native call without a call id opens no row. A native call to the report tool opens no row. A native settlement without a row creates no row. Another native observation changes no row. Observing a native call updates the state and writes the row. A database error of a native observation does not reach the bridge. |
 | `monitor-native.test.ts` | The native monitor keeps a worker that has an open execution row. The native monitor ends a worker when its execution row settles. |
+| `startup-block.test.ts` | The three facts of the startup block give the reason of the trust dialog. A session that started gives no reason. A launch of 59 seconds gives no reason and a launch of 61 seconds gives the reason. A pane without the words of the dialog gives no reason. |
+| `startup-block-monitor.test.ts` | The native monitor raises one event for a worker that waits at the trust dialog, and a second poll raises no second event. A pane without the dialog raises no event. A session that starts later resolves the event. The status tells the person to accept the trust dialog. |
 | `native-snapshot.test.ts` | A report of the cycle of the snapshot binds after the snapshot. A second snapshot holds the newer state. A snapshot of a closed turn lets the run finish. A snapshot of an open turn blocks the run until the turn ends. A pending instruction of the snapshot blocks the run until it is delivered. The calls and the permission requests of the snapshot become the open ones. An open tool row that the snapshot does not hold becomes settled. A tool row that the snapshot holds stays open. A tool row that the worker created after the snapshot stays open. A background row stays open. A new owner binds the report of a snapshot run and settles the old row. |
 | `native-background.test.ts` | A background call opens a row of kind background, and a foreground call opens a row of kind tool. The return of a background call leaves its row open, and the return of a foreground call settles its row. A failed background call settles its row. A started task stores its task id. A notification settles the row of its call for the statuses `completed` and `failed`, and a notification without a call id or without a status leaves the row open. A second notification changes nothing. Two background tasks settle their own rows. A stop settles the row of its task id, and a stop of an unknown task changes nothing. A settled or a stopped task leaves the open calls. A completion report waits for the row of a background task. |
 | `claude-mod-background.test.ts` | A background call posts the background flag, and a foreground call posts none. The result of a background call posts the started observation with the call id and the task id. The result of a stop posts the stopped observation with the task id, and it names the call that started the task. A stop of an unknown task posts no call id. A notification posts the settled observation with its ids and its status. A notification without the tags posts null fields. A row of another kind posts none of the background observations. Every handler returns the result of `next` unchanged. |

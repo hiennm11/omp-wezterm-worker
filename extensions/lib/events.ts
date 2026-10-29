@@ -17,7 +17,8 @@ export type EventCondition =
 	| "execution_loss"
 	| "unresolved_launch"
 	| "unknown_outcome"
-	| "permission_request";
+	| "permission_request"
+	| "startup_blocked";
 
 /** One worker event. */
 export interface WorkerEvent {
