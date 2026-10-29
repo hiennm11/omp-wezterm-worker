@@ -7,10 +7,15 @@
  * permission request, so the TUI keeps the answer.
  */
 
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { connectAppServer, endpointFor } from "./codex.ts";
+import {
+	backgroundFacts,
+	backgroundTaskText,
+	backgroundVerdict,
+	waitForBackgroundFile,
+} from "./codex-background.ts";
 import { attachScenarioTui } from "./codex-dialog.ts";
 import { type CodexProofOptions, stopHandle } from "./codex-handle.ts";
 import { attachTui, recordMessages, startServer, wait } from "./codex-server.ts";
@@ -120,25 +125,21 @@ export async function runBackground(
 			input: [
 				{
 					type: "text",
-					text: "Start a background task that writes BG-DONE to bg.txt after 15 seconds, then call the wezterm_worker_report tool with state completed and result PROOF-BACKGROUND.",
+					text: backgroundTaskText(fixture),
 				},
 			],
 		});
 		await answerApprovalDialog(options, scenario, pane, handle.client);
-		await wait(45000);
+		recordMessages(options, handle.client, scenario);
+		/* The background task settles after the report of the turn. The proof
+		   waits for its file, and the wait replaces the old fixed wait. */
+		const file = await waitForBackgroundFile(join(fixture, "bg.txt"));
 		recordMessages(options, handle.client, scenario);
 		await checkTuiPane(options, scenario, pane);
 		recordTuiText(options, scenario, pane);
-		const terminals = options.observations.filter(
-			(o) => o.source === "codex.thread/backgroundTerminals/list",
-		);
-		const report = options.observations.find((o) => o.source === "report");
-		const bgFile = join(fixture, "bg.txt");
-		return {
-			scenario,
-			verdict: report ? "pass" : "fail",
-			detail: `report: ${report ? "recorded" : "missing"}; background terminal observations: ${terminals.length}; background file: ${existsSync(bgFile)}`,
-		};
+		const facts = backgroundFacts(options, scenario, file);
+		const verdict = backgroundVerdict(facts);
+		return { scenario, verdict: verdict.verdict, detail: verdict.detail };
 	} finally {
 		await stopHandle(handle);
 	}

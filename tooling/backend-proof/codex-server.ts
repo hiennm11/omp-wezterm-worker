@@ -94,8 +94,8 @@ export async function startServer(
 		const record = payload as { source?: string; payload?: unknown };
 		const source = record.source ?? "unknown";
 		const body = record.payload ?? null;
-		options.evidence.observe(scenario, source, body);
-		options.observations.push({ source, payload: body });
+		const observation = options.evidence.observe(scenario, source, body);
+		options.observations.push({ source, payload: body, at: observation.at });
 	});
 	const env = {
 		WEZTERM_PROOF_RUN_ID: options.runId,
@@ -271,9 +271,9 @@ export async function attachTui(
 export function recordMessages(options: CodexProofOptions, client: AppServerClient, scenario: string): void {
 	for (const message of client.messages.slice(client.recorded)) {
 		const observation = observationOf(message);
-		options.evidence.observe(scenario, observation.source, observation.payload);
+		const recorded = options.evidence.observe(scenario, observation.source, observation.payload);
 		if (!message.method) continue;
-		options.observations.push({ source: observation.source, payload: observation.payload });
+		options.observations.push({ source: observation.source, payload: observation.payload, at: recorded.at });
 	}
 	client.recorded = client.messages.length;
 	for (const message of client.sent.slice(client.recordedSent)) {
