@@ -30,7 +30,12 @@ export function controlRefusal(
 			"This session only reads it."
 		);
 	}
-	if (owner.phase === "released") return `This session released worker ${workerId}.`;
+	if (owner.phase === "released") {
+		return (
+			`This session released worker ${workerId}. ` +
+			"Take it back with wezterm_worker_takeover."
+		);
+	}
 	if (owner.phase === "releasing") return `This session is releasing worker ${workerId}.`;
 	return null;
 }
