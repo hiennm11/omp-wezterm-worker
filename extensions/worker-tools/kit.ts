@@ -57,8 +57,24 @@ export function commsDetails(result: CommsResult): Record<string, unknown> {
 }
 
 /** The warning line that a low score adds to a reply. */
-export function commsWarningLine(result: CommsResult, settings: CommsSettings): string {
+function commsWarningLine(result: CommsResult, settings: CommsSettings): string {
 	return `Communication check: the score is ${result.score}. The minimum score is ${settings.minScore}.`;
+}
+
+/**
+ * The notice that a reply carries, or null when the reply needs none.
+ *
+ * A low score adds a warning. A checker that did not run adds a note that
+ * names the skill and its folder. A text that was not checked adds nothing.
+ */
+export function commsNoticeLine(result: CommsResult, settings: CommsSettings): string | null {
+	if (result.verdict === "warn" || result.verdict === "fail") {
+		return commsWarningLine(result, settings);
+	}
+	if (result.verdict === "skipped" && result.note) {
+		return `Communication check: skipped. ${result.note}`;
+	}
+	return null;
 }
 
 /** The refusal that a low score produces in the enforce mode. */

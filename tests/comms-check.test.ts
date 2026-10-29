@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -151,7 +151,13 @@ test("an exec that throws gives the verdict skipped", async () => {
 
 test("a Vietnamese text, a short text and the off mode never start the checker", async () => {
 	const { exec, calls } = fakeExec(scored(0));
-	const vietnamese = await checkComms(exec, SKILL, "Hãy đọc tệp nguồn và liệt kê mọi hàm được xuất ra.", "task", WARN);
+	const vietnamese = await checkComms(
+		exec,
+		SKILL,
+		"Hãy đọc tệp nguồn và liệt kê mọi hàm được xuất ra.",
+		"task",
+		WARN,
+	);
 	const short = await checkComms(exec, SKILL, "go now", "steer", WARN);
 	const off = await checkComms(exec, SKILL, CLEAN, "task", OFF);
 	assert.equal(vietnamese.verdict, "skipped");
@@ -163,7 +169,13 @@ test("a Vietnamese text, a short text and the off mode never start the checker",
 
 test("an English text with a Vietnamese name is checked", async () => {
 	const { exec, calls } = fakeExec(scored(50));
-	const result = await checkComms(exec, SKILL, "Ask Trần Minh Hiền to review the change. The worker reads the transcript and it reports the result to the main session.", "task", ENFORCE);
+	const result = await checkComms(
+		exec,
+		SKILL,
+		"Ask Trần Minh Hiền to review the change. The worker reads the transcript and it reports the result to the main session.",
+		"task",
+		ENFORCE,
+	);
 	assert.equal(result.verdict, "fail");
 	assert.equal(calls.length, 1);
 });
@@ -183,7 +195,13 @@ test("the notice line names a low score, a missing checker and nothing else", as
 		"task",
 		WARN,
 	);
-	const vietnamese = await checkComms(fakeExec(scored(0)).exec, SKILL, "Hãy đọc tệp nguồn của dự án này.", "task", WARN);
+	const vietnamese = await checkComms(
+		fakeExec(scored(0)).exec,
+		SKILL,
+		"Hãy đọc tệp nguồn của dự án này.",
+		"task",
+		WARN,
+	);
 	assert.match(commsNoticeLine(low, WARN) ?? "", /score is 44.*minimum score is 80/);
 	assert.match(commsNoticeLine(gone, WARN) ?? "", /Communication check: skipped\./);
 	assert.equal(commsNoticeLine(pass, WARN), null);

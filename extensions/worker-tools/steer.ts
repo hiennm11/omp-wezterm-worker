@@ -12,7 +12,7 @@ import { paneState } from "../lib/pane.ts";
 import { steerWorker } from "../lib/steer.ts";
 import { steerNative } from "../lib/steer-native.ts";
 import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
-import { commsDetails, commsRefusalLine, commsWarningLine, findJob, reply, type ToolDeps } from "./kit.ts";
+import { commsDetails, commsNoticeLine, commsRefusalLine, findJob, reply, type ToolDeps } from "./kit.ts";
 
 export function registerSteerTool({ pi, rt }: ToolDeps): void {
 	const z = pi.zod;
@@ -37,7 +37,13 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 			/* The communication check runs before the instruction reaches the
 			   worker. The enforce mode refuses a message that scores below
 			   the minimum score. */
-			const comms = checkComms(params.message, "steer", rt.config.commsStandard);
+			const comms = await checkComms(
+				rt.exec,
+				rt.config.ste100Skill,
+				params.message,
+				"steer",
+				rt.config.commsStandard,
+			);
 			if (comms.verdict === "fail") {
 				return reply(
 					commsRefusalLine(comms, rt.config.commsStandard),
@@ -114,7 +120,8 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 						`Queued for worker ${job.id} in pane ${paneId}:\n${params.message}\n\n` +
 							"The worker continues working; its final result is still delivered back automatically.",
 					];
-					if (comms.verdict === "warn") queued.push(commsWarningLine(comms, rt.config.commsStandard));
+					const queuedNotice = commsNoticeLine(comms, rt.config.commsStandard);
+					if (queuedNotice) queued.push(queuedNotice);
 					return reply(queued.join("\n"), {
 						workerId: job.id,
 						status: job.status,
@@ -145,7 +152,8 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 					`Sent to worker ${job.id} in pane ${paneId}:\n${params.message}\n\n` +
 						"The worker continues working; its final result is still delivered back automatically.",
 				];
-				if (comms.verdict === "warn") sent.push(commsWarningLine(comms, rt.config.commsStandard));
+				const sentNotice = commsNoticeLine(comms, rt.config.commsStandard);
+				if (sentNotice) sent.push(sentNotice);
 				return reply(sent.join("\n"), {
 					workerId: job.id,
 					status: job.status,

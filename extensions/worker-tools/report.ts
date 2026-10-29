@@ -16,7 +16,7 @@ import type { ToolCtx } from "../lib/host.ts";
 import { REPORT_STATES, type ReportState, type WorkerReport } from "../lib/report-model.ts";
 import { appendReport } from "../lib/report-store.ts";
 import { readRunContext } from "../lib/worker-context.ts";
-import { commsDetails, commsWarningLine, reply, type ToolDeps } from "./kit.ts";
+import { commsDetails, commsNoticeLine, reply, type ToolDeps } from "./kit.ts";
 
 /**
  * The session directory of the calling worker.
@@ -118,10 +118,17 @@ export function registerReportTool({ pi, rt }: ToolDeps): void {
 			/* The communication check runs after the state check. The report
 			   is always saved. A low score only adds a warning, so a result
 			   is never refused because of its score. */
-			const comms = checkComms(report.result ?? "", "result", rt.config.commsStandard);
+			const comms = await checkComms(
+				rt.exec,
+				rt.config.ste100Skill,
+				report.result ?? "",
+				"result",
+				rt.config.commsStandard,
+			);
 			const text = `The task state is now ${state}.`;
-			if (comms.verdict === "warn" || comms.verdict === "fail") {
-				return reply(`${text}\n${commsWarningLine(comms, rt.config.commsStandard)}`, {
+			const notice = commsNoticeLine(comms, rt.config.commsStandard);
+			if (notice) {
+				return reply(`${text}\n${notice}`, {
 					reported: true,
 					runId: context.runId,
 					state,

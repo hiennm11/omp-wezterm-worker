@@ -22,8 +22,8 @@ import { spawnWorker } from "../lib/spawn.ts";
 import { spawnClaudeWorker } from "../lib/spawn-claude.ts";
 import {
 	commsDetails,
+	commsNoticeLine,
 	commsRefusalLine,
-	commsWarningLine,
 	refusalReply,
 	reply,
 	type ToolDeps,
@@ -148,7 +148,13 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 			}
 			/* The communication check runs before the launch. The enforce
 			   mode refuses a task that scores below the minimum score. */
-			const comms = checkComms(params.task, "task", rt.config.commsStandard);
+			const comms = await checkComms(
+				rt.exec,
+				rt.config.ste100Skill,
+				params.task,
+				"task",
+				rt.config.commsStandard,
+			);
 			if (comms.verdict === "fail") {
 				return reply(
 					commsRefusalLine(comms, rt.config.commsStandard),
@@ -219,7 +225,8 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				"",
 				"The worker runs in the background. Its final result is delivered back into this session automatically.",
 			].filter((line): line is string => line !== null);
-			if (comms.verdict === "warn") lines.push(commsWarningLine(comms, rt.config.commsStandard));
+			const notice = commsNoticeLine(comms, rt.config.commsStandard);
+			if (notice) lines.push(notice);
 
 			return reply(lines.join("\n"), {
 				workerId: job.id,

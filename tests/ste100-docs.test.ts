@@ -3,10 +3,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-
+import { REPORTING_CONTRACT } from "../extensions/lib/bootstrap-prompt.ts";
 import { DEFAULT_CONFIG, loadConfig } from "../extensions/lib/config.ts";
 import type { RunFn, RunResult } from "../extensions/lib/process.ts";
-import { REPORTING_CONTRACT } from "../extensions/lib/bootstrap-prompt.ts";
 import { CHECKED_DOCUMENTS, main } from "../tooling/ste100-docs.ts";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -50,7 +49,9 @@ function fakeExec(code: number): {
 	const calls: { bin: string; args: string[]; cwd?: string; contract: boolean }[] = [];
 	const exec: RunFn = async (bin, args, cwd): Promise<RunResult> => {
 		const extra = args.filter((arg) => arg.endsWith(".md") && !CHECKED_DOCUMENTS.includes(arg));
-		const contract = extra.some((file) => existsSync(file) && readFileSync(file, "utf8") === REPORTING_CONTRACT);
+		const contract = extra.some(
+			(file) => existsSync(file) && readFileSync(file, "utf8") === REPORTING_CONTRACT,
+		);
 		calls.push({ bin, args, cwd, contract });
 		return { code, stdout: "", stderr: "" };
 	};
@@ -93,7 +94,16 @@ test("the word list of the repository keeps the terms of the glossary and the ot
 		string
 	>;
 	assert.ok(Object.keys(words).length > 2000);
-	for (const term of ["event", "events", "resume", "resumed", "attempt", "deliver", "delivered", "restored"]) {
+	for (const term of [
+		"event",
+		"events",
+		"resume",
+		"resumed",
+		"attempt",
+		"deliver",
+		"delivered",
+		"restored",
+	]) {
 		assert.equal(term in words, false, term);
 	}
 	assert.equal(words.utilize, "use");

@@ -37,6 +37,8 @@ export interface WorkerConfig {
 	maxLaunchesPerRequest: number;
 	/** The settings of the communication check. */
 	commsStandard: CommsSettings;
+	/** The folder of the ste100 skill. The checker of the skill scores every text. */
+	ste100Skill: string;
 }
 
 export const DEFAULT_CONFIG: WorkerConfig = {
@@ -56,6 +58,7 @@ export const DEFAULT_CONFIG: WorkerConfig = {
 	maxActiveWorkers: 3,
 	maxLaunchesPerRequest: 3,
 	commsStandard: { mode: "warn", minScore: 80 },
+	ste100Skill: join(homedir(), ".claude", "skills", "ste100"),
 };
 
 /** Static string-keyed table: config key -> the config field it overrides. */
@@ -106,6 +109,21 @@ export function readCommsStandard(value: unknown, guidance: string[]): CommsSett
 }
 
 /**
+ * The folder of the ste100 skill.
+ *
+ * A string sets the folder. A path that starts with `~` expands to the home
+ * folder of the user. A value of another type keeps the default, because a
+ * broken path must not stop the extension.
+ */
+export function readSkillFolder(value: unknown, fallback: string): string {
+	if (typeof value !== "string" || value.length === 0) return fallback;
+	if (value === "~" || value.startsWith("~/") || value.startsWith("~\\")) {
+		return join(homedir(), value.slice(1));
+	}
+	return value;
+}
+
+/**
  * Read the config.
  *
  * A missing or malformed file leaves the defaults in place. Every value is
@@ -142,6 +160,7 @@ export function loadConfig(
 			if (raw.placement === "split" || raw.placement === "tab") cfg.placement = raw.placement;
 			if (typeof raw.model === "string") cfg.model = raw.model;
 			if (Array.isArray(raw.tools)) cfg.tools = raw.tools.map(String);
+			cfg.ste100Skill = readSkillFolder(raw.ste100Skill, cfg.ste100Skill);
 			cfg.commsStandard = readCommsStandard(raw.commsStandard, guidance);
 			// The idle deadline is gone. A worker is stopped by its reports
 			// and by its total deadline, never by silence. A nonzero value
