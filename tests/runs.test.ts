@@ -188,14 +188,10 @@ test("the status of a run follows the last write", () => {
 test("a stale running copy does not revive a finished run", () => {
 	const { db, dir } = freshDb();
 	try {
-		persistRuns(db, [
-			job({ status: "completed", result: "done", finishedAt: 9, paneClosed: false }),
-		]);
+		persistRuns(db, [job({ status: "completed", result: "done", finishedAt: 9, paneClosed: false })]);
 		// A read-only session keeps a stale copy of the run. Its write must
 		// not bring the finished run back to life.
-		persistRuns(db, [
-			job({ status: "running", result: null, finishedAt: null, paneClosed: false }),
-		]);
+		persistRuns(db, [job({ status: "running", result: null, finishedAt: null, paneClosed: false })]);
 		const { finished, alive } = loadRuns(db);
 		assert.equal(alive.length, 0, "a finished run must not return to an active status");
 		assert.equal(finished.length, 1);
