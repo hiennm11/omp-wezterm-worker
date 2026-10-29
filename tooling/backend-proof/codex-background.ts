@@ -24,6 +24,14 @@ const EXPECTED_CONTENT = "BG-DONE";
 /** The milliseconds that the proof waits between two reads of the file. */
 const POLL_INTERVAL_MILLISECONDS = 1000;
 
+/**
+ * The milliseconds that the proof waits for the content of an empty file.
+ *
+ * The command truncates the file before it writes the content. The poll
+ * gives that write this grace.
+ */
+const CONTENT_GRACE_MILLISECONDS = 5000;
+
 /** The milliseconds that the proof waits for the background file. */
 export const BACKGROUND_WAIT_MILLISECONDS = 40000;
 
@@ -78,22 +86,25 @@ export interface BackgroundFacts {
  * Wait for the background file of the scenario.
  *
  * The function reads the file once per second. It stops when the file
- * appears or after 40 seconds. It returns the time of the first appearance
- * and the content of the file.
+ * holds its content or after 40 seconds. It returns the time of the first
+ * existence of the file and the content of the file.
  */
 export async function waitForBackgroundFile(path: string): Promise<BackgroundFile> {
 	const started = Date.now();
+	let existedAt: number | null = null;
 	while (Date.now() - started < BACKGROUND_WAIT_MILLISECONDS) {
 		await wait(POLL_INTERVAL_MILLISECONDS);
 		const content = readBackgroundContent(path);
-		if (content !== null) {
-			return {
-				path,
-				appeared: true,
-				at: Date.now(),
-				content,
-				waitedMs: Date.now() - started,
-			};
+		if (content === null) continue;
+		if (existedAt === null) existedAt = Date.now();
+		if (content !== "") {
+			return { path, appeared: true, at: existedAt, content, waitedMs: Date.now() - started };
+		}
+		/* The command truncates the file before it writes the content. The
+		   poll gives that write a grace of five seconds. A file that holds
+		   nothing after that is the file that the model wrote. */
+		if (Date.now() - existedAt >= CONTENT_GRACE_MILLISECONDS) {
+			return { path, appeared: true, at: existedAt, content, waitedMs: Date.now() - started };
 		}
 	}
 	return { path, appeared: false, at: null, content: null, waitedMs: Date.now() - started };
