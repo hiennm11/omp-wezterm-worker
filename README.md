@@ -754,11 +754,12 @@ omp-wezterm-worker/
 │   ├── trial-fixture.ts         the repository that the trial workers use
 │   ├── backend-proof.ts         the compatibility probe of the native backends
 │   └── backend-proof/           the modules of the probe
-│       └── codex-tui.ts         the pane evidence of the Codex TUI
+│       └── codex-tui.ts         the pane evidence and the approval of the Codex TUI
 ├── resources/
 │   └── ste100-dictionary.json   the word list of the ste100 checker
 ├── tests/
 │   ├── harness.ts               a test host for the extension
+│   ├── fixtures/                the real texts that the tests read
 │   ├── transcript.test.ts       reading a transcript
 │   ├── config.test.ts           the config file
 │   ├── registry.test.ts         the registry file
@@ -799,7 +800,7 @@ omp-wezterm-worker/
 │   ├── status-blocker.test.ts   the completion blocker in the status tool
 │   ├── status-list.test.ts      the list of workers that the status tool shows
 │   ├── resume-comms.test.ts     the communication check of the resume tool
-│   ├── proof-codex.test.ts      the source of each Codex protocol message
+│   ├── proof-codex.test.ts      the source of each Codex protocol message and the approval dialog
 │   ├── takeover.test.ts         the takeover of a task of another session
 │   ├── takeover-process.test.ts the process record of the new owner of a task
 │   ├── takeover-helpers.ts      the helpers of the takeover tests
@@ -919,7 +920,7 @@ breaks a test.
 | `status-blocker.test.ts` | The status prints the completion blocker of a worker that cannot end. The status hides the old workers and names the count. The status shows one old worker when the call names it. |
 | `status-list.test.ts` | 12 finished workers show 10 and hide 2. An active worker always shows. A finished worker with a pending event always shows. No hidden worker gives hidden 0. The order is newest first inside each group. No worker appears twice. |
 | `resume-comms.test.ts` | A resume refuses a message that scores below the minimum. A resume with a clean message goes on. A resume without a message runs no checker command. |
-| `proof-codex.test.ts` | A notification gives the source of its method. A request gives the source of its method. A response gives the source of a response and keeps its id. A message without a method and without an id gives the unknown source. |
+| `proof-codex.test.ts` | A notification gives the source of its method. A request gives the source of its method. A response gives the source of a response and keeps its id. A message without a method and without an id gives the unknown source. The real pane text of the approval dialog shows the dialog. A pane text without a dialog does not show the dialog. An empty pane text does not show the dialog. |
 | `takeover.test.ts` | A released task of another session is taken over. A dead owner process gives the task. A live owner process keeps the task. An unreadable process table refuses the takeover. A session that owns an active task refuses the takeover. A session that owns a releasing task refuses the takeover. A session takes back a task that it released. A native worker is taken over and gets a bridge. An ownership that changes during the check refuses the takeover. A takeover of a live worker starts the monitor. A takeover of a worker whose pane is gone ends the worker. A session that takes back a released task of a worker whose pane is gone ends the worker. A takeover of a finished worker keeps its status and starts no monitor. A takeover of a task with an open attempt settles the attempt. |
 | `takeover-process.test.ts` | A takeover of a session without a start time stores the start time of its process. A takeover refuses when the session cannot read the start time of its process. A task taken over with a start time is not a lock. |
 | `reattach-native.test.ts` | A native worker gets a new bridge and a new handover. The worker follows the new bridge and the old token is refused. The run state keeps the native session id of the worker. Only the open rows of the run become the open calls of the state. The new owner receives the report of the worker and ends the run. An open row blocks the completion until a settlement arrives. attachWorker gives a native worker a bridge and a monitor. attachWorker ends a native worker whose pane is gone. attachWorker keeps the old behaviour for an OMP worker. A handover that cannot be written leaves no bridge and no state. attachWorker fails the worker when the re-attachment fails. |

@@ -112,7 +112,30 @@ The Codex backend is not proven. The proof of it needs a dedicated app server, a
 
 The probe ran once on 2026-10-29. The run failed. It printed `FAIL observe: turns started: 1, completed: 0, report: missing`. The run left only `report.md` and `versions.json`. A failed run gives no raw evidence, so nobody can find why the turn did not finish.
 
-The run now leaves `observations.jsonl`. The file holds one line for each protocol message of the app server, in both directions. The file also holds the text of the pane of the TUI. The run still fails. The proof of the Codex backend stays open.
+The run now leaves `observations.jsonl`. The file holds one line for each protocol message of the app server, in both directions. The file also holds the text of the pane of the TUI. The proof of the Codex backend stays open.
+
+The first run failed because the thread had no rollout file. The request `thread/start` makes a thread without a rollout file on the disk. The answer of that request names the path of the file, and the file does not exist at that moment.
+
+The command `resume` of the TUI calls the method `thread/resume`. The server answers that method with the error `no rollout found for thread id <id>` and the code -32600. The TUI exits with the code 1 in less than one second. The pane then holds no TUI. Nobody answers the approval of the report tool. The scenario `observe` fails with `turns started: 1, completed: 0, report: missing`.
+
+The next order of calls fixes this.
+
+1. The client sends `initialize` with the capability `experimentalApi`, and then the notification `initialized`.
+2. The client sends `thread/start` with the working directory and the model.
+3. The client sends `thread/name/set` with the thread id and the name `proof-worker`. This call writes the rollout file at once.
+4. The client sends `thread/resume` with the thread id. The answer carries no error.
+5. The TUI starts in a pane with the same argument list as before.
+6. The client sends `turn/start` with the task text.
+
+The request `thread/inject_items` also writes the rollout file, but it puts the task text into the model history twice. The proof does not use it.
+
+A probe on the machine of this repository confirmed the order. The probe used the build codex-cli 0.165.0. The TUI stayed alive for more than 80 seconds. It showed the task and the approval dialog `Allow the wezterm_worker_proof MCP server to run tool "wezterm_worker_report"?`. The dialog holds the options `1. Allow`, `2. Allow for this session`, `3. Always allow` and `4. Cancel`. The TUI used the thread id of the client.
+
+The scenario `observe` now answers that dialog. The proof reads the text of the pane every second for at most 30 seconds. When the dialog shows, the proof sends the Enter key to the pane, and the first option lets the call run. The proof records the observation `tui.approval-answered` with the text that showed the dialog.
+
+The other scenarios keep their behaviour. A scenario that tests an approval or a refusal does not answer.
+
+No scenario of the Codex backend passed yet. The proof of the Codex backend stays open.
 
 The version that `codex` resolves on this machine is 0.142.0. The plan observed 0.157.1. A node `spawn` of `codex` reaches a different binary than `cmd /c codex`, so the probe must resolve the binary before it plans around a protocol version.
 
