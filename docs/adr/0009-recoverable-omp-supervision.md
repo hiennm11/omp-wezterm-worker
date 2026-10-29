@@ -326,9 +326,21 @@ The function attachWorker runs right after the acquisition of the task. So it ne
 
 The function releaseEndedGroups frees a group only from facts that every session can read. So it needs no check.
 
-A probe of the function reconcileAttempts shows that a new session marks the open launch attempt of another session as unresolved.
+A session settles only the launch attempts of its own tasks.
 
-The probe does not fix the behaviour. The fix needs its own design.
+The function reconcileAttempts reads the ownership row of the task of the attempt. It takes the session id of the calling session.
+
+A session settles an attempt of a task without an ownership row. An old attempt has no row.
+
+A session settles an attempt of a task that this session owns.
+
+A session skips an attempt of a task of another session. The attempt stays open. The other session settles it.
+
+A session without an identity settles only the attempts of the tasks without an ownership row.
+
+The skip holds when the owner process is dead too. The new owner of a task settles the attempt of that task.
+
+The function mayReconcileAttempt decides this case. It takes the attempt, the ownership row and the session id. It is a pure function.
 
 The new owner attaches the worker at its own session start.
 
@@ -363,6 +375,8 @@ The write thus compares the generation that the check read.
 The write refuses the takeover when the generation moved in the meantime.
 
 The write moves the generation forward by one and sets the phase to active.
+
+The takeover settles the open launch attempts of the task that it took.
 
 A takeover of a finished worker moves the ownership and starts no monitor.
 

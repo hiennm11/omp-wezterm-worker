@@ -214,6 +214,7 @@ _Avoid_: Cleanup, deletion, cancel
 
 **Launch attempt**:
 One attempt to start a worker, with its own identity and reservation state.
+The owner of the task settles it. Another session leaves it alone.
 _Avoid_: Launch, spawn, request
 
 **Unresolved launch**:
