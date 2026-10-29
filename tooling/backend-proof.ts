@@ -106,7 +106,7 @@ async function main(): Promise<number> {
 						args,
 						runId,
 						evidence,
-						observations,
+						observations: [],
 						binary,
 					});
 	} catch (error) {

@@ -31,6 +31,7 @@ function testOptions(): CodexProofOptions {
 		args: { backend: "codex", scenario: "all", evidenceDir: dir },
 		runId: "proof-codex-test",
 		evidence: createEvidenceStore(dir, "codex", "proof-codex-test"),
+		observations: [],
 	};
 }
 

@@ -7,7 +7,8 @@
  * with the pane list of the machine.
  */
 
-import { type CodexProofOptions, wait } from "./codex-server.ts";
+import type { CodexProofOptions } from "./codex-handle.ts";
+import { wait } from "./codex-server.ts";
 import { runProgram } from "./shared.ts";
 
 /**

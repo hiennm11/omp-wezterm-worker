@@ -44,6 +44,8 @@ export interface EvidenceStore {
 	versions: (data: Record<string, unknown>) => void;
 	/** Write a raw native record. */
 	raw: (name: string, content: string) => void;
+	/** The number of lines that one scenario wrote. */
+	count: (scenario: string) => number;
 	/** The results of the scenarios, in the order they ran. */
 	results: () => Array<{ scenario: string; verdict: Verdict; detail: string }>;
 }
@@ -92,6 +94,7 @@ export function createEvidenceStore(dir: string, backend: string, runId: string)
 	mkdirSync(dir, { recursive: true });
 	const seen = readSeenIds(dir);
 	const results: Array<{ scenario: string; verdict: Verdict; detail: string }> = [];
+	const counts = new Map<string, number>();
 	let sequence = 0;
 
 	function observe(scenario: string, source: string, payload: unknown, ownRunId?: string): Observation {
@@ -103,6 +106,7 @@ export function createEvidenceStore(dir: string, backend: string, runId: string)
 		seen.add(id);
 		const line = JSON.stringify({ id, ...observation });
 		appendFileSync(observationsFile(dir), `${line}\n`, "utf8");
+		counts.set(scenario, (counts.get(scenario) ?? 0) + 1);
 		return observation;
 	}
 
@@ -124,6 +128,9 @@ export function createEvidenceStore(dir: string, backend: string, runId: string)
 		},
 		raw(name, content) {
 			writeFileSync(join(dir, name), content, "utf8");
+		},
+		count(scenario) {
+			return counts.get(scenario) ?? 0;
 		},
 		results: () => results.map((r) => ({ ...r })),
 	};

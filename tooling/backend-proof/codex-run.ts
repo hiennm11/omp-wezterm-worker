@@ -10,16 +10,9 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { type CodexProofOptions, runScenario, stopHandle } from "./codex-handle.ts";
 import { runApproval, runBackground, runRecovery, runSettingsUsage, runStop } from "./codex-lifecycle.ts";
-import {
-	attachTui,
-	type CodexProofOptions,
-	findCodexBinary,
-	recordMessages,
-	startServer,
-	stopHandle,
-	wait,
-} from "./codex-server.ts";
+import { attachTui, findCodexBinary, recordMessages, startServer, wait } from "./codex-server.ts";
 import { answerApprovalDialog, checkTuiPane, recordTuiText, type TuiPane } from "./codex-tui.ts";
 import type { ScenarioOutcome } from "./scenarios.ts";
 import { makeFixture } from "./shared.ts";
@@ -56,31 +49,33 @@ export async function runCodexProof(options: CodexProofOptions): Promise<ProofOu
 	const scenario = options.args.scenario;
 
 	if (scenario === "observe" || scenario === "all") {
-		results.push(await runObserve(options, fixture, binary.bin));
+		results.push(await runScenario("observe", options, (own) => runObserve(own, fixture, binary.bin)));
 	}
 	if (scenario === "queue" || scenario === "all") {
-		results.push(await runQueue(options, fixture, binary.bin));
+		results.push(await runScenario("queue", options, (own) => runQueue(own, fixture, binary.bin)));
 	}
 	if (scenario === "no-report" || scenario === "all") {
-		results.push(await runNoReport(options, fixture, binary.bin));
+		results.push(await runScenario("no-report", options, (own) => runNoReport(own, fixture, binary.bin)));
 	}
 	if (scenario === "resume" || scenario === "all") {
-		results.push(await runResume(options, fixture, binary.bin));
+		results.push(await runScenario("resume", options, (own) => runResume(own, fixture, binary.bin)));
 	}
 	if (scenario === "settings-usage" || scenario === "all") {
-		results.push(await runSettingsUsage(options, fixture, binary.bin));
+		results.push(
+			await runScenario("settings-usage", options, (own) => runSettingsUsage(own, fixture, binary.bin)),
+		);
 	}
 	if (scenario === "approval" || scenario === "all") {
-		results.push(await runApproval(options, fixture, binary.bin));
+		results.push(await runScenario("approval", options, (own) => runApproval(own, fixture, binary.bin)));
 	}
 	if (scenario === "background" || scenario === "all") {
-		results.push(await runBackground(options, fixture, binary.bin));
+		results.push(await runScenario("background", options, (own) => runBackground(own, fixture, binary.bin)));
 	}
 	if (scenario === "recovery" || scenario === "all") {
-		results.push(await runRecovery(options, fixture, binary.bin));
+		results.push(await runScenario("recovery", options, (own) => runRecovery(own, fixture, binary.bin)));
 	}
 	if (scenario === "stop" || scenario === "all") {
-		results.push(await runStop(options, fixture, binary.bin));
+		results.push(await runScenario("stop", options, (own) => runStop(own, fixture, binary.bin)));
 	}
 
 	const verdict: ProofOutcome["verdict"] = results.some((r) => r.verdict === "fail")
@@ -110,7 +105,7 @@ async function runObserve(
 			WEZTERM_PROOF_TOKEN: handle.listener.token,
 		};
 		const tui = await attachTui(handle, bin, env);
-		handle.paneId = tui.paneId;
+		handle.tuiPaneId = tui.paneId;
 		if (tui.paneId === null) {
 			return { scenario, verdict: "fail", detail: tui.error ?? "the TUI did not start" };
 		}
@@ -164,7 +159,7 @@ async function runQueue(options: CodexProofOptions, fixture: string, bin: string
 			WEZTERM_PROOF_TOKEN: handle.listener.token,
 		};
 		const tui = await attachTui(handle, bin, env);
-		handle.paneId = tui.paneId;
+		handle.tuiPaneId = tui.paneId;
 		if (tui.paneId === null) {
 			return { scenario, verdict: "fail", detail: tui.error ?? "the TUI did not start" };
 		}
