@@ -10,10 +10,12 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { attachScenarioTui } from "./codex-dialog.ts";
 import { type CodexProofOptions, runScenario, stopHandle } from "./codex-handle.ts";
 import { runApproval, runBackground, runRecovery, runSettingsUsage, runStop } from "./codex-lifecycle.ts";
+import { runResume } from "./codex-resume.ts";
 import { attachTui, findCodexBinary, recordMessages, startServer, wait } from "./codex-server.ts";
-import { answerApprovalDialog, checkTuiPane, recordTuiText, type TuiPane } from "./codex-tui.ts";
+import { answerApprovalDialog, checkTuiPane, recordTuiText } from "./codex-tui.ts";
 import type { ScenarioOutcome } from "./scenarios.ts";
 import { makeFixture } from "./shared.ts";
 
@@ -99,18 +101,11 @@ async function runObserve(
 	}
 	const handle = started.handle;
 	try {
-		const env = {
-			WEZTERM_PROOF_RUN_ID: options.runId,
-			WEZTERM_PROOF_URL: handle.listener.baseUrl,
-			WEZTERM_PROOF_TOKEN: handle.listener.token,
-		};
-		const tui = await attachTui(handle, bin, env);
-		handle.tuiPaneId = tui.paneId;
-		if (tui.paneId === null) {
-			return { scenario, verdict: "fail", detail: tui.error ?? "the TUI did not start" };
+		const attached = await attachScenarioTui(options, handle, bin);
+		if (!attached.pane) {
+			return { scenario, verdict: "fail", detail: attached.error ?? "the TUI did not start" };
 		}
-		const pane: TuiPane = { paneId: tui.paneId, text: "", gone: false };
-		await wait(3000);
+		const pane = attached.pane;
 		await checkTuiPane(options, scenario, pane);
 
 		const turn = await handle.client.request("turn/start", {
@@ -125,9 +120,9 @@ async function runObserve(
 		if (turn.error) {
 			return { scenario, verdict: "fail", detail: turn.error.message };
 		}
-		/* The scenario `observe` answers the approval dialog of the report
-		   server. The other scenarios leave the answer to the person. */
-		await answerApprovalDialog(options, scenario, pane);
+		/* The scenario `observe` answers every approval dialog of its turn.
+		   The scenario `approval` keeps the answer of the person. */
+		await answerApprovalDialog(options, scenario, pane, handle.client);
 		await wait(20000);
 		recordMessages(options, handle.client, scenario);
 		await checkTuiPane(options, scenario, pane);
@@ -138,6 +133,7 @@ async function runObserve(
 		const completed = options.observations.filter((o) => o.source === "codex.turn/completed").length;
 		const detail = `turns started: ${started2}, completed: ${completed}, report: ${report ? "recorded" : "missing"}`;
 		if (!report) return { scenario, verdict: "fail", detail };
+		if (completed < 1) return { scenario, verdict: "fail", detail: `${detail}; the turn did not complete` };
 		return { scenario, verdict: "pass", detail };
 	} finally {
 		await stopHandle(handle);
@@ -237,78 +233,6 @@ async function runNoReport(
 		};
 	} finally {
 		await stopHandle(handle);
-	}
-}
-
-/** Run the resume scenario. */
-async function runResume(options: CodexProofOptions, fixture: string, bin: string): Promise<ScenarioOutcome> {
-	const scenario = "resume";
-	const started = await startServer(options, fixture, bin, scenario);
-	if (!started.handle) {
-		return { scenario, verdict: "unavailable", detail: started.error ?? "the server did not start" };
-	}
-	const handle = started.handle;
-	const threadId = handle.threadId;
-	try {
-		await handle.client.request("turn/start", {
-			threadId,
-			input: [
-				{
-					type: "text",
-					text: "Read baseline.txt and call the wezterm_worker_report tool with state completed and result PROOF-ONE.",
-				},
-			],
-		});
-		await wait(20000);
-		recordMessages(options, handle.client, scenario);
-		const firstReport = options.observations.find((o) => o.source === "report");
-		if (!firstReport) {
-			return { scenario, verdict: "fail", detail: "the first turn produced no report" };
-		}
-		const before = options.observations.length;
-		await stopHandle(handle);
-		await wait(2000);
-
-		const second = await startServer(options, fixture, bin, scenario);
-		if (!second.handle) {
-			return { scenario, verdict: "fail", detail: second.error ?? "the second server did not start" };
-		}
-		const secondHandle = second.handle;
-		try {
-			const resumed = await secondHandle.client.request("thread/resume", { threadId });
-			if (resumed.error) {
-				return { scenario, verdict: "fail", detail: resumed.error.message };
-			}
-			const resumedThread = (resumed.result as { thread?: { id?: string } } | undefined)?.thread;
-			if (resumedThread?.id !== threadId) {
-				return {
-					scenario,
-					verdict: "fail",
-					detail: `the resumed thread changed its identity: ${String(resumedThread?.id)}`,
-				};
-			}
-			const turns = await secondHandle.client.request("thread/turns/list", { threadId });
-			const history = (turns.result as { data?: unknown[] } | undefined)?.data ?? [];
-			await secondHandle.client.request("turn/start", {
-				threadId,
-				input: [
-					{
-						type: "text",
-						text: "Read our earlier baseline and call the wezterm_worker_report tool with state completed and result PROOF-RESUME.",
-					},
-				],
-			});
-			await wait(20000);
-			recordMessages(options, secondHandle.client, scenario);
-			const reports = options.observations.slice(before).filter((o) => o.source === "report");
-			const detail = `the thread id stayed ${resumedThread?.id}; stored turns: ${history.length}; new reports: ${reports.length}`;
-			if (reports.length === 0) return { scenario, verdict: "fail", detail };
-			return { scenario, verdict: "pass", detail };
-		} finally {
-			await stopHandle(secondHandle);
-		}
-	} catch (error) {
-		return { scenario, verdict: "fail", detail: String(error) };
 	}
 }
 

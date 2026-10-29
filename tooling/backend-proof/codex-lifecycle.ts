@@ -11,9 +11,10 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { connectAppServer, endpointFor } from "./codex.ts";
+import { attachScenarioTui } from "./codex-dialog.ts";
 import { type CodexProofOptions, stopHandle } from "./codex-handle.ts";
 import { attachTui, recordMessages, startServer, wait } from "./codex-server.ts";
-import { listPanes } from "./codex-tui.ts";
+import { answerApprovalDialog, checkTuiPane, listPanes, recordTuiText } from "./codex-tui.ts";
 import type { ScenarioOutcome } from "./scenarios.ts";
 
 export async function runSettingsUsage(
@@ -107,6 +108,13 @@ export async function runBackground(
 	}
 	const handle = started.handle;
 	try {
+		const attached = await attachScenarioTui(options, handle, bin);
+		if (!attached.pane) {
+			return { scenario, verdict: "fail", detail: attached.error ?? "the TUI did not start" };
+		}
+		const pane = attached.pane;
+		await checkTuiPane(options, scenario, pane);
+
 		await handle.client.request("turn/start", {
 			threadId: handle.threadId,
 			input: [
@@ -116,8 +124,11 @@ export async function runBackground(
 				},
 			],
 		});
+		await answerApprovalDialog(options, scenario, pane, handle.client);
 		await wait(45000);
 		recordMessages(options, handle.client, scenario);
+		await checkTuiPane(options, scenario, pane);
+		recordTuiText(options, scenario, pane);
 		const terminals = options.observations.filter(
 			(o) => o.source === "codex.thread/backgroundTerminals/list",
 		);
