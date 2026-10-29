@@ -13,10 +13,14 @@ import { reportState } from "../lib/report-decision.ts";
 import { readReports } from "../lib/report-store.ts";
 import { snapshotNotice, turnsLabel } from "../lib/restored-run.ts";
 import type { WorkerRuntime } from "../lib/runtime.ts";
+import { selectStatusJobs } from "../lib/status-list.ts";
 import { pendingStopIntentOf } from "../lib/stop-reconcile.ts";
 import { listSessionFiles, summarizeSession } from "../lib/transcript.ts";
 import { formatUsage, jobUsage, requestWorkerIds, type UsageReport } from "../lib/usage.ts";
 import { reply, type ToolDeps } from "./kit.ts";
+
+/** The number of finished workers that the list shows without a worker id. */
+const STATUS_FINISHED_LIMIT = 10;
 
 /**
  * Re-read the transcript so the reported activity is current rather than the
@@ -224,20 +228,36 @@ export function registerStatusTool({ pi, rt }: ToolDeps): void {
 			"List the WezTerm pane workers of this session, or inspect one by id. " +
 			"Returns lifecycle state (queued/running/completed/failed/cancelled), pane id, cwd, transcript path, " +
 			"elapsed time, time since the last worker activity, the tool the worker is running right now, " +
-			"how many turns it took, the tokens it used, and whether its pane is still alive.",
+			"how many turns it took, the tokens it used, and whether its pane is still alive. " +
+			"A list without a worker id shows every active worker, every worker with an event that waits for you, " +
+			"and the 10 newest workers that ended. The older workers stay hidden, and the reply names their count.",
 		parameters: z.object({
-			workerId: z.string().optional().describe("Inspect a single worker. Omit to list all."),
+			workerId: z
+				.string()
+				.optional()
+				.describe(
+					"Inspect a single worker. Omit to list the active workers, the workers with a pending event, " +
+						"and the 10 newest workers that ended.",
+				),
 		}),
 		loadMode: "essential",
 		async execute(_id: string, params: { workerId?: string }) {
 			const all = [...rt.jobs.values()].sort((a, b) => b.createdAt - a.createdAt);
-			const jobs = params.workerId ? all.filter((j) => j.id === params.workerId) : all;
+			/* An event that nobody handled waits for the owner. The owner
+			   finds it here, because the acknowledgement needs the event
+			   id, and the event id lives nowhere else. */
+			const pending = pendingEvents(rt.openDb());
+			const pendingRunIds = new Set(pending.map((event) => event.runId ?? ""));
+			const selection = params.workerId
+				? { shown: all.filter((job) => job.id === params.workerId), hidden: 0 }
+				: selectStatusJobs(all, pendingRunIds, STATUS_FINISHED_LIMIT);
+			const jobs = selection.shown;
 			if (jobs.length === 0) {
 				return reply(
 					params.workerId
 						? `Unknown worker id: ${params.workerId}`
 						: "No workers have been spawned in this process.",
-					{ workers: [] },
+					{ workers: [], hidden: 0 },
 					Boolean(params.workerId),
 				);
 			}
@@ -246,16 +266,16 @@ export function registerStatusTool({ pi, rt }: ToolDeps): void {
 			const rows = jobs.map((j) => row(j, now, jobUsage(j), rt));
 			const request = requestUsageOf(rt.jobs, rt.requestLaunches, rt.claudeStates);
 			const count = requestWorkerIds(rt.jobs, rt.requestLaunches).length;
-			/* An event that nobody handled waits for the owner. The owner
-			   finds it here, because the acknowledgement needs the event
-			   id, and the event id lives nowhere else. */
-			const events = pendingEvents(rt.openDb()).filter((event) => jobs.some((job) => job.id === event.runId));
+			const events = pending.filter((event) => jobs.some((job) => job.id === event.runId));
 			const text =
 				rows.map(formatRow).join("\n\n") +
+				(selection.hidden > 0
+					? `\n\n${selection.hidden} older worker(s) are hidden. Read one with workerId.`
+					: "") +
 				`\n\nThis request: ${formatUsage(request)} across ${count} worker(s). ` +
 				"The main session is not counted." +
 				(events.length > 0 ? `\n\nEvents that wait for you:\n${events.map(formatEvent).join("\n")}` : "");
-			return reply(text, { workers: rows, requestUsage: request, events });
+			return reply(text, { workers: rows, requestUsage: request, events, hidden: selection.hidden });
 		},
 	});
 }

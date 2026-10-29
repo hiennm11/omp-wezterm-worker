@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { type CommsSettings } from "../extensions/lib/comms-check.ts";
+import type { CommsSettings } from "../extensions/lib/comms-check.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import type { RunFn, RunResult } from "../extensions/lib/process.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";

@@ -4,6 +4,7 @@
 
 import { cleanupRefusal, refusalDetails } from "../lib/authority.ts";
 import { readBackend } from "../lib/backend.ts";
+import { checkComms } from "../lib/comms-check.ts";
 import type { ToolCtx } from "../lib/host.ts";
 import { isActive } from "../lib/job.ts";
 import { admitLaunch } from "../lib/limits.ts";
@@ -13,7 +14,7 @@ import { readOwnership } from "../lib/ownership.ts";
 import { resumeClaudeWorker } from "../lib/resume-claude.ts";
 import { resumeWorker } from "../lib/spawn.ts";
 import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
-import { findJob, refusalReply, reply, type ToolDeps } from "./kit.ts";
+import { commsDetails, commsRefusalLine, findJob, refusalReply, reply, type ToolDeps } from "./kit.ts";
 
 export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 	const z = pi.zod;
@@ -40,6 +41,26 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 			_onUpdate: unknown,
 			ctx: ToolCtx,
 		) {
+			/* A follow-up instruction is a text that reaches a worker, so the
+			   resume scores it before the worker comes back. The enforce mode
+			   refuses a message that scores below the minimum. */
+			const message = params.message ?? "";
+			if (message.length > 0) {
+				const comms = await checkComms(
+					rt.exec,
+					rt.config.ste100Skill,
+					message,
+					"steer",
+					rt.config.commsStandard,
+				);
+				if (comms.verdict === "fail") {
+					return reply(
+						commsRefusalLine(comms, rt.config.commsStandard),
+						{ ...commsDetails(comms), refused: "commsStandard" },
+						true,
+					);
+				}
+			}
 			const found = findJob(rt, params.workerId);
 			if ("error" in found) return found.error;
 			const { job } = found;
