@@ -131,15 +131,38 @@ The request `thread/inject_items` also writes the rollout file, but it puts the 
 
 A probe on the machine of this repository confirmed the order. The probe used the build codex-cli 0.165.0. The TUI stayed alive for more than 80 seconds. It showed the task and the approval dialog `Allow the wezterm_worker_proof MCP server to run tool "wezterm_worker_report"?`. The dialog holds the options `1. Allow`, `2. Allow for this session`, `3. Always allow` and `4. Cancel`. The TUI used the thread id of the client.
 
-The scenario `observe` now answers that dialog. The proof reads the text of the pane every second for at most 30 seconds. When the dialog shows, the proof sends the Enter key to the pane, and the first option lets the call run. The proof records the observation `tui.approval-answered` with the text that showed the dialog.
+The scenario `observe` answers that dialog. The proof reads the text of the pane every second. When the dialog shows, the proof sends the Enter key to the pane, and the first option lets the call run. The proof records the observation `tui.approval-answered` with the text that showed the dialog.
 
 The other scenarios keep their behaviour. A scenario that tests an approval or a refusal does not answer.
+
+### The two dialogs of the Codex TUI
+
+The TUI of Codex shows two different dialogs. The first dialog asks for the approval of a call of the report server. The second dialog asks for the approval of a shell command.
+
+| Dialog | The text that marks it | The first option | The key |
+| :- | :- | :- | :- |
+| The call of the report server | `Allow the wezterm_worker_proof MCP server to run tool` | `1. Allow` | Enter |
+| A shell command | `Would you like to run the following command?` | `1. Yes, proceed (y)` | Enter |
+
+The first option of each dialog is the default. The key Enter selects it.
+
+The dialog of a shell command asks for the approval before the model starts a background job. A turn can hold both dialogs, so a proof that answers one dialog can stop at the other one.
+
+The proof reads the text of the pane every second. The function `dialogKind` finds the dialog that the pane shows. When both dialogs show, the function returns the dialog that appears last in the text, because the newest dialog of the TUI sits at the bottom of the pane.
+
+The proof answers every dialog of a turn. It stops when the turn of the scenario ends or after 60 seconds. The limit is 60 seconds because a turn can hold two dialogs. The proof never answers the same dialog twice. After an answer it waits until the text of that dialog is gone or until three seconds pass. The proof records the observation `tui.approval-answered` with the kind of the dialog and the text of the pane.
+
+The scenarios `observe`, `background` and `resume` answer their dialogs. Each of them attaches a real TUI, waits for its first screen, and then answers the dialogs of its turn. The scenario `resume` attaches a TUI to its second server too.
+
+The scenario `approval` does not answer. It has a TUI, and the TUI keeps the answer of the person. That scenario proves that the request of the approval reaches the observer.
+
+The scenario `queue` keeps its behaviour too. It did not ask for an answer.
 
 The app server does not pass its own environment to a stdio MCP server. The report server reads the variables `WEZTERM_PROOF_URL`, `WEZTERM_PROOF_TOKEN` and `WEZTERM_PROOF_RUN_ID` from the environment. The report server found no variable, so the tool call `wezterm_worker_report` failed with `Mcp error: -32000: The proof listener did not record the report.`
 
 The option `env_vars` passes the named variables of the app server to the MCP server. The option `env` sets the values directly. The proof uses `env_vars`, because `env` puts the token value into the command line of the process. Every process of the user can read that line.
 
-No scenario of the Codex backend passed yet. The proof of the Codex backend stays open.
+The proof of the Codex backend stays open.
 
 The version that `codex` resolves on this machine is 0.142.0. The plan observed 0.157.1. A node `spawn` of `codex` reaches a different binary than `cmd /c codex`, so the probe must resolve the binary before it plans around a protocol version.
 
@@ -157,7 +180,27 @@ A second defect of that run touched the cleanup and the evidence. The stop of a 
 
 The scenarios `settings-usage` and `recovery` wrote no line of evidence in that run. The scenario `settings-usage` records the messages of its client now. The scenario `recovery` records the messages of the client that it makes after the reconnect. A scenario that records no line of its own does not pass. Its verdict is `fail` and its detail names the missing evidence.
 
-No scenario of the Codex backend passed yet. The proof of the Codex backend stays open. The next run of the proof shows which scenarios pass with the own list of each scenario.
+### The second full run
+
+The second full run of the proof ran on 2026-10-29. Its evidence sits in `C:\tmp\codex-proof-all-2`. The verdicts of that run:
+
+| Scenario | Verdict | Detail |
+| :- | :- | :- |
+| `observe` | pass | turns started: 1, completed: 1, report: recorded |
+| `queue` | pass | one accepted entry became a delivered input |
+| `no-report` | pass | one native turn ended and no report arrived |
+| `resume` | fail | the first turn produced no report |
+| `settings-usage` | pass | the native usage endpoint answered |
+| `approval` | pass | one native approval request reached the observer |
+| `background` | fail | report: missing; background terminal observations: 0; background file: false |
+| `recovery` | pass | the observer reconnected to the same server |
+| `stop` | pass | one interrupted turn; the unrelated panes survived |
+
+Two scenarios failed for one reason. Nobody answered the approval dialog of the real Codex TUI. The scenario `background` stopped at the request of the approval of a shell command. The scenario `resume` stopped at the dialog of the call of the report server. The proof answered the dialog of the report server once, and Codex asked again.
+
+The run left one pane and two `codex` processes on the machine. The scenario `resume` starts two app servers. Its first server ended in the middle of the scenario, and its early returns skipped the stop of that server. The stop of a server ends its process and its child process, so the two processes of that server stayed too. The scenario stops every server on every path now, including the early returns and a thrown error.
+
+The proof of the Codex backend stays open. The next run of the proof shows which scenarios pass with the own list of each scenario.
 
 Ticket 1 stays open. Tickets 2 to 5 stay blocked for the Codex half of the feature.
 
