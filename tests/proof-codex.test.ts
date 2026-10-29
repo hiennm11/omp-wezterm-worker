@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { initializeParams, observationOf, secretFields } from "../tooling/backend-proof/codex.ts";
+import {
+	initializeParams,
+	observationOf,
+	reportServerArgs,
+	secretFields,
+} from "../tooling/backend-proof/codex.ts";
 import { approvalDialogShown } from "../tooling/backend-proof/codex-tui.ts";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -47,4 +52,26 @@ test("a pane text without a dialog does not show the dialog", () => {
 
 test("an empty pane text does not show the dialog", () => {
 	assert.equal(approvalDialogShown(""), false);
+});
+
+test("the report server options name the proof variables", () => {
+	const args = reportServerArgs("C:/proof/report-server.ts");
+	const option = args.find((arg) => arg.includes("env_vars="));
+	assert.ok(option, "the options hold no env_vars option");
+	assert.match(option, /WEZTERM_PROOF_URL/);
+	assert.match(option, /WEZTERM_PROOF_TOKEN/);
+	assert.match(option, /WEZTERM_PROOF_RUN_ID/);
+});
+
+test("the report server options hold no token value and no url value", () => {
+	const args = reportServerArgs("C:/proof/report-server.ts");
+	const text = args.join(" ");
+	assert.equal(text.includes("secret-token"), false);
+	assert.equal(text.includes("http://127.0.0.1"), false);
+});
+
+test("the report server options keep the command and the path", () => {
+	const args = reportServerArgs("C:/proof/report-server.ts");
+	assert.ok(args.includes('mcp_servers.wezterm_worker_proof.command="node"'));
+	assert.ok(args.includes('mcp_servers.wezterm_worker_proof.args=["C:/proof/report-server.ts"]'));
 });
