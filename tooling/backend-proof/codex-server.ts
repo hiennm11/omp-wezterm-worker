@@ -201,6 +201,26 @@ export async function startServer(
 		};
 	}
 
+	/* The request `thread/start` makes a thread that has no rollout file. The
+	   command `resume` of the TUI needs that file. The request
+	   `thread/name/set` writes the file, and the request `thread/resume`
+	   makes the server load it. Both calls go through the client, so the
+	   evidence file holds them. */
+	const named = await client.request("thread/name/set", { threadId, name: "proof-worker" });
+	if (named.error) {
+		client.close();
+		await runProgram("wezterm", ["cli", "kill-pane", "--pane-id", String(paneId)]);
+		await listener.close();
+		return { handle: null, error: named.error.message, reason: null };
+	}
+	const resumed = await client.request("thread/resume", { threadId });
+	if (resumed.error) {
+		client.close();
+		await runProgram("wezterm", ["cli", "kill-pane", "--pane-id", String(paneId)]);
+		await listener.close();
+		return { handle: null, error: resumed.error.message, reason: null };
+	}
+
 	return {
 		handle: {
 			client,
