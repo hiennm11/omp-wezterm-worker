@@ -82,7 +82,9 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				.string()
 				.optional()
 				.describe(
-					"Model selector for the worker, e.g. 'omniroute/minimax/MiniMax-M3.1-Flash'. Omit to use omp's default.",
+					"Model selector for the worker, e.g. 'omniroute/minimax/MiniMax-M3.1-Flash'. Omit to use omp's default. " +
+						"The role aliases 'smol', 'task' and 'slow' select a model. " +
+						"These aliases apply to an OMP worker only. A Claude Code worker receives the value unchanged.",
 				),
 			tools: z
 				.array(z.string())

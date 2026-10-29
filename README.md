@@ -130,7 +130,7 @@ Then keep working; the result arrives on its own.
 | `cwd` | string | Absolute path. Defaults to the calling session's cwd. |
 | `label` | string | Human label; shown in the pane tab title. |
 | `backend` | `"omp"` \| `"claude"` \| `"codex"` | The CLI that runs the worker. Defaults to `omp`. The extension never falls back to another backend. |
-| `model` | string | Optional model selector, e.g. `omniroute/minimax/MiniMax-M3.1-Flash`. Omit for omp's default. |
+| `model` | string | Optional model selector, e.g. `omniroute/minimax/MiniMax-M3.1-Flash`. Omit for omp's default. The role aliases `smol`, `task` and `slow` select a model. These aliases apply to an OMP worker only. A Claude Code worker receives the value unchanged. |
 | `tools` | string[] | Optional tool list, e.g. `["read","grep","glob"]`. Omit for the default set. An OMP worker only. |
 | `placement` | `"split"` \| `"tab"` | `split` splits the current pane; `tab` opens a new tab. |
 | `isolated` | boolean | Run in a dedicated `git worktree` so parallel workers never edit the same checkout. |
