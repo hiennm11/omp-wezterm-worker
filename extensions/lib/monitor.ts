@@ -18,12 +18,14 @@ import { finalizeJob, stopJob } from "./lifecycle.ts";
 import { runMonitorAction } from "./monitor-actions.ts";
 import { monitorVerdict } from "./monitor-authority.ts";
 import { recordNativeEvents } from "./native-events.ts";
+import { persistNativeReport } from "./native-report.ts";
 import { taskKey } from "./owner.ts";
 import { readOwnership } from "./ownership.ts";
 import { paneState } from "./pane.ts";
 import { decideFromReports } from "./report-decision.ts";
-import { appendReport, readReports } from "./report-store.ts";
+import { readReports } from "./report-store.ts";
 import type { WorkerRuntime } from "./runtime.ts";
+import { checkStartupBlock } from "./startup-block.ts";
 import { listSessionFiles, type SessionSummary, summarizeSession } from "./transcript.ts";
 
 /**
@@ -252,6 +254,10 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 export function monitorNativeJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => void): void {
 	rt.stopMonitor(job.id);
 
+	/* True while the startup check reads the pane. One read runs at a
+	   time, so a slow pane does not start a second read. */
+	let startupRead = false;
+
 	const end = (status: JobStatus, error: string | null, result: string | null) => {
 		void runMonitorAction(rt, job.id, async () => {
 			await finalizeJob(rt, job, status, error, result);
@@ -298,6 +304,17 @@ export function monitorNativeJob(rt: WorkerRuntime, job: Job, notify: (job: Job)
 		   event and it stays open until the request settles. */
 		recordNativeEvents(rt.openDb(), job.id, state, now);
 
+		/* A session that did not start waits for the person. The missing
+		   session start is the fact, and the pane text names the cause.
+		   One pane read runs at a time, so two polls do not read the pane
+		   of one run at the same time. */
+		if (!startupRead) {
+			startupRead = true;
+			void checkStartupBlock(rt, job, state, now).finally(() => {
+				startupRead = false;
+			});
+		}
+
 		const report = claudeBoundReport(state);
 		if (report?.state !== "completed") return;
 
@@ -315,31 +332,4 @@ export function monitorNativeJob(rt: WorkerRuntime, job: Job, notify: (job: Job)
 	};
 
 	rt.monitors.set(job.id, rt.startInterval(tick, rt.config.pollMs));
-}
-
-/**
- * Save the report of a native run beside the run.
- *
- * The report is the evidence of the completion. It lands in the same file
- * that an OMP worker writes, so a later reader finds both in one place.
- */
-function persistNativeReport(
-	job: Job,
-	report: { cycleId: string | null; state: string; result: string | null },
-): void {
-	if (report.state !== "completed") return;
-	try {
-		appendReport(job.sessionDir, {
-			runId: job.id,
-			cycleId: report.cycleId,
-			state: "completed",
-			result: report.result,
-			dependency: null,
-			resumeCondition: null,
-			needs: null,
-			detail: null,
-		});
-	} catch {
-		/* the completion still holds; the file is a convenience */
-	}
 }
