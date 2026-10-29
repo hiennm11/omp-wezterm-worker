@@ -101,8 +101,10 @@ _Avoid_: Consumption, cost, billing
 
 **Communication check**:
 The score that the extension gives to the text that the main session and the
-workers exchange. A low score adds a warning. The enforce mode refuses a task
-and a steering message that score below the minimum.
+workers exchange. The check starts the checker of the ste100 skill. A low
+score adds a warning. The enforce mode refuses a task and a steering message
+that score below the minimum. A machine without the skill gives the verdict
+skipped, and the tool never refuses a text then.
 _Avoid_: Style check, lint, grammar check
 
 ## Agreed supervision terms

@@ -53,7 +53,7 @@ These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
 
 - Give the implementation to a worker with `isolated: true`. The orchestrator keeps the grilling, the facts, the task text and the verification.
 - Put the full design in the task text. A worker cannot read the conversation.
-- Write the task text in English. Score it with `node tooling/ste100-cli.ts <file>` before you send it. The score must be 80 or more.
+- Write the task text in English. Score it with the checker of the ste100 skill before you send it. Run `node <the skill folder>/dist/cli.js --dictionary resources/ste100-dictionary.json <file>`. The score must be 80 or more.
 - Tell the worker to write each red test first and to run it on `master`.
 - Check the report of a worker against the code. A claim without a file and a line is not evidence.
 - Run `npx biome check .` on the branch of a worker yourself. A worker report of a clean lint is not evidence, because three branches failed `biome format` after such a report. Format every new test file.
@@ -80,7 +80,7 @@ These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
 ## Documents
 
 - Keep each document that an agent reads at a score of 80 or more. Run `npm run ste100`.
-- Add a new agent document to `CHECKED_DOCUMENTS` in `tooling/ste100-cli.ts`.
+- Add a new agent document to `CHECKED_DOCUMENTS` in `tooling/ste100-docs.ts`.
 - Update the layout in `README.md` when you add or move a module.
 
 ## Before you report done
