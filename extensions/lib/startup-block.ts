@@ -128,12 +128,7 @@ export async function checkStartupBlock(
 		const launchedAt = job.startedAt ?? job.createdAt;
 		if (now - launchedAt < STARTUP_BLOCK_MS) return;
 		if (job.paneId === null) return;
-		const reason = startupBlockReason(
-			state.sessionId,
-			launchedAt,
-			now,
-			await readPaneText(rt, job.paneId),
-		);
+		const reason = startupBlockReason(state.sessionId, launchedAt, now, await readPaneText(rt, job.paneId));
 		if (reason === null) return;
 		recordStartupBlock(db, job.id, reason, now);
 	} catch (e) {

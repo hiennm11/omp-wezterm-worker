@@ -13,9 +13,7 @@ import { startupBlockReason } from "../extensions/lib/startup-block.ts";
 
 const LAUNCH = 1_000_000;
 const DIALOG =
-	"Is this a project you created or one you trust?\n" +
-	"1. No, exit\n" +
-	"2. Yes, I trust this folder";
+	"Is this a project you created or one you trust?\n" + "1. No, exit\n" + "2. Yes, I trust this folder";
 
 test("the three facts give the reason of the trust dialog", () => {
 	assert.equal(startupBlockReason(null, LAUNCH, LAUNCH + 61_000, DIALOG), "trust_dialog");

@@ -20,9 +20,7 @@ import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts"
 import { registerStatusTool } from "../extensions/worker-tools/status.ts";
 
 const DIALOG =
-	"Is this a project you created or one you trust?\n" +
-	"1. No, exit\n" +
-	"2. Yes, I trust this folder";
+	"Is this a project you created or one you trust?\n" + "1. No, exit\n" + "2. Yes, I trust this folder";
 
 /** A runtime whose polls run only when the test calls them. */
 function fakeRuntime(stateDir: string, paneText: string): { rt: WorkerRuntime; tick: () => void } {
