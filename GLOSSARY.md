@@ -137,9 +137,9 @@ same session claims the task again after a restart.
 _Avoid_: Claim, lock, registration
 
 **Takeover**:
-The explicit handover of supervision to a different main session. The previous
-owner must release the task, or the extension must confirm that the process of
-the previous owner ended.
+The explicit handover of supervision to a main session. The previous owner
+must release the task, or the extension must confirm that the process of the
+previous owner ended. A session can also take back a task that it released.
 _Avoid_: Resume, restart
 
 **Worker event**:
