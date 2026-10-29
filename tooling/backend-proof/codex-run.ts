@@ -20,6 +20,7 @@ import {
 	stopHandle,
 	wait,
 } from "./codex-server.ts";
+import { checkTuiPane, recordTuiText, type TuiPane } from "./codex-tui.ts";
 import type { ScenarioOutcome } from "./scenarios.ts";
 import { makeFixture } from "./shared.ts";
 
@@ -36,7 +37,7 @@ export interface ProofOutcome {
 
 export async function runCodexProof(options: CodexProofOptions): Promise<ProofOutcome> {
 	const results: ScenarioOutcome[] = [];
-	const binary = await findCodexBinary();
+	const binary = options.binary ?? (await findCodexBinary());
 	if (!binary) {
 		return {
 			verdict: "unavailable",
@@ -113,7 +114,9 @@ async function runObserve(
 		if (tui.paneId === null) {
 			return { scenario, verdict: "fail", detail: tui.error ?? "the TUI did not start" };
 		}
+		const pane: TuiPane = { paneId: tui.paneId, text: "", gone: false };
 		await wait(3000);
+		await checkTuiPane(options, scenario, pane);
 
 		const turn = await handle.client.request("turn/start", {
 			threadId: handle.threadId,
@@ -128,7 +131,9 @@ async function runObserve(
 			return { scenario, verdict: "fail", detail: turn.error.message };
 		}
 		await wait(20000);
-		recordMessages(options, handle.client.messages, scenario);
+		recordMessages(options, handle.client, scenario);
+		await checkTuiPane(options, scenario, pane);
+		recordTuiText(options, scenario, pane);
 
 		const report = options.observations.find((o) => o.source === "report");
 		const started2 = options.observations.filter((o) => o.source === "codex.turn/started").length;
@@ -180,7 +185,7 @@ async function runQueue(options: CodexProofOptions, fixture: string, bin: string
 		const list = await handle.client.request("thread/queue/list", { threadId: handle.threadId });
 		const entries = (list.result as { data?: unknown[] } | undefined)?.data ?? [];
 		await wait(15000);
-		recordMessages(options, handle.client.messages, scenario);
+		recordMessages(options, handle.client, scenario);
 
 		const delivered = options.observations.filter(
 			(o) =>
@@ -218,7 +223,7 @@ async function runNoReport(
 			input: [{ type: "text", text: "Answer with the word DONE only." }],
 		});
 		await wait(15000);
-		recordMessages(options, handle.client.messages, scenario);
+		recordMessages(options, handle.client, scenario);
 		const reports = options.observations.filter((o) => o.source === "report");
 		const completed = options.observations.filter((o) => o.source === "codex.turn/completed").length;
 		if (reports.length > 0) {
@@ -257,7 +262,7 @@ async function runResume(options: CodexProofOptions, fixture: string, bin: strin
 			],
 		});
 		await wait(20000);
-		recordMessages(options, handle.client.messages, scenario);
+		recordMessages(options, handle.client, scenario);
 		const firstReport = options.observations.find((o) => o.source === "report");
 		if (!firstReport) {
 			return { scenario, verdict: "fail", detail: "the first turn produced no report" };
@@ -296,7 +301,7 @@ async function runResume(options: CodexProofOptions, fixture: string, bin: strin
 				],
 			});
 			await wait(20000);
-			recordMessages(options, secondHandle.client.messages, scenario);
+			recordMessages(options, secondHandle.client, scenario);
 			const reports = options.observations.slice(before).filter((o) => o.source === "report");
 			const detail = `the thread id stayed ${resumedThread?.id}; stored turns: ${history.length}; new reports: ${reports.length}`;
 			if (reports.length === 0) return { scenario, verdict: "fail", detail };

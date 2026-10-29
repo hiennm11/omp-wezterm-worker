@@ -15,7 +15,8 @@ import { join } from "node:path";
 
 import { runClaudeProof } from "./backend-proof/claude-run.ts";
 import { runCodexProof } from "./backend-proof/codex-run.ts";
-import { createEvidenceStore } from "./backend-proof/evidence.ts";
+import { findCodexBinary } from "./backend-proof/codex-server.ts";
+import { createEvidenceStore, observationsFile } from "./backend-proof/evidence.ts";
 import {
 	ArgumentError,
 	checkEvidenceDir,
@@ -62,13 +63,16 @@ async function main(): Promise<number> {
 	const observations: Array<{ source: string; payload: unknown }> = [];
 	const evidence = createEvidenceStore(args.evidenceDir, args.backend, runId);
 
+	const binary = args.backend === "codex" ? await findCodexBinary() : null;
+
 	const versions: Record<string, unknown> = {
 		node: process.version,
 		platform: `${process.platform} ${process.arch}`,
 		claude: await programVersion("claude"),
-		codex: await programVersion("codex"),
+		codex: binary?.version ?? null,
 		wezterm: await programVersion("wezterm"),
 	};
+	if (binary) versions.codexBinary = binary.bin;
 	evidence.versions(versions);
 
 	const report: string[] = [
@@ -88,20 +92,30 @@ async function main(): Promise<number> {
 		"",
 	];
 
-	const outcome =
-		args.backend === "claude"
-			? await runClaudeProof({
-					args,
-					runId,
-					evidence,
-					observations,
-				})
-			: await runCodexProof({
-					args,
-					runId,
-					evidence,
-					observations,
-				});
+	let outcome: { verdict: string; results: Array<{ scenario: string; verdict: string; detail: string }> };
+	try {
+		outcome =
+			args.backend === "claude"
+				? await runClaudeProof({
+						args,
+						runId,
+						evidence,
+						observations,
+					})
+				: await runCodexProof({
+						args,
+						runId,
+						evidence,
+						observations,
+						binary,
+					});
+	} catch (error) {
+		const detail = `the run threw: ${String(error)}`;
+		outcome = {
+			verdict: "fail",
+			results: [{ scenario: args.scenario, verdict: "fail", detail }],
+		};
+	}
 
 	report.push("## Scenarios", "");
 	report.push("| Scenario | Verdict | Detail |");
@@ -119,6 +133,7 @@ async function main(): Promise<number> {
 	}
 	console.log(`Overall: ${outcome.verdict}`);
 	console.log(`Evidence: ${args.evidenceDir}`);
+	console.log(`Observations: ${observationsFile(args.evidenceDir)}`);
 
 	if (outcome.verdict === "unavailable") return EXIT_MISSING;
 	if (outcome.verdict !== "pass") return EXIT_FAILED;

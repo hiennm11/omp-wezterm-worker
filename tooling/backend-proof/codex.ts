@@ -16,6 +16,60 @@ export interface ProtocolMessage {
 	error?: { code: number; message: string };
 }
 
+/** One observation of a protocol message. */
+export interface ProtocolObservation {
+	/** The source of the observation. */
+	source: string;
+	/** The payload of the observation. */
+	payload: unknown;
+}
+
+/**
+ * Map one protocol message to the pair of an observation.
+ *
+ * A notification and a request give the source of their method. A response
+ * gives the source of a response and keeps its id. A message without a method
+ * and without an id gives the unknown source.
+ */
+export function observationOf(message: ProtocolMessage): ProtocolObservation {
+	if (message.method) {
+		return { source: `codex.${message.method}`, payload: message.params ?? {} };
+	}
+	if (message.id !== undefined) {
+		const payload: Record<string, unknown> = { id: message.id };
+		if (message.result !== undefined) payload.result = message.result;
+		if (message.error !== undefined) payload.error = message.error;
+		return { source: "codex.response", payload };
+	}
+	return { source: "codex.unknown", payload: {} };
+}
+
+/** The names of the fields that hold a secret. */
+const SECRET_NAMES = ["token", "apikey", "secret", "password", "authorization", "credential"];
+
+/**
+ * The names of the fields of a payload that hold a secret.
+ *
+ * The proof sends no secret. The function names a field that would.
+ */
+export function secretFields(payload: unknown, prefix = ""): string[] {
+	if (Array.isArray(payload)) {
+		return payload.flatMap((item, index) => secretFields(item, `${prefix}[${index}]`));
+	}
+	if (payload === null || typeof payload !== "object") return [];
+	const found: string[] = [];
+	for (const [key, value] of Object.entries(payload)) {
+		const name = prefix ? `${prefix}.${key}` : key;
+		const lower = key.toLowerCase();
+		if (SECRET_NAMES.some((secret) => lower === secret || lower.endsWith(secret))) {
+			found.push(name);
+			continue;
+		}
+		found.push(...secretFields(value, name));
+	}
+	return found;
+}
+
 /** The client of one app server. */
 export interface AppServerClient {
 	/** The WebSocket of the client. */
@@ -24,6 +78,8 @@ export interface AppServerClient {
 	threadId: string | null;
 	/** The messages that the server sent. */
 	messages: ProtocolMessage[];
+	/** The messages that the client sent. */
+	sent: ProtocolMessage[];
 	/** Send one request and wait for its response. */
 	request: (method: string, params?: Record<string, unknown>) => Promise<ProtocolMessage>;
 	/** Send one notification. */
@@ -34,6 +90,19 @@ export interface AppServerClient {
 
 /** The client name that the proof uses. */
 export const PROOF_CLIENT_NAME = "wezterm_worker_proof";
+
+/**
+ * The parameters of the initialize request.
+ *
+ * The request carries no token. The proof reads the credentials of the
+ * machine from the environment of the app server, not from this request.
+ */
+export function initializeParams(): Record<string, unknown> {
+	return {
+		clientInfo: { name: PROOF_CLIENT_NAME, title: "OMP worker proof", version: "0.1.0" },
+		capabilities: { experimentalApi: true },
+	};
+}
 
 /**
  * Connect to one app server.
@@ -47,6 +116,7 @@ export async function connectAppServer(
 ): Promise<AppServerClient> {
 	const socket = new WebSocket(endpoint);
 	const messages: ProtocolMessage[] = [];
+	const sent: ProtocolMessage[] = [];
 	const waiters = new Map<number, (message: ProtocolMessage) => void>();
 	let nextId = 1;
 	let threadId: string | null = null;
@@ -75,18 +145,17 @@ export async function connectAppServer(
 		nextId += 1;
 		const { promise, resolve } = Promise.withResolvers<ProtocolMessage>();
 		waiters.set(id, resolve);
+		sent.push({ id, method, params });
 		socket.send(JSON.stringify({ jsonrpc: "2.0", id, method, params }));
 		return promise;
 	};
 
 	const notify = (method: string, params: Record<string, unknown> = {}) => {
+		sent.push({ method, params });
 		socket.send(JSON.stringify({ jsonrpc: "2.0", method, params }));
 	};
 
-	const initialize = await request("initialize", {
-		clientInfo: { name: PROOF_CLIENT_NAME, title: "OMP worker proof", version: "0.1.0" },
-		capabilities: { experimentalApi: true },
-	});
+	const initialize = await request("initialize", initializeParams());
 	if (initialize.error) {
 		throw new Error(`the app server refused the initialization: ${initialize.error.message}`);
 	}
@@ -101,6 +170,7 @@ export async function connectAppServer(
 			threadId = value;
 		},
 		messages,
+		sent,
 		request,
 		notify,
 		close: () => socket.close(),
