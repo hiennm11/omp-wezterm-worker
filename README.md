@@ -85,12 +85,12 @@ confirm the picker.
 | Tool | Purpose |
 |---|---|
 | `wezterm_spawn_worker` | Start a worker. Returns worker id, pane id, tab id, cwd, transcript path. Does not wait. |
-| `wezterm_worker_status` | List workers, or inspect one by id. Shows lifecycle state, elapsed time, idle time, the tool running right now, turn count, steering count, the tokens used, and a pending stop. |
+| `wezterm_worker_status` | List workers, or inspect one by id. Shows lifecycle state, elapsed time, idle time, the tool running right now, turn count, steering count, the tokens used, and a pending stop. A list without an id shows every active worker, every worker with an event that waits for you, and the 10 newest workers that ended. The older workers stay hidden, and the reply names their count. |
 | `wezterm_worker_ack` | Record that you handled a worker event. A delivery does not prove that you handled it. |
 | `wezterm_worker_steer` | Send a new instruction into a **running** worker. It arrives as a follow-up user message and the worker keeps going. |
 | `wezterm_worker_peek` | Show the last visible lines of a worker's pane. A debug aid for a worker that looks stuck. |
 | `wezterm_worker_result` | Read a finished worker's final assistant text. |
-| `wezterm_worker_resume` | Reopen a **finished** worker in a new pane, continuing its transcript, optionally with a follow-up instruction. |
+| `wezterm_worker_resume` | Reopen a **finished** worker in a new pane, continuing its transcript, optionally with a follow-up instruction. The follow-up instruction is scored in Simplified Technical English, like the instruction of a steer. A low score refuses the resume before it reaches a pane. |
 | `wezterm_worker_cancel` | Cancel a worker and close **only** the pane that worker created. The cancel counts only after the pane list shows the pane gone. A worker whose stop is not confirmed stays `running`, and the tool accepts it again. |
 | `wezterm_worker_cleanup` | Release a finished worker's transcript directory and its isolated worktree. A worktree with uncommitted changes is kept unless `force` is set. |
 | `wezterm_worker_release` | Stop the supervision of a worker and give the authority away. The worker keeps running. |
@@ -225,6 +225,13 @@ receives as a real Enter.
 The status tool also reports the usage of the current request. That total
 covers the workers only. The tool does not count the main session.
 
+A list without a worker id shows three groups. The first group holds every
+active worker. The second group holds every worker with an event that waits
+for you. The third group holds the 10 newest workers that ended. Each group
+keeps the newest worker first. The other workers stay hidden, and the reply
+names their count. A call with a worker id shows that one worker, even when
+the worker is old.
+
 `wezterm_worker_peek` shows the last lines rendered in the worker's pane. It
 is a debug aid for a worker that looks stuck. The transcript remains the only
 source of truth for the result.
@@ -307,8 +314,8 @@ exchange. The score comes from the same Simplified Technical English checker
 that scores the documents of this repository. A low score means that a reader
 can read the text in more than one way.
 
-The check reads three texts: the `task` of a spawn, the `message` of a steer
-and the `result` of a report.
+The check reads four texts: the `task` of a spawn, the `message` of a steer, the
+`message` of a resume and the `result` of a report.
 
 The setting `commsStandard` holds the mode and the minimum score:
 
@@ -317,7 +324,7 @@ The setting `commsStandard` holds the mode and the minimum score:
 | `mode` | `off`, `warn`, `enforce` | What the check does with a low score. |
 | `minScore` | 0 to 100 | The score that a text must reach. A value outside the range is refused. The default of 80 is used, and the extension reports the refusal. |
 
-| Mode | A task or a steering message | A result |
+| Mode | A task, a steering message or a follow-up instruction | A result |
 |---|---|---|
 | `off` | The check does not run. The text is sent. | The check does not run. The text is saved. |
 | `warn` (default) | The text is sent, and the reply carries a warning. | The text is saved, and the reply carries a warning. |
@@ -512,6 +519,11 @@ takeover settles the attempts of the task that it took.
 whole history and can get a follow-up instruction. This is the only way
 to continue a worker that completed already. Steering needs a live pane.
 
+**The follow-up instruction of a resume is scored.** The instruction reaches a
+worker, so the resume scores it in Simplified Technical English like the
+instruction of a steer. The enforce mode refuses a low score before the
+resume starts a pane. A resume without a message scores nothing.
+
 **A resumed worker shares the resources of its source run.** The transcript
 directory and the worktree belong to a resource group. A run finds its group
 through its session directory. So a resume of a resumed run takes the group of
@@ -696,6 +708,7 @@ omp-wezterm-worker/
 │   │   ├── executions.ts        the execution ledger of a run
 │   │   ├── ledger-sync.ts       the sync between the transcript and the ledger
 │   │   ├── events.ts            the worker events and their handling
+│   │   ├── status-list.ts       the list of workers that the status tool shows
 │   │   ├── resolution.ts        the owner resolution of an unknown outcome
 │   │   ├── delivery.ts          the delivery attempts of a pending event
 │   │   ├── stop-intent.ts       the stop intents of a run
