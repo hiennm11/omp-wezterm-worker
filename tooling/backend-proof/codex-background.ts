@@ -3,15 +3,18 @@
  *
  * The scenario proves that the return of the foreground tool and the later
  * settlement of a background task stay apart. The model starts a detached
- * process, calls the report tool, and ends its turn. The proof waits for the
- * file of the process. The file appears after the report only when the task
- * really ran in the background.
+ * process, calls the report tool, and ends its turn. The proof polls the
+ * file of the process while the turn runs. The file appears after the report
+ * only when the task really ran in the background.
+ *
+ * The time of the file is the time of its last write. A read that finds the
+ * file late must not hide a file that the process wrote before the report.
  *
  * The verdict is a pure function of the facts of the scenario. A test can
  * check it without a pane.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import type { CodexProofOptions } from "./codex-handle.ts";
@@ -32,20 +35,28 @@ const POLL_INTERVAL_MILLISECONDS = 1000;
  */
 const CONTENT_GRACE_MILLISECONDS = 5000;
 
-/** The milliseconds that the proof waits for the background file. */
-const BACKGROUND_WAIT_MILLISECONDS = 40000;
+/**
+ * The milliseconds that the proof waits for the background file.
+ *
+ * The task of the scenario waits 60 seconds. The limit covers that wait and
+ * the time that the turn needs before it starts the process.
+ */
+const BACKGROUND_WAIT_MILLISECONDS = 90000;
 
 /**
  * Build the text of the task of the background scenario.
  *
  * The text names the absolute path of the file. A relative path lets the
- * process write the file in a directory that nobody watches.
+ * process write the file in a directory that nobody watches. The text asks
+ * for a task that outlives the turn, because a turn that waits for the task
+ * cannot prove that the task ran in the background.
  */
 export function backgroundTaskText(fixture: string): string {
 	const file = join(fixture, "bg.txt").replace(/\\/g, "/");
 	return (
-		"Start a detached background process that waits 15 seconds and then writes " +
+		"Start a detached background process that waits 60 seconds and then writes " +
 		`BG-DONE to ${file}. ` +
+		"Do not wait for the process to finish. " +
 		"Then call the wezterm_worker_report tool with state completed and result PROOF-BACKGROUND."
 	);
 }
@@ -56,7 +67,7 @@ export interface BackgroundFile {
 	path: string;
 	/** Whether the file appeared during the wait. */
 	appeared: boolean;
-	/** The time of the first appearance, in epoch milliseconds. */
+	/** The time of the last write of the file, in epoch milliseconds. */
 	at: number | null;
 	/** The content of the file. */
 	content: string | null;
@@ -74,7 +85,7 @@ export interface BackgroundFacts {
 	reportAt: number | null;
 	/** Whether the background file appeared. */
 	fileAppeared: boolean;
-	/** The time of the first appearance of the file, in epoch milliseconds. */
+	/** The time of the last write of the file, in epoch milliseconds. */
 	fileAt: number | null;
 	/** The content of the background file. */
 	fileContent: string | null;
@@ -83,31 +94,66 @@ export interface BackgroundFacts {
 }
 
 /**
+ * Read the time of the background file.
+ *
+ * The function is pure. It takes the existence of the file, the time of its
+ * last write and the time of the read. It returns the time of the file.
+ *
+ * The time of the file is the time of its last write. The time of the read
+ * is only a fallback for a file that no stat can read. A file that the
+ * process wrote before the report keeps that time, even when the read that
+ * finds it comes later.
+ */
+export function backgroundFileTime(
+	exists: boolean,
+	modifiedMs: number | null,
+	readAt: number,
+): number | null {
+	if (!exists) return null;
+	if (modifiedMs === null) return readAt;
+	return Math.round(modifiedMs);
+}
+
+/**
  * Wait for the background file of the scenario.
  *
  * The function reads the file once per second. It stops when the file
- * holds its content or after 40 seconds. It returns the time of the first
- * existence of the file and the content of the file.
+ * holds its content or after 90 seconds. It returns the time of the last
+ * write of the file and the content of the file.
  */
 export async function waitForBackgroundFile(path: string): Promise<BackgroundFile> {
 	const started = Date.now();
-	let existedAt: number | null = null;
+	let seenAt: number | null = null;
 	while (Date.now() - started < BACKGROUND_WAIT_MILLISECONDS) {
 		await wait(POLL_INTERVAL_MILLISECONDS);
 		const content = readBackgroundContent(path);
 		if (content === null) continue;
-		if (existedAt === null) existedAt = Date.now();
+		const at = backgroundFileTime(true, readModifiedTime(path), Date.now());
+		if (seenAt === null) seenAt = Date.now();
 		if (content !== "") {
-			return { path, appeared: true, at: existedAt, content, waitedMs: Date.now() - started };
+			return { path, appeared: true, at, content, waitedMs: Date.now() - started };
 		}
 		/* The command truncates the file before it writes the content. The
 		   poll gives that write a grace of five seconds. A file that holds
 		   nothing after that is the file that the model wrote. */
-		if (Date.now() - existedAt >= CONTENT_GRACE_MILLISECONDS) {
-			return { path, appeared: true, at: existedAt, content, waitedMs: Date.now() - started };
+		if (Date.now() - seenAt >= CONTENT_GRACE_MILLISECONDS) {
+			return { path, appeared: true, at, content, waitedMs: Date.now() - started };
 		}
 	}
 	return { path, appeared: false, at: null, content: null, waitedMs: Date.now() - started };
+}
+
+/**
+ * Read the time of the last write of the background file.
+ *
+ * The function returns null when no stat can read the file.
+ */
+function readModifiedTime(path: string): number | null {
+	try {
+		return statSync(path).mtimeMs;
+	} catch {
+		return null;
+	}
 }
 
 /**
@@ -154,9 +200,10 @@ function codexItem(payload: unknown): CodexItem {
  * Read the facts of the background scenario and record them as evidence.
  *
  * The function reads the observations of the scenario. It records the time
- * of the first command that completed, the time of the first report, and
- * the state of the background file. The observations carry the time of the
- * event, and they are written in the order of their times.
+ * of the first command that completed, the time of the first report, the
+ * time of the end of the turn, and the state of the background file. The
+ * observations carry the time of the event, and they are written in the
+ * order of their times.
  */
 export function backgroundFacts(
 	options: CodexProofOptions,
@@ -167,6 +214,7 @@ export function backgroundFacts(
 		(o) => o.source === "codex.item/completed" && codexItem(o.payload).type === "commandExecution",
 	);
 	const report = options.observations.find((o) => o.source === "report");
+	const turnCompleted = options.observations.find((o) => o.source === "codex.turn/completed");
 	const facts: BackgroundFacts = {
 		commandCompleted: command !== undefined,
 		reportArrived: report !== undefined,
@@ -187,6 +235,13 @@ export function backgroundFacts(
 	}
 	if (report) {
 		events.push({ source: "background.report", payload: { at: report.at }, at: report.at });
+	}
+	if (turnCompleted) {
+		events.push({
+			source: "background.turn-completed",
+			payload: { at: turnCompleted.at },
+			at: turnCompleted.at,
+		});
 	}
 	if (file.appeared) {
 		events.push({
