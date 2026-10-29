@@ -7,6 +7,8 @@
 
 import { type AttemptState, markUnresolved, openAttempts, readAttempt } from "./attempts.ts";
 import type { LifecycleDb } from "./db.ts";
+import { taskKey } from "./owner.ts";
+import { type Ownership, readOwnership } from "./ownership.ts";
 
 /** The reason a recovery resolved an attempt. */
 export type RecoveryOutcome =
@@ -44,15 +46,47 @@ export function findWorkerForAttempt(
 }
 
 /**
+ * Whether this session may reconcile the attempt.
+ *
+ * An attempt of a task without an ownership row belongs to every session.
+ * An attempt of a task that this session owns belongs to this session.
+ * An attempt of a task of another session stays with its owner. A session
+ * without an identity owns no task.
+ */
+export function mayReconcileAttempt(
+	attempt: { jobId: string },
+	owner: Ownership | null,
+	sessionId: string | null,
+): boolean {
+	// A row of another task says nothing about this attempt.
+	if (owner && owner.taskKey !== taskKey(attempt.jobId)) return false;
+	if (!owner) return true;
+	if (!sessionId) return false;
+	return owner.sessionId === sessionId;
+}
+
+/**
  * Reconcile the attempts that a crash left open.
  *
  * An attempt that finds its worker becomes attached. An attempt that finds
  * nothing becomes unresolved, and it keeps its capacity. The supervisor never
  * sends the command again.
+ *
+ * The session id decides which attempts this session may settle. The job id
+ * limits the work to the attempts of one task.
  */
-export function reconcileAttempts(db: LifecycleDb, workers: FoundWorker[], now: number): RecoveryOutcome[] {
+export function reconcileAttempts(
+	db: LifecycleDb,
+	workers: FoundWorker[],
+	sessionId: string | null,
+	now: number,
+	jobId?: string,
+): RecoveryOutcome[] {
 	const outcomes: RecoveryOutcome[] = [];
 	for (const attempt of openAttempts(db)) {
+		if (jobId !== undefined && attempt.jobId !== jobId) continue;
+		const owner = readOwnership(db, taskKey(attempt.jobId)).owner;
+		if (!mayReconcileAttempt(attempt, owner, sessionId)) continue;
 		const worker = findWorkerForAttempt(attempt, workers);
 		if (worker) {
 			db.write(() => {

@@ -13,6 +13,8 @@ import { attachWorker } from "../lib/attach.ts";
 import { isActive } from "../lib/job.ts";
 import { ensureOwnProcessStart, previousOwnerState, taskKey } from "../lib/owner.ts";
 import { readOwnership, takeOverOwnership } from "../lib/ownership.ts";
+import { findLiveWorkers } from "../lib/process-table.ts";
+import { reconcileAttempts } from "../lib/recovery.ts";
 import { findJob, reply, type ToolDeps } from "./kit.ts";
 
 /** The reason a takeover was refused. */
@@ -101,6 +103,11 @@ export function registerTakeoverTool({ pi, rt, deliver }: ToolDeps): void {
 			if (!written.ok) {
 				return refuse(job.id, "changed", written.reason);
 			}
+			// The new owner settles the open attempts of the task that it
+			// took. An unreadable process table gives no worker, so the
+			// attempt stays unresolved and keeps its capacity.
+			const workers = await findLiveWorkers(rt);
+			reconcileAttempts(rt.openDb(), workers, sessionId, Date.now(), job.id);
 			// A finished worker needs no monitor. The new owner holds the
 			// authority for its pending events, but the worker stays as it is.
 			if (!isActive(job)) {
