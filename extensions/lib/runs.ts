@@ -6,8 +6,11 @@
  * run, so a write touches one row.
  */
 
+import { controlRefusal } from "./authority.ts";
 import type { LifecycleDb } from "./db.ts";
 import type { Job, JobStatus } from "./job.ts";
+import { taskKey } from "./owner.ts";
+import { readOwnership } from "./ownership.ts";
 
 /** The runs that the database holds. */
 export interface RunRows {
@@ -20,52 +23,69 @@ export interface RunRows {
 /**
  * Write the runs of this process into the database.
  *
+ * A session writes the row of a run only when it holds the authority of the
+ * task of that run. The check and the write run in one transaction, so a
+ * session that lost the task writes nothing. A run without an ownership row
+ * gets its first row. A session without an identity writes as it did before.
+ *
  * A run that the database holds already is not written again. A finished run
  * keeps its finished status, so a stale copy of a run cannot revive it. The
  * other fields of a finished run still change, because a reader needs the
  * new flag of a closed pane and the new result.
  */
-export function persistRuns(db: LifecycleDb, jobs: Iterable<Job>): void {
+export function persistRuns(db: LifecycleDb, sessionId: string | null, jobs: Iterable<Job>): void {
 	db.write(() => {
 		for (const job of jobs) {
-			db.handle
-				.prepare(
-					`INSERT INTO runs (id, label, task, cwd, status, session_dir, session_file, pane_id, resource_group, created_at, started_at, finished_at, result, error, payload)
-					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-					 ON CONFLICT(id) DO UPDATE SET
-					   label = excluded.label,
-					   status = excluded.status,
-					   session_file = excluded.session_file,
-					   pane_id = excluded.pane_id,
-					   started_at = excluded.started_at,
-					   finished_at = excluded.finished_at,
-					   result = excluded.result,
-					   error = excluded.error,
-					   payload = excluded.payload
-					 WHERE NOT (
-					   runs.status IN ('completed', 'failed', 'cancelled')
-					   AND excluded.status IN ('queued', 'running')
-					 )`,
-				)
-				.run(
-					job.id,
-					job.label,
-					job.task,
-					job.cwd,
-					job.status,
-					job.sessionDir,
-					job.sessionFile,
-					job.paneId,
-					groupOf(job),
-					job.createdAt,
-					job.startedAt,
-					job.finishedAt,
-					job.result,
-					job.error,
-					JSON.stringify(job),
-				);
+			const owner = readOwnership(db, taskKey(job.id)).owner;
+			if (controlRefusal(owner, sessionId, job.id)) continue;
+			writeRun(db, job);
 		}
 	});
+}
+
+/**
+ * Write the row of one run.
+ *
+ * A finished run keeps its finished status, so a stale copy of a run cannot
+ * revive it. The other fields of a finished run still change.
+ */
+function writeRun(db: LifecycleDb, job: Job): void {
+	db.handle
+		.prepare(
+			`INSERT INTO runs (id, label, task, cwd, status, session_dir, session_file, pane_id, resource_group, created_at, started_at, finished_at, result, error, payload)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(id) DO UPDATE SET
+			   label = excluded.label,
+			   status = excluded.status,
+			   session_file = excluded.session_file,
+			   pane_id = excluded.pane_id,
+			   started_at = excluded.started_at,
+			   finished_at = excluded.finished_at,
+			   result = excluded.result,
+			   error = excluded.error,
+			   payload = excluded.payload
+			 WHERE NOT (
+			   runs.status IN ('completed', 'failed', 'cancelled')
+			   AND excluded.status IN ('queued', 'running')
+			 )`,
+		)
+		.run(
+			job.id,
+			job.label,
+			job.task,
+			job.cwd,
+			job.status,
+			job.sessionDir,
+			job.sessionFile,
+			job.paneId,
+			groupOf(job),
+			job.createdAt,
+			job.startedAt,
+			job.finishedAt,
+			job.result,
+			job.error,
+			JSON.stringify(job),
+		);
 }
 
 /**

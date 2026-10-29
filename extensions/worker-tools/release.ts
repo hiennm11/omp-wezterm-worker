@@ -39,6 +39,10 @@ export function registerReleaseTool({ pi, rt }: ToolDeps): void {
 				);
 			}
 
+			// The row of the run holds the state that the next owner reads. The
+			// write needs the authority, so it runs before the phase moves.
+			rt.persist();
+
 			// The phase moves to releasing first. Every external action that
 			// starts after this point is refused by the authority check.
 			const begin = beginRelease(db, key, rt.sessionId, generation, Date.now());

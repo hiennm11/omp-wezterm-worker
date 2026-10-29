@@ -210,7 +210,7 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 			return `wz-${Date.now().toString(36)}-${sequence.toString(36)}`;
 		},
 		persist() {
-			persistRuns(rt.openDb(), rt.jobs.values());
+			persistRuns(rt.openDb(), rt.sessionId, rt.jobs.values());
 		},
 		readRegistry() {
 			return loadRuns(rt.openDb());
