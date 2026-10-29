@@ -338,11 +338,13 @@ The tool `wezterm_worker_takeover` moves the supervision of one worker to anothe
 
 The tool writes one ownership row and sends no command to a pane.
 
-The tool lets the takeover happen in three cases. The first case is a task of another session in the phase released.
+The tool lets the takeover happen in four cases. The first case is a task of another session in the phase released.
 
 The second case is a task of another session. The code confirms that the owner process of that session is gone.
 
 The third case is a task of another session. Another process took the id of the owner process.
+
+The fourth case is a task of this session in the phase released. The session takes the task back.
 
 The tool refuses a takeover when the owner process still runs.
 
