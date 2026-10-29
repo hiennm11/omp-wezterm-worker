@@ -16,11 +16,7 @@ import {
 	optionsForScenario,
 	verdictWithEvidence,
 } from "../tooling/backend-proof/codex-handle.ts";
-import {
-	approvalDialogShown,
-	commandDialogShown,
-	dialogKind,
-} from "../tooling/backend-proof/codex-tui.ts";
+import { approvalDialogShown, commandDialogShown, dialogKind } from "../tooling/backend-proof/codex-tui.ts";
 import { createEvidenceStore } from "../tooling/backend-proof/evidence.ts";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -29,10 +25,7 @@ const ROOT = join(import.meta.dirname, "..");
 const APPROVAL_PANE = readFileSync(join(ROOT, "tests", "fixtures", "codex-approval-pane.txt"), "utf8");
 
 /** The text of a real pane of the Codex TUI that shows the command dialog. */
-const COMMAND_PANE = readFileSync(
-	join(ROOT, "tests", "fixtures", "codex-command-dialog-pane.txt"),
-	"utf8",
-);
+const COMMAND_PANE = readFileSync(join(ROOT, "tests", "fixtures", "codex-command-dialog-pane.txt"), "utf8");
 
 /** The options of one proof run, for the tests of the Codex scenarios. */
 function testOptions(): CodexProofOptions {
