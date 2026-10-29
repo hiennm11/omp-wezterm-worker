@@ -270,7 +270,8 @@ extension never reads the pane screen text to get a result.
 	"commsStandard": {
 		"mode": "warn",
 		"minScore": 80
-	}
+	},
+	"ste100Skill": "~/.claude/skills/ste100"
 }
 ```
 
@@ -292,6 +293,9 @@ Environment overrides: `OMP_WORKER_OMP_BIN`, `OMP_WORKER_WEZTERM_BIN`,
   last user prompt. The default is `3`. `0` disables the limit.
 - `commsStandard` — the settings of the communication check. The section
   "The communication check" explains them.
+- `ste100Skill` — the folder of the ste100 skill. The default is
+  `~/.claude/skills/ste100`. The section "The communication check" explains
+  the setting.
 - A worker cannot launch a worker. The code refuses the call and the error
   names the rule. See `docs/adr/0007-limits-and-usage-enforced-in-code.md`.
 
@@ -327,8 +331,16 @@ fewer than three words.
 The check scores a Vietnamese text that holds no diacritic as English, because
 the check has no other signal.
 
-The extension needs no external script. The checker sits in
-`extensions/lib/ste100.ts` and runs inside the extension.
+The check starts the checker of the ste100 skill in a child process. The
+skill is the only checker of this repository. The check writes the text into
+a file of a temporary directory, and it removes the directory after the
+check. The word list of this repository is `resources/ste100-dictionary.json`.
+
+The setting `ste100Skill` names the folder of the skill. The default is
+`~/.claude/skills/ste100`. A path that starts with `~` expands to the home
+folder of the user. A machine without the skill has no checker. The check then
+gives the verdict `skipped`, and the reply names the skill and its folder.
+The enforce mode never refuses a text when the checker does not run.
 
 ## Worker lifecycle
 
@@ -649,7 +661,6 @@ omp-wezterm-worker/
 │   │   ├── process-table.ts     reading the process table and the start time of a process
 │   │   ├── role.ts              the role of a process, main or worker
 │   │   ├── bootstrap-prompt.ts  the reporting contract of a worker
-│   │   ├── ste100.ts            the Simplified Technical English checker
 │   │   ├── comms-check.ts       the communication check of the exchanged text
 │   │   ├── worker-context.ts    the run context of a worker
 │   │   └── worker-bootstrap.ts  the tools of a worker process
@@ -675,7 +686,7 @@ omp-wezterm-worker/
 │   └── wezterm-omp-pane-ops/
 │       └── SKILL.md             operating knowledge for the model
 ├── tooling/
-│   ├── ste100-cli.ts            the checker command line
+│   ├── ste100-docs.ts           the document check of the skill
 │   ├── trial.ts                 the Windows trial runner
 │   ├── trial-report.ts          the text of the trial report
 │   ├── trial-paths.ts           the paths that the report hides
@@ -685,6 +696,8 @@ omp-wezterm-worker/
 │   ├── trial-fixture.ts         the repository that the trial workers use
 │   ├── backend-proof.ts         the compatibility probe of the native backends
 │   └── backend-proof/           the modules of the probe
+├── resources/
+│   └── ste100-dictionary.json   the word list of the ste100 checker
 ├── tests/
 │   ├── harness.ts               a test host for the extension
 │   ├── transcript.test.ts       reading a transcript
@@ -698,8 +711,8 @@ omp-wezterm-worker/
 │   ├── monitor.test.ts          the timeout, the idle limit and the result rule
 │   ├── monitor-authority.test.ts the authority of a monitor to end a worker
 │   ├── architecture.test.ts     the size, import and runtime rules
-│   ├── ste100.test.ts           the checker and the document scores
-│   ├── comms-check.test.ts      the communication check and the contract score
+│   ├── ste100-docs.test.ts      the document check of the skill
+│   ├── comms-check.test.ts      the communication check of the skill
 │   ├── trial-report.test.ts     the text of the Windows trial report
 │   ├── trial-paths.test.ts      the paths that the report hides
 │   ├── registration.test.ts     the tools that the extension registers
@@ -773,7 +786,7 @@ so the suite needs no build step and no test framework.
 | `npm run test:integration:free` | Run the integration tests that do not read the pane list. They run one file at a time. |
 | `npm run lint` | Check the format and the lint rules. |
 | `npm run lint:fix` | Apply the fixes that Biome can apply. |
-| `npm run ste100` | Score every agent-facing document. The score must reach 80. |
+| `npm run ste100` | Score every agent-facing document with the checker of the ste100 skill. The score must reach 80. |
 | `npm run trial` | Run the Windows trial with real workers. It writes `docs/trials/windows-trial.md`. |
 | `npm run proof:claude` | Run the compatibility probe against a real Claude Code session. It needs an evidence directory. |
 | `npm run smoke:claude` | Run the smoke test of the Claude Code backend. It starts a real session, reports, resumes and steers. |
@@ -808,8 +821,8 @@ breaks a test.
 | `limits.test.ts` | One active worker blocks a launch at the default limit. A worker with an unconfirmed stop still counts. A launch that failed before its pane existed does not count. A worker session cannot launch a worker. A user prompt resets the request count. |
 | `usage.test.ts` | A number comes only from a transcript. A model call without usage makes the count partial. A transcript without usage shows unknown. A resumed worker counts only what came after the resume. The request total adds the workers of the request. |
 | `nested.integration.test.ts` | A real worker cannot launch a worker and opens no pane. A second spawn is refused while one worker is active. |
-| `ste100.test.ts` | Each agent-facing document reaches the required score. |
-| `comms-check.test.ts` | A clean text passes the communication check. A long sentence warns. A Vietnamese text is skipped. An English text with a Vietnamese name is not skipped. An English text with one accented letter is not skipped. The off mode returns off. The warn mode and the enforce mode give different verdicts. The reporting contract reaches the required score. |
+| `ste100-docs.test.ts` | The document check gives every document and the reporting contract to the checker of the skill. The check fails with the code 2 when the skill is not built. |
+| `comms-check.test.ts` | A text that scores 80 or more passes. A low score warns in the warn mode and fails in the enforce mode. The checker runs with node on a file that holds the text. A missing skill gives the verdict skipped with a note. A Vietnamese text, a short text and the off mode never start the checker. |
 | `claude-argv.test.ts` | A new Claude Code worker and a resumed one both get the reporting contract as one argv element. The task stays the last argument. |
 | `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
@@ -872,10 +885,12 @@ account never appears in the report.
 ### The writing standard
 
 Every document that an agent reads uses Simplified Technical English.
-The `npm run ste100` command scores each one and fails below 80. The checker
-lives in `extensions/lib/ste100.ts`, so the standard is a measured result and
-not a claim. The glossary in `GLOSSARY.md` and the decisions in `docs/adr/`
-carry the same standard. The orchestrator and the workers read them both.
+The `npm run ste100` command scores each one and fails below 80. The command
+starts the checker of the ste100 skill, so the standard is a measured result
+and not a claim. The skill is the only checker of this repository. See
+`docs/adr/0011-the-ste100-skill-is-the-only-checker.md`. The glossary in
+`GLOSSARY.md` and the decisions in `docs/adr/` carry the same standard. The
+orchestrator and the workers read them both.
 
 ### The directories that OMP scans
 

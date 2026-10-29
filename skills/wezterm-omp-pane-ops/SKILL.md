@@ -472,7 +472,7 @@ Apply these rules:
 - Delete filler words such as "simply" and "just".
 
 Run `npm run ste100` in the repository. The command scores every document
-that an agent reads. It fails below 80.
+that an agent reads with the checker of the ste100 skill. It fails below 80.
 
 ### The text that you send to a worker
 
@@ -483,3 +483,5 @@ The extension scores the `task` of a spawn, the `message` of a steer and the `re
 - Name the file, the command and the expected output.
 - In mode `warn`, a low score adds one line to the reply. The line holds the score only. The findings are in `details.commsCheck`.
 - In mode `enforce`, the tool refuses a low score and lists the findings. Rewrite the text and send it again.
+- The check starts the checker of the ste100 skill. The setting `ste100Skill` names the folder of the skill. The default is `~/.claude/skills/ste100`.
+- A machine without the skill gives the verdict `skipped`. The reply names the skill and its folder. The tool never refuses a text then.
