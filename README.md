@@ -821,6 +821,7 @@ omp-wezterm-worker/
 │   ├── authority.test.ts       the authority rules of the control and cleanup tools
 │   ├── authority-tools.test.ts the authority check of the four control tools
 │   ├── authority-record.test.ts the authority check of the record tools and of the delivery
+│   ├── ack-native.test.ts       the acknowledgement of an event of a native run
 │   ├── worker.integration.test.ts    a real worker in a real pane
 │   ├── nested.integration.test.ts    the launch limits with a real worker
 │   ├── worktree.integration.test.ts  the worktree of a real worker
