@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
@@ -9,12 +10,29 @@ import {
 	reportServerArgs,
 	secretFields,
 } from "../tooling/backend-proof/codex.ts";
+import {
+	type CodexProofOptions,
+	mayEndCodexProcess,
+	optionsForScenario,
+	verdictWithEvidence,
+} from "../tooling/backend-proof/codex-handle.ts";
 import { approvalDialogShown } from "../tooling/backend-proof/codex-tui.ts";
+import { createEvidenceStore } from "../tooling/backend-proof/evidence.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
 /** The text of a real pane of the Codex TUI that shows the approval dialog. */
 const APPROVAL_PANE = readFileSync(join(ROOT, "tests", "fixtures", "codex-approval-pane.txt"), "utf8");
+
+/** The options of one proof run, for the tests of the Codex scenarios. */
+function testOptions(): CodexProofOptions {
+	const dir = mkdtempSync(join(tmpdir(), "proof-codex-"));
+	return {
+		args: { backend: "codex", scenario: "all", evidenceDir: dir },
+		runId: "proof-codex-test",
+		evidence: createEvidenceStore(dir, "codex", "proof-codex-test"),
+	};
+}
 
 test("a notification gives the source of its method", () => {
 	const observation = observationOf({ method: "turn/started", params: { turn: { id: "t1" } } });
@@ -74,4 +92,62 @@ test("the report server options keep the command and the path", () => {
 	const args = reportServerArgs("C:/proof/report-server.ts");
 	assert.ok(args.includes('mcp_servers.wezterm_worker_proof.command="node"'));
 	assert.ok(args.includes('mcp_servers.wezterm_worker_proof.args=["C:/proof/report-server.ts"]'));
+});
+
+test("the options of one scenario hold a list of their own", () => {
+	const options = testOptions();
+	const first = optionsForScenario(options);
+	const second = optionsForScenario(options);
+	assert.notEqual(first.observations, second.observations);
+	assert.notEqual(first.observations, options.observations);
+});
+
+test("the options of one scenario keep the evidence store of the run", () => {
+	const options = testOptions();
+	const own = optionsForScenario(options);
+	assert.equal(own.evidence, options.evidence);
+	assert.equal(own.runId, options.runId);
+	assert.equal(own.args, options.args);
+});
+
+test("an observation of one scenario stays out of the list of another scenario", () => {
+	const options = testOptions();
+	const first = optionsForScenario(options);
+	const second = optionsForScenario(options);
+	first.observations.push({ source: "report", payload: {} });
+	assert.equal(second.observations.length, 0);
+});
+
+test("a scenario that wrote no evidence does not pass", () => {
+	const verdict = verdictWithEvidence("observe", "pass", "the report arrived", 0);
+	assert.equal(verdict.verdict, "fail");
+	assert.equal(verdict.detail, "the scenario wrote no evidence");
+});
+
+test("a scenario that wrote evidence keeps its verdict", () => {
+	const verdict = verdictWithEvidence("observe", "pass", "the report arrived", 3);
+	assert.equal(verdict.verdict, "pass");
+	assert.equal(verdict.detail, "the report arrived");
+});
+
+test("a scenario without evidence does not pass even when it failed", () => {
+	const verdict = verdictWithEvidence("observe", "fail", "the turn never ended", 0);
+	assert.equal(verdict.verdict, "fail");
+	assert.equal(verdict.detail, "the scenario wrote no evidence");
+});
+
+test("a process of a name that is not codex must not end", () => {
+	assert.equal(mayEndCodexProcess("notepad.exe"), false);
+});
+
+test("a process of the name codex may end", () => {
+	assert.equal(mayEndCodexProcess("codex.exe"), true);
+});
+
+test("a process of a name that holds codex but is not codex must not end", () => {
+	assert.equal(mayEndCodexProcess("codex-code-mode-host.exe"), false);
+});
+
+test("a process without a name must not end", () => {
+	assert.equal(mayEndCodexProcess(""), false);
 });
