@@ -2,7 +2,13 @@ import { existsSync } from "node:fs";
 import { createServer } from "node:net";
 import { join } from "node:path";
 
-import { type AppServerClient, connectAppServer, endpointFor, observationOf } from "./codex.ts";
+import {
+	type AppServerClient,
+	connectAppServer,
+	endpointFor,
+	observationOf,
+	reportServerArgs,
+} from "./codex.ts";
 import type { EvidenceStore } from "./evidence.ts";
 import { type ProofListener, startListener } from "./listener.ts";
 import type { ScenarioOutcome } from "./scenarios.ts";
@@ -134,10 +140,7 @@ export async function startServer(
 		"app-server",
 		"--listen",
 		`ws://127.0.0.1:${port}`,
-		"-c",
-		`mcp_servers.wezterm_worker_proof.command="node"`,
-		"-c",
-		`mcp_servers.wezterm_worker_proof.args=["${reportServerPath().replace(/\\/g, "/")}"]`,
+		...reportServerArgs(reportServerPath()),
 	];
 	const launched = await runProgram(
 		"wezterm",
