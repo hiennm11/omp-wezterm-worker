@@ -204,6 +204,18 @@ The proof of the Codex backend stays open. The next run of the proof shows which
 
 Ticket 1 stays open. Tickets 2 to 5 stay blocked for the Codex half of the feature.
 
+### The scenario background of the Codex proof
+
+The scenario `background` proves the difference between the return of the foreground tool and the later settlement of a background task. The model starts a detached background process, calls the report tool, and ends its turn. The proof then waits for the file of that process. The file appears after the report only when the task really ran in the background.
+
+The scenario records three facts as observations. The source `background.command-completed` holds the time of the first `codex.item/completed` of type `commandExecution`. The source `background.report` holds the time of the first report of the scenario. The source `background.file-seen` holds the time at which the file first existed and its content. The source `background.file-missing` replaces it when the file never appeared. The times of the Codex events are the field `at` of the observations of the scenario.
+
+The verdict is a pure function of those facts. It passes only when a command completed, a report arrived, and the file appeared with the content `BG-DONE` after the report. It fails when the file appeared before the report, because the turn then waited for the task. It fails when the file never appeared, because the background task did not settle in the wait. It fails when no report arrived.
+
+The task text names the absolute path of the file in the fixture. The third full run named a relative path. The detached process then wrote the file in a directory that nobody watched, so the scenario could not see it.
+
+The scenario does not run yet. The next run of the proof shows its verdict.
+
 ## The production Claude Code backend
 
 The proof established the contracts. The production code uses them. This section records what the production run observed, apart from the proof.
