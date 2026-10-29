@@ -5,6 +5,11 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import {
+	type BackgroundFacts,
+	backgroundTaskText,
+	backgroundVerdict,
+} from "../tooling/backend-proof/codex-background.ts";
+import {
 	initializeParams,
 	observationOf,
 	reportServerArgs,
@@ -35,6 +40,33 @@ function testOptions(): CodexProofOptions {
 		runId: "proof-codex-test",
 		evidence: createEvidenceStore(dir, "codex", "proof-codex-test"),
 		observations: [],
+	};
+}
+
+/** The facts that the tests of the background verdict change. */
+interface BackgroundCase {
+	/** Whether a command of the turn completed. */
+	commandCompleted?: boolean;
+	/** The time of the first report. */
+	reportAt: number | null;
+	/** Whether the background file appeared. */
+	fileAppeared: boolean;
+	/** The time of the first appearance of the file. */
+	fileAt?: number | null;
+	/** The content of the background file. */
+	fileContent?: string | null;
+}
+
+/** Build the facts of one case of the background verdict. */
+function backgroundFacts(testCase: BackgroundCase): BackgroundFacts {
+	return {
+		commandCompleted: testCase.commandCompleted ?? true,
+		reportArrived: testCase.reportAt !== null,
+		reportAt: testCase.reportAt,
+		fileAppeared: testCase.fileAppeared,
+		fileAt: testCase.fileAt ?? null,
+		fileContent: testCase.fileContent ?? null,
+		waitedMs: 40000,
 	};
 }
 
@@ -154,7 +186,7 @@ test("an observation of one scenario stays out of the list of another scenario",
 	const options = testOptions();
 	const first = optionsForScenario(options);
 	const second = optionsForScenario(options);
-	first.observations.push({ source: "report", payload: {} });
+	first.observations.push({ source: "report", payload: {}, at: 1 });
 	assert.equal(second.observations.length, 0);
 });
 
@@ -190,4 +222,64 @@ test("a process of a name that holds codex but is not codex must not end", () =>
 
 test("a process without a name must not end", () => {
 	assert.equal(mayEndCodexProcess(""), false);
+});
+
+test("the background task names the absolute path of the file", () => {
+	const text = backgroundTaskText("C:/tmp/proof/fixture");
+	assert.ok(text.includes("C:/tmp/proof/fixture/bg.txt"), text);
+	assert.ok(!text.includes("\\"), text);
+	assert.ok(text.includes("BG-DONE"), text);
+	assert.ok(text.includes("PROOF-BACKGROUND"), text);
+});
+
+test("a background file that appears after the report passes", () => {
+	const verdict = backgroundVerdict(
+		backgroundFacts({ reportAt: 1000, fileAppeared: true, fileAt: 21000, fileContent: "BG-DONE" }),
+	);
+	assert.equal(verdict.verdict, "pass");
+	assert.ok(verdict.detail.includes("20"), verdict.detail);
+});
+
+test("a background file that appears before the report fails", () => {
+	const verdict = backgroundVerdict(
+		backgroundFacts({ reportAt: 21000, fileAppeared: true, fileAt: 1000, fileContent: "BG-DONE" }),
+	);
+	assert.equal(verdict.verdict, "fail");
+	assert.ok(verdict.detail.includes("background"), verdict.detail);
+});
+
+test("a background file that never appears fails", () => {
+	const verdict = backgroundVerdict(backgroundFacts({ reportAt: 1000, fileAppeared: false }));
+	assert.equal(verdict.verdict, "fail");
+	assert.ok(verdict.detail.includes("40"), verdict.detail);
+});
+
+test("a background turn without a report fails", () => {
+	const verdict = backgroundVerdict(
+		backgroundFacts({ reportAt: null, fileAppeared: true, fileAt: 21000, fileContent: "BG-DONE" }),
+	);
+	assert.equal(verdict.verdict, "fail");
+	assert.ok(verdict.detail.includes("report"), verdict.detail);
+});
+
+test("a background file with a wrong content fails", () => {
+	const verdict = backgroundVerdict(
+		backgroundFacts({ reportAt: 1000, fileAppeared: true, fileAt: 21000, fileContent: "SOMETHING-ELSE" }),
+	);
+	assert.equal(verdict.verdict, "fail");
+	assert.ok(verdict.detail.includes("BG-DONE"), verdict.detail);
+});
+
+test("a background turn without a command fails", () => {
+	const verdict = backgroundVerdict(
+		backgroundFacts({
+			commandCompleted: false,
+			reportAt: 1000,
+			fileAppeared: true,
+			fileAt: 21000,
+			fileContent: "BG-DONE",
+		}),
+	);
+	assert.equal(verdict.verdict, "fail");
+	assert.ok(verdict.detail.includes("command"), verdict.detail);
 });
