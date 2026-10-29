@@ -78,7 +78,7 @@ const CASES: Case[] = [
 		name: "the owner of a released task",
 		owner: row(OWN, "released"),
 		sessionId: OWN,
-		control: "This session released worker wz-1.",
+		control: "This session released worker wz-1. Take it back with wezterm_worker_takeover.",
 		cleanup: null,
 	},
 	{
@@ -108,6 +108,12 @@ test("the control rule refuses the task of another session", () => {
 	for (const item of CASES) {
 		assert.equal(controlRefusal(item.owner, item.sessionId, "wz-1"), item.control, item.name);
 	}
+});
+
+test("the control rule of a released task names the takeover tool", () => {
+	const refusal = controlRefusal(row(OWN, "released"), OWN, "wz-1");
+	assert.ok(refusal, "a released task refuses the control tools");
+	assert.match(refusal, /wezterm_worker_takeover/);
 });
 
 test("the cleanup rule refuses the task that another session holds", () => {

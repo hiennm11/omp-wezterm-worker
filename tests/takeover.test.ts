@@ -19,6 +19,7 @@ import {
 	OWN_PID,
 	OWN_START,
 	ownerOf,
+	ownTakeover,
 	seedOwner,
 	takeOver,
 } from "./takeover-helpers.ts";
@@ -188,21 +189,35 @@ test("a session without an identity refuses the takeover", async () => {
 	}
 });
 
-test("a session that owns the task refuses the takeover", async () => {
-	const { rt, dir } = fakeRuntime({ starts: {}, code: 0, panes: [3] });
-	try {
-		rt.sessionId = "session-old";
-		const job = makeJob(dir, "wz-1");
-		rt.jobs.set(job.id, job);
-		seedOwner(rt, job.id, OLD_PID, OLD_START);
+test("a session that owns an active task refuses the takeover", async (t) => {
+	const { result, owner } = await ownTakeover(t, "active");
 
-		const result = await takeOver(rt, job.id);
-		assert.equal(result.isError, true);
-		assert.equal(result.details.reason, "own");
-		assert.match(result.content[0]?.text ?? "", /already owns worker wz-1/);
-	} finally {
-		finish(rt, dir, "wz-1");
-	}
+	assert.equal(result.isError, true);
+	assert.equal(result.details.reason, "own");
+	assert.match(result.content[0]?.text ?? "", /already owns worker wz-1/);
+	assert.equal(owner?.generation, 1);
+	assert.equal(owner?.phase, "active");
+});
+
+test("a session that owns a releasing task refuses the takeover", async (t) => {
+	const { result, owner } = await ownTakeover(t, "releasing");
+
+	assert.equal(result.isError, true);
+	assert.equal(result.details.reason, "own");
+	assert.match(result.content[0]?.text ?? "", /already owns worker wz-1/);
+	assert.equal(owner?.phase, "releasing");
+});
+
+test("a session takes back a task that it released", async (t) => {
+	const { result, owner } = await ownTakeover(t, "released");
+
+	assert.equal(result.isError, undefined);
+	assert.equal(result.details.taken, true);
+	assert.equal(result.details.generation, 2);
+	assert.match(result.content[0]?.text ?? "", /now supervises worker wz-1/);
+	assert.equal(owner?.sessionId, "session-old");
+	assert.equal(owner?.generation, 2);
+	assert.equal(owner?.phase, "active");
 });
 
 test("a native worker is taken over and gets a bridge", async () => {
@@ -278,6 +293,16 @@ test("a takeover of a worker whose pane is gone ends the worker", async () => {
 	} finally {
 		finish(rt, dir, "wz-1");
 	}
+});
+
+test("a session that takes back a released task of a worker whose pane is gone ends the worker", async (t) => {
+	const { owner, job, rt } = await ownTakeover(t, "released", { starts: {}, code: 0, panes: [] });
+
+	assert.equal(rt.monitors.has(job.id), false);
+	assert.equal(job.status, "failed");
+	assert.match(job.error ?? "", /pane was closed/);
+	assert.equal(owner?.generation, 2);
+	assert.equal(owner?.phase, "active");
 });
 
 test("a takeover of a completed worker keeps its status and starts no monitor", async () => {

@@ -9,10 +9,18 @@
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { TestContext } from "node:test";
 
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
-import { acquireOwnership, readOwnership } from "../extensions/lib/ownership.ts";
+import {
+	acquireOwnership,
+	beginRelease,
+	commitRelease,
+	type OwnerPhase,
+	type Ownership,
+	readOwnership,
+} from "../extensions/lib/ownership.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { registerTakeoverTool } from "../extensions/worker-tools/takeover.ts";
@@ -151,6 +159,68 @@ export function seedOwner(
 	startedAt: string | null,
 ) {
 	acquireOwnership(rt.openDb(), taskKey(jobId), "session-old", processId, startedAt, 1000);
+}
+
+/**
+ * The row of a task that the calling session owns.
+ *
+ * The phase decides what the row holds. The phase `active` is the state of a
+ * running task. The phase `releasing` is the state of a task whose release
+ * runs. The phase `released` is the state of a task whose release finished.
+ */
+export function seedOwnTask(
+	rt: WorkerRuntime,
+	jobId: string,
+	phase: OwnerPhase,
+	sessionId = "session-old",
+): Ownership {
+	const db = rt.openDb();
+	const key = taskKey(jobId);
+	acquireOwnership(db, key, sessionId, OWN_PID, OWN_START, 1000);
+	if (phase !== "active") beginRelease(db, key, sessionId, 1, 1100);
+	if (phase === "released") commitRelease(db, key, sessionId, 1, 1200);
+	const owner = readOwnership(db, key).owner;
+	if (!owner) throw new Error("the task has no owner row");
+	return owner;
+}
+
+/**
+ * The takeover of a task that the calling session owns in the given phase.
+ *
+ * The test gets the reply of the tool and the row that the call left.
+ */
+export async function ownTakeover(
+	t: TestContext,
+	phase: OwnerPhase,
+	table: FakeTable = { starts: {}, code: 0, panes: [3] },
+) {
+	const { rt, job } = ownTaskCase(t, table, phase);
+	const result = await takeOver(rt, job.id);
+	return { result, owner: ownerOf(rt, job.id), job, rt };
+}
+
+/**
+ * A runtime, a worker and a task that the calling session owns.
+ *
+ * The task holds the given phase. The test closes the runtime and removes
+ * the directory when it ends.
+ */
+export function ownTaskCase(
+	t: TestContext,
+	table: FakeTable,
+	phase: OwnerPhase,
+): { rt: WorkerRuntime; dir: string; job: Job } {
+	const { rt, dir } = fakeRuntime(table);
+	rt.sessionId = "session-old";
+	const job = makeJob(dir, "wz-1");
+	rt.jobs.set(job.id, job);
+	seedOwnTask(rt, job.id, phase);
+	t.after(() => {
+		rt.stopMonitor(job.id);
+		rt.closeDb();
+		rmSync(dir, { recursive: true, force: true });
+	});
+	return { rt, dir, job };
 }
 
 /** Close the runtime and remove the state directory of a test. */
