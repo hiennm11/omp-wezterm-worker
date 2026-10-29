@@ -106,7 +106,7 @@ delivery of a result checks it too. A session that does not hold the authority
 gets one refusal that names the session that holds it. The refusal says
 `Worker <id> belongs to session <S> (phase <P>). This session only reads it.`
 A session without an identity and a task without an ownership row keep the old
-behaviour. The automatic paths do not check the authority yet.
+behaviour. The automatic path of a monitor checks the authority too.
 
 The worker reports its own task state through `wezterm_worker_report`. That
 tool is worker-only. The main session never gets it.
@@ -427,13 +427,30 @@ refuses the control tools with a text that names the phase.
 The cleanup tools accept a task that another session released, because a
 released task has no owner. A session without an identity and a task without
 an ownership row keep the old behaviour. So a worker from before the ownership
-existed still works. The other automatic paths do not check the authority yet.
+existed still works. The automatic path of a monitor checks the authority too.
 
 **A monitor that lost the authority stops.** Every poll of a monitor reads the
 ownership row of the task. A row of another session, or a released row of this
 session, stops the monitor. Such a monitor ends no worker, writes no ledger
 row and delivers nothing. A row in the phase `releasing` makes the monitor
 wait, because the release can fail and give the task back to this session.
+
+**The end and the stop of a monitor run under the operation gate.** The end of
+a monitor and the stop of a monitor add their name to the list of the actions
+that did not settle yet. A release that starts during such an action waits for
+it. So the release cannot move the authority while a monitor still writes the
+lifecycle.
+
+Each action reads the ownership row again when it starts. The check of the
+tick is not enough. The ownership can move between the check and the start of
+the action. An action whose verdict is not `act` writes nothing and tells
+nothing. The next tick decides again.
+
+**A finished run stays finished in the database.** A write of a run never
+changes the status of a finished run back to `queued` or `running`. So a
+read-only session that keeps a stale copy of a run cannot revive it. The other
+fields of a finished run still change. A closed pane and a new result stay
+readable.
 
 **The record tools and the delivery check the same row.** The tools
 `wezterm_worker_ack` and `wezterm_worker_resolve` read the ownership row of
@@ -634,6 +651,7 @@ omp-wezterm-worker/
 │   │   ├── limits.ts            the launch limits and the nested-worker rule
 │   │   ├── monitor.ts           watching a worker and the deadline rules
 │   │   ├── monitor-authority.ts the authority of a monitor to end a worker
+│   │   ├── monitor-actions.ts   the counted actions of a monitor
 │   │   ├── lifecycle.ts         finishing and cancelling a worker
 │   │   ├── steer.ts             steering a running worker
 │   │   ├── deliver.ts           delivering a result to the main session
@@ -710,6 +728,7 @@ omp-wezterm-worker/
 │   ├── usage.test.ts            the measured token usage
 │   ├── monitor.test.ts          the timeout, the idle limit and the result rule
 │   ├── monitor-authority.test.ts the authority of a monitor to end a worker
+│   ├── monitor-actions.test.ts  the counted actions of a monitor
 │   ├── architecture.test.ts     the size, import and runtime rules
 │   ├── ste100-docs.test.ts      the document check of the skill
 │   ├── comms-check.test.ts      the communication check of the skill
@@ -817,6 +836,7 @@ breaks a test.
 | `steer.test.ts` | A steer call sends the instruction once. The transcript confirms the delivery. An unrelated message does not confirm it. An old message with the same text does not confirm it. An unconfirmed delivery is not sent again. |
 | `monitor.test.ts` | A worker with no deadline never times out. An active worker still times out at the total deadline. A worker that keeps writing is not stopped as idle. A resumed worker does not report its old answer. |
 | `monitor-authority.test.ts` | The verdict follows the owner, the session and the phase. The monitor of the owner ends an overdue worker. A released task stops its monitor and leaves the worker alone. A task that another session took stops the monitor of the old session. The releasing phase makes the monitor wait and does not stop it. A native monitor stops when the task is released. |
+| `monitor-actions.test.ts` | The release of the owner waits for the action of the monitor. An action that starts after the owner changed writes nothing. |
 | `architecture.test.ts` | No source file exceeds 350 lines. The `lib/` folder never imports the entry or `worker-tools/`. Only `lib/process.ts` starts a child process. Only the entry creates the runtime. |
 | `limits.test.ts` | One active worker blocks a launch at the default limit. A worker with an unconfirmed stop still counts. A launch that failed before its pane existed does not count. A worker session cannot launch a worker. A user prompt resets the request count. |
 | `usage.test.ts` | A number comes only from a transcript. A model call without usage makes the count partial. A transcript without usage shows unknown. A resumed worker counts only what came after the resume. The request total adds the workers of the request. |
