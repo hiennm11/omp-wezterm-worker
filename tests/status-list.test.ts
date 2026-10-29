@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type Job, freshRunState } from "../extensions/lib/job.ts";
+import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { selectStatusJobs } from "../extensions/lib/status-list.ts";
 
 /** A worker with the given id, age and state. */
@@ -93,14 +93,17 @@ test("the order is newest first inside each group", () => {
 
 	const result = selectStatusJobs(jobs, new Set(["wz-event"]), 10);
 
-	assert.deepEqual(ids(result.shown), ["wz-new-active", "wz-old-active", "wz-event", "wz-finished-1", "wz-finished-2"]);
+	assert.deepEqual(ids(result.shown), [
+		"wz-new-active",
+		"wz-old-active",
+		"wz-event",
+		"wz-finished-1",
+		"wz-finished-2",
+	]);
 });
 
 test("no worker appears twice", () => {
-	const jobs = [
-		job("wz-active", 3, "running"),
-		job("wz-finished", 1, "completed"),
-	];
+	const jobs = [job("wz-active", 3, "running"), job("wz-finished", 1, "completed")];
 
 	const result = selectStatusJobs(jobs, new Set(["wz-active", "wz-finished"]), 10);
 
