@@ -310,7 +310,10 @@ test("a cancel of a task that this session released is refused", async () => {
 		const result = await toolOf(rt, registerCancelTool, "cancel").execute("t1", { workerId: job.id });
 
 		assert.equal(result.isError, true);
-		assert.equal(result.content[0]?.text, "This session released worker wz-1.");
+		assert.equal(
+			result.content[0]?.text,
+			"This session released worker wz-1. Take it back with wezterm_worker_takeover.",
+		);
 		assert.equal(result.details.phase, "released");
 		assert.equal(
 			calls.some((args) => args.includes("kill-pane")),
