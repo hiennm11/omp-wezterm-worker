@@ -20,7 +20,7 @@ import {
 	stopHandle,
 	wait,
 } from "./codex-server.ts";
-import { checkTuiPane, recordTuiText, type TuiPane } from "./codex-tui.ts";
+import { answerApprovalDialog, checkTuiPane, recordTuiText, type TuiPane } from "./codex-tui.ts";
 import type { ScenarioOutcome } from "./scenarios.ts";
 import { makeFixture } from "./shared.ts";
 
@@ -130,6 +130,9 @@ async function runObserve(
 		if (turn.error) {
 			return { scenario, verdict: "fail", detail: turn.error.message };
 		}
+		/* The scenario `observe` answers the approval dialog of the report
+		   server. The other scenarios leave the answer to the person. */
+		await answerApprovalDialog(options, scenario, pane);
 		await wait(20000);
 		recordMessages(options, handle.client, scenario);
 		await checkTuiPane(options, scenario, pane);

@@ -9,10 +9,7 @@ import { approvalDialogShown } from "../tooling/backend-proof/codex-tui.ts";
 const ROOT = join(import.meta.dirname, "..");
 
 /** The text of a real pane of the Codex TUI that shows the approval dialog. */
-const APPROVAL_PANE = readFileSync(
-	join(ROOT, "tests", "fixtures", "codex-approval-pane.txt"),
-	"utf8",
-);
+const APPROVAL_PANE = readFileSync(join(ROOT, "tests", "fixtures", "codex-approval-pane.txt"), "utf8");
 
 test("a notification gives the source of its method", () => {
 	const observation = observationOf({ method: "turn/started", params: { turn: { id: "t1" } } });
