@@ -33,7 +33,7 @@ const POLL_INTERVAL_MILLISECONDS = 1000;
 const CONTENT_GRACE_MILLISECONDS = 5000;
 
 /** The milliseconds that the proof waits for the background file. */
-export const BACKGROUND_WAIT_MILLISECONDS = 40000;
+const BACKGROUND_WAIT_MILLISECONDS = 40000;
 
 /**
  * Build the text of the task of the background scenario.
