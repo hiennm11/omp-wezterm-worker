@@ -218,7 +218,7 @@ The owner of the task settles it. Another session leaves it alone.
 _Avoid_: Launch, spawn, request
 
 **Unresolved launch**:
-A launch attempt that a crash left without a receipt. It keeps its capacity and waits for the owner.
+A launch attempt that a crash left without a receipt. It holds no counted capacity. It raises one event and waits for the owner.
 _Avoid_: Failed launch, lost worker, uncertain launch
 
 **Owner resolution**:

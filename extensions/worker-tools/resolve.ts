@@ -6,12 +6,30 @@
  * actually confirmed.
  */
 
-import { readEvent } from "../lib/events.ts";
+import { freeUnresolvedAttempt } from "../lib/attempts.ts";
+import { readEvent, type WorkerEvent } from "../lib/events.ts";
 import type { ToolCtx } from "../lib/host.ts";
 import { generationOf } from "../lib/owner.ts";
 import { type OwnerResolution, RESOLUTIONS, recordResolution } from "../lib/resolution.ts";
 import { writeUnderAuthority } from "../lib/write-authority.ts";
 import { reply, type ToolDeps } from "./kit.ts";
+
+/**
+ * The attempt that an unresolved launch event names.
+ *
+ * The payload of the event holds the id of the attempt row and the id of the
+ * job. An event without a payload names no attempt.
+ */
+function attemptIdOf(event: WorkerEvent): string | null {
+	if (event.condition !== "unresolved_launch") return null;
+	if (!event.payload) return null;
+	try {
+		const parsed = JSON.parse(event.payload) as { attemptId?: unknown };
+		return typeof parsed.attemptId === "string" ? parsed.attemptId : null;
+	} catch {
+		return null;
+	}
+}
 
 /** The resolutions that the tool accepts. */
 export function registerResolveTool({ pi, rt }: ToolDeps): void {
@@ -58,6 +76,15 @@ export function registerResolveTool({ pi, rt }: ToolDeps): void {
 			if (!event.actionable) {
 				return reply(`The event ${eventId} needs no action.`, { resolved: false }, true);
 			}
+			const attemptId = attemptIdOf(event);
+			if (event.condition === "unresolved_launch" && resolution === "recorded_result") {
+				return reply(
+					`The event ${eventId} is an unresolved launch. The worker of that launch never reported a result. ` +
+						"Use abandoned or incomplete to free the launch attempt.",
+					{ resolved: false, eventId, attemptId },
+					true,
+				);
+			}
 			if (resolution === "recorded_result" && !event.payload) {
 				return reply(
 					"A recorded result needs a saved result. The event holds none.",
@@ -68,8 +95,8 @@ export function registerResolveTool({ pi, rt }: ToolDeps): void {
 			/* The authority of the task of the event is checked in the same
 			   transaction as the write. The event names its worker, so the
 			   worker of the parameter cannot name another task. */
-			const written = writeUnderAuthority(db, rt.sessionId, event.runId, () =>
-				recordResolution(
+			const written = writeUnderAuthority(db, rt.sessionId, event.runId, () => {
+				const outcome = recordResolution(
 					db,
 					`res-${eventId}`,
 					eventId,
@@ -79,8 +106,13 @@ export function registerResolveTool({ pi, rt }: ToolDeps): void {
 					rt.sessionId,
 					generationOf(rt, workerId),
 					Date.now(),
-				),
-			);
+				);
+				if (!outcome.ok) return outcome;
+				/* The resolution of an unresolved launch frees the attempt.
+				   The write and the release run in one transaction. */
+				if (attemptId !== null) freeUnresolvedAttempt(db, attemptId, Date.now());
+				return outcome;
+			});
 			if (written.refused) {
 				return reply(written.refusal, { ...written.details, resolved: false }, true);
 			}

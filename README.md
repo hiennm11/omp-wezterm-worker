@@ -95,7 +95,7 @@ confirm the picker.
 | `wezterm_worker_cleanup` | Release a finished worker's transcript directory and its isolated worktree. A worktree with uncommitted changes is kept unless `force` is set. |
 | `wezterm_worker_release` | Stop the supervision of a worker and give the authority away. The worker keeps running. |
 | `wezterm_worker_takeover` | Take the supervision of a worker that another session owned. The previous owner must have released the task, or its process must be confirmed gone. A live owner keeps the task. A session can take back a task that it released itself. The takeover does not replay pending events. |
-| `wezterm_worker_resolve` | Settle an unknown worker outcome. It records what you confirmed. It does not create a worker completion report. |
+| `wezterm_worker_resolve` | Settle an unknown worker outcome. It records what you confirmed. It does not create a worker completion report. The resolutions `abandoned` and `incomplete` free an unresolved launch attempt. The resolution `recorded_result` is refused for an unresolved launch. |
 
 `/wezterm-workers` prints the roster in the TUI.
 
@@ -505,8 +505,12 @@ processes cannot remove one another's records.
 **A launch without a receipt starts no second worker.** A crash
 between the pane creation and the receipt leaves a launch attempt without a
 receipt. The recovery finds the live worker by its command line. The attempt
-stays unresolved when the recovery does not find the worker. The attempt keeps
-its capacity. The owner settles it with `wezterm_worker_resolve`. The
+stays unresolved when the recovery does not find the worker. The attempt holds
+no counted capacity. The recovery raises one `unresolved_launch` event, so the
+owner finds the attempt in `wezterm_worker_status`. The owner settles it with
+`wezterm_worker_resolve`. The resolution `abandoned` and the resolution
+`incomplete` free the attempt. The resolution `recorded_result` is refused for
+this event, because the worker of that launch never reported a result. The
 extension never sends the launch command again.
 
 **A new session leaves the attempt of another session alone.** The recovery
@@ -787,6 +791,8 @@ omp-wezterm-worker/
 │   ├── native-usage.test.ts     the measured usage of a native run
 │   ├── correlation.test.ts      finding a native worker in the process table
 │   ├── pending-events.test.ts   the events that wait for the owner
+│   ├── unresolved-launch.test.ts the event of an unresolved launch and its resolution
+│   ├── unresolved-launch-helpers.ts the helpers of the tests of an unresolved launch
 │   ├── bridge-handover.test.ts  the handover of a bridge to a new owner
 │   ├── process-probe.test.ts    the probe of the start time of a process
 │   ├── ledger-sync.test.ts      the execution ledger of a run
@@ -918,6 +924,7 @@ breaks a test.
 | `monitor-native.test.ts` | The native monitor keeps a worker that has an open execution row. The native monitor ends a worker when its execution row settles. |
 | `startup-block.test.ts` | The three facts of the startup block give the reason of the trust dialog. A session that started gives no reason. A launch of 59 seconds gives no reason and a launch of 61 seconds gives the reason. A pane without the words of the dialog gives no reason. |
 | `startup-block-monitor.test.ts` | The native monitor raises one event for a worker that waits at the trust dialog, and a second poll raises no second event. A pane without the dialog raises no event. A session that starts later resolves the event. The status tells the person to accept the trust dialog. |
+| `unresolved-launch.test.ts` | An unresolved launch raises one actionable event, and the payload names the attempt and the job. A second recovery raises no second event. The takeover path raises the event for a task that it took. The status lists the event. The resolution `abandoned` and the resolution `incomplete` free the attempt. The resolution `recorded_result` is refused, and the attempt stays unresolved. A session that does not own the task cannot resolve the event. |
 | `native-snapshot.test.ts` | A report of the cycle of the snapshot binds after the snapshot. A second snapshot holds the newer state. A snapshot of a closed turn lets the run finish. A snapshot of an open turn blocks the run until the turn ends. A pending instruction of the snapshot blocks the run until it is delivered. The calls and the permission requests of the snapshot become the open ones. An open tool row that the snapshot does not hold becomes settled. A tool row that the snapshot holds stays open. A tool row that the worker created after the snapshot stays open. A background row stays open. A new owner binds the report of a snapshot run and settles the old row. |
 | `native-background.test.ts` | A background call opens a row of kind background, and a foreground call opens a row of kind tool. The return of a background call leaves its row open, and the return of a foreground call settles its row. A failed background call settles its row. A started task stores its task id. A notification settles the row of its call for the statuses `completed` and `failed`, and a notification without a call id or without a status leaves the row open. A second notification changes nothing. Two background tasks settle their own rows. A stop settles the row of its task id, and a stop of an unknown task changes nothing. A settled or a stopped task leaves the open calls. A completion report waits for the row of a background task. |
 | `claude-mod-background.test.ts` | A background call posts the background flag, and a foreground call posts none. The result of a background call posts the started observation with the call id and the task id. The result of a stop posts the stopped observation with the task id, and it names the call that started the task. A stop of an unknown task posts no call id. A notification posts the settled observation with its ids and its status. A notification without the tags posts null fields. A row of another kind posts none of the background observations. Every handler returns the result of `next` unchanged. |

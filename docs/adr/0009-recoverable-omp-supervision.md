@@ -122,9 +122,9 @@ After a crash, find the live worker. Use the process command line, the session f
 
 A worker with a match becomes attached. No match is not proof that no worker exists.
 
-An unresolved attempt keeps its capacity. It creates one intervention event. Never send the command again.
+An unresolved attempt holds no counted capacity. It creates one intervention event. Never send the command again.
 
-Only a confirmed unused attempt or an explicit owner resolution frees an uncertain reservation.
+Only a confirmed unused attempt or an explicit owner resolution frees an uncertain reservation. The abandoned value and the incomplete value move an unresolved attempt to unused. The recorded_result value is refused for an unresolved launch. The worker of that launch never reported a result.
 
 A completion committed before cancellation remains completed.
 
@@ -469,7 +469,7 @@ Owner resolution keeps the worker completion rule clean. The owner decides an un
 
 A resource group costs a shared identifier on each run. It removes a race between a resume and a cleanup.
 
-An unresolved launch keeps its capacity. A lost worker holds a slot until the owner resolves it.
+An unresolved launch holds no counted capacity. The limits count the live workers. A lost worker holds no slot until the owner resolves it.
 
 The release drain waits for the actions that already started. A stuck action keeps the authority with the current owner.
 

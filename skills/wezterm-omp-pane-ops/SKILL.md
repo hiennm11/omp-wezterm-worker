@@ -350,9 +350,13 @@ A WezTerm pane inherits the environment of the process that started it.
 between the pane creation and the receipt leaves a launch attempt without a
 receipt. The recovery finds the live worker by its command line, which
 carries the `--session-dir` of the worker. A worker that the recovery does not
-find leaves the attempt unresolved. The attempt keeps its capacity, and the
-owner settles it with `wezterm_worker_resolve`. The extension never sends the
-launch command again.
+find leaves the attempt unresolved. The attempt holds no counted capacity.
+The recovery raises one `unresolved_launch` event, so the owner finds the
+attempt in `wezterm_worker_status`. The owner settles it with
+`wezterm_worker_resolve`. The resolution `abandoned` and the resolution
+`incomplete` free the attempt. The resolution `recorded_result` is refused
+for this event, because the worker of that launch never reported a result.
+The extension never sends the launch command again.
 
 **A finished worker continues with `--resume`, not with steering.**
 Steering needs a live pane, and a completed worker has none.

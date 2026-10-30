@@ -115,13 +115,34 @@ export function markUnused(db: LifecycleDb, id: string, now: number): void {
 /**
  * Move an attempt to the unresolved state.
  *
- * The capacity stays held. The owner resolves the attempt.
+ * The owner resolves the attempt. The row holds no capacity that the limits
+ * count. The owner frees it with `freeUnresolvedAttempt`.
  */
 export function markUnresolved(db: LifecycleDb, id: string, now: number): void {
 	db.write(() => {
 		db.handle
 			.prepare("UPDATE launch_attempts SET state = 'unresolved', updated_at = ? WHERE id = ?")
 			.run(now, id);
+	});
+}
+
+/**
+ * Free an unresolved attempt.
+ *
+ * The owner confirmed the outcome of the attempt. The row becomes unused, so
+ * the attempt holds nothing. The function does nothing for another state, so
+ * a repeated resolution keeps the row free.
+ */
+export function freeUnresolvedAttempt(db: LifecycleDb, id: string, now: number): boolean {
+	return db.write(() => {
+		const row = db.handle.prepare("SELECT state FROM launch_attempts WHERE id = ?").get(id) as
+			| { state: string }
+			| undefined;
+		if (row?.state !== "unresolved") return false;
+		db.handle
+			.prepare("UPDATE launch_attempts SET state = 'unused', updated_at = ? WHERE id = ?")
+			.run(now, id);
+		return true;
 	});
 }
 
@@ -184,11 +205,15 @@ export function openAttempts(db: LifecycleDb): LaunchAttempt[] {
 }
 
 /**
- * The attempts that still hold the shared capacity.
+ * The attempts that the owner has not settled.
  *
- * A reserved attempt holds the capacity. An issued attempt holds it, because
- * the worker may exist. An unresolved attempt holds it, because the owner has
- * not decided yet. An attached attempt holds the capacity of a live worker.
+ * A reserved attempt waits for the command. An issued attempt waits for the
+ * worker, because the worker may exist. An unresolved attempt waits for the
+ * owner, because the recovery found no worker. An attached attempt holds the
+ * capacity of a live worker.
+ *
+ * No code calls this function. The launch limits count the live workers, so
+ * no row of this list refuses a launch.
  */
 export function capacityHolders(db: LifecycleDb): LaunchAttempt[] {
 	const rows = db.handle
