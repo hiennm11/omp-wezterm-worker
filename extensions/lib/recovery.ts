@@ -7,6 +7,7 @@
 
 import { type AttemptState, markUnresolved, openAttempts, readAttempt } from "./attempts.ts";
 import type { LifecycleDb } from "./db.ts";
+import { createEvent, eventKey } from "./events.ts";
 import { taskKey } from "./owner.ts";
 import { type Ownership, readOwnership } from "./ownership.ts";
 
@@ -14,7 +15,7 @@ import { type Ownership, readOwnership } from "./ownership.ts";
 export type RecoveryOutcome =
 	/** The attempt found its worker and the receipt is repaired. */
 	| { kind: "attached"; attemptId: string; jobId: string; paneId: number | null }
-	/** The attempt found no worker. The capacity stays held. */
+	/** The attempt found no worker. The owner resolves it. */
 	| { kind: "unresolved"; attemptId: string; jobId: string }
 	/** The attempt was already settled. */
 	| { kind: "settled"; attemptId: string; jobId: string; state: AttemptState };
@@ -69,8 +70,8 @@ export function mayReconcileAttempt(
  * Reconcile the attempts that a crash left open.
  *
  * An attempt that finds its worker becomes attached. An attempt that finds
- * nothing becomes unresolved, and it keeps its capacity. The supervisor never
- * sends the command again.
+ * nothing becomes unresolved, and it raises one event for the owner. The
+ * supervisor never sends the command again.
  *
  * The session id decides which attempts this session may settle. The job id
  * limits the work to the attempts of one task.
@@ -104,10 +105,36 @@ export function reconcileAttempts(
 			});
 			continue;
 		}
-		markUnresolved(db, attempt.id, now);
+		/* The state change and the event run in one transaction. A crash
+		   between them would leave an attempt with no event, and the next
+		   startup finds no open attempt. */
+		db.write(() => {
+			markUnresolved(db, attempt.id, now);
+			recordUnresolvedLaunch(db, attempt.id, attempt.jobId, now);
+		});
 		outcomes.push({ kind: "unresolved", attemptId: attempt.id, jobId: attempt.jobId });
 	}
 	return outcomes;
+}
+
+/**
+ * Record the event of an unresolved launch.
+ *
+ * The key joins the job, the attempt and the condition. A second startup
+ * finds the event that exists, so it creates no second one.
+ */
+function recordUnresolvedLaunch(db: LifecycleDb, attemptId: string, jobId: string, now: number): void {
+	createEvent(
+		db,
+		`ev-${jobId}-${attemptId}-unresolved_launch`,
+		eventKey(jobId, attemptId, "unresolved_launch"),
+		jobId,
+		"unresolved_launch",
+		"unresolved_launch",
+		JSON.stringify({ attemptId, jobId }),
+		true,
+		now,
+	);
 }
 
 /**

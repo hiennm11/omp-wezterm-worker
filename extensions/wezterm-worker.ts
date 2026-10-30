@@ -113,17 +113,10 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		bindSession(rt, ctx.sessionManager);
 
 		// The recovery reconciles the attempts that a crash left open. It
-		// never sends a launch command again.
+		// never sends a launch command again. An attempt that found no
+		// worker raises an event, so the owner finds it in the status.
 		const workers = await findLiveWorkers(rt);
-		const outcomes = reconcileAttempts(db, workers, rt.sessionId, Date.now());
-		for (const outcome of outcomes) {
-			if (outcome.kind === "unresolved") {
-				pi.logger?.warn?.(
-					`[wezterm-worker] The launch of worker ${outcome.jobId} stayed uncertain. ` +
-						"The worker may still run. Resolve it with wezterm_worker_resolve.",
-				);
-			}
-		}
+		reconcileAttempts(db, workers, rt.sessionId, Date.now());
 
 		for (const job of restored.alive) {
 			rt.jobs.set(job.id, job);
