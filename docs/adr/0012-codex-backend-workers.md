@@ -73,6 +73,8 @@ The proof found that a stop that closes only one pane leaves the server and its 
 
 The first version supports spawn, the report, the instruction queue, the native usage, cancel and `resume`.
 
+The first slice adds the spawn function of a Codex worker. The function starts the app server in one pane, the TUI in a second pane and the task as the first turn. The refusal of the backend stays until the last slice, because a Codex worker has no report tool and no stop path yet.
+
 The first version does not support these items. Each one has its own issue. The issue must close, or the owner must accept the gap, before the version ships.
 
 - A recovery of a Codex worker after OMP starts again. Issue #83 covers it.

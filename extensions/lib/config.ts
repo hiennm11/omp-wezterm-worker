@@ -18,6 +18,8 @@ export interface WorkerConfig {
 	ompBin: string;
 	/** The binary of Claude Code. A Claude worker runs this program. */
 	claudeBin: string;
+	/** The binary of Codex. A Codex worker runs this program. */
+	codexBin: string;
 	weztermBin: string;
 	placement: Placement;
 	stateDir: string;
@@ -44,6 +46,7 @@ export interface WorkerConfig {
 export const DEFAULT_CONFIG: WorkerConfig = {
 	ompBin: "omp",
 	claudeBin: "claude",
+	codexBin: "codex",
 	weztermBin: "wezterm",
 	placement: "split",
 	stateDir: join(homedir(), ".omp", "agent", "wezterm-workers"),
@@ -62,7 +65,14 @@ export const DEFAULT_CONFIG: WorkerConfig = {
 };
 
 /** Static string-keyed table: config key -> the config field it overrides. */
-const CONFIG_STRING_KEYS = ["ompBin", "claudeBin", "weztermBin", "stateDir", "defaultCwd"] as const;
+const CONFIG_STRING_KEYS = [
+	"ompBin",
+	"claudeBin",
+	"codexBin",
+	"weztermBin",
+	"stateDir",
+	"defaultCwd",
+] as const;
 const CONFIG_NUMBER_KEYS = [
 	"pollMs",
 	"timeoutMs",

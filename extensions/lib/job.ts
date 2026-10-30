@@ -13,6 +13,30 @@ import type { UsageTotals } from "./usage.ts";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
+/**
+ * The identity of a Codex worker.
+ *
+ * A Codex worker owns one app server and one TUI. The identity names both
+ * panes, the process of the server and the thread of the turn. The payload
+ * of the run row holds the whole identity, so it needs no column.
+ */
+export interface CodexIdentity {
+	/** The port of the app server on the loopback interface. */
+	port: number;
+	/** The process id of the app server, or null when it is unknown. */
+	serverPid: number | null;
+	/** The id of the thread of the turn. */
+	threadId: string;
+	/** The pane of the app server. */
+	serverPaneId: number | null;
+	/** The pane of the TUI. */
+	tuiPaneId: number | null;
+	/** The path of the Codex program. */
+	binaryPath: string;
+	/** The version of the Codex program. */
+	version: string;
+}
+
 /** A stop that was requested but that the pane list has not confirmed yet. */
 export interface PendingStop {
 	/** The status the worker gets once the stop is confirmed. */
@@ -116,6 +140,13 @@ export interface Job {
 	 * run has no native cycle count.
 	 */
 	nativeCycles?: number;
+	/**
+	 * The identity of a Codex worker.
+	 *
+	 * The field holds the app server and the TUI of the worker. A run of
+	 * another backend has no Codex identity.
+	 */
+	codex?: CodexIdentity | null;
 }
 
 /** A worker that has not finished yet. */

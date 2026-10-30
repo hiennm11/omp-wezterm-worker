@@ -159,8 +159,11 @@ report tool and the command bridge.
 | The resume | A resume reuses the native session id. The worker comes back with its history and a new run id. |
 | The stop | The stop closes the pane of the worker only, and it confirms that the pane is gone. |
 
-The Codex backend has no implementation. The extension refuses a spawn that
-names it.
+The Codex backend has no implementation yet. The extension refuses a spawn that
+names it. The first slice adds the spawn function of a Codex worker. It
+starts the app server of Codex in one pane, the TUI of Codex in a second pane
+and the task as the first turn. The refusal stays until the last slice,
+because a Codex worker has no report tool and no stop path yet.
 
 ### Long tasks
 
@@ -262,6 +265,7 @@ extension never reads the pane screen text to get a result.
 ```json
 {
 	"ompBin": "omp",
+	"codexBin": "codex",
 	"weztermBin": "wezterm",
 	"placement": "split",
 	"stateDir": "C:/Users/<you>/.omp/agent/wezterm-workers",
@@ -287,6 +291,10 @@ Environment overrides: `OMP_WORKER_OMP_BIN`, `OMP_WORKER_WEZTERM_BIN`,
 `OMP_WORKER_STATE_DIR`.
 
 - `timeoutMs` — total deadline for a worker, in ms. `0` disables it.
+- `codexBin` — the Codex program that a Codex worker runs. The default is
+  `codex`. An absolute path to a file names the program directly. Any other
+  name is looked up with the command `where`. The extension never runs a
+  shell, because the arguments of the app server would reach the shell first.
 - `idleTimeoutMs` — fail a worker that produced no transcript activity for
   this long, in ms. `0` disables it (the default).
 - `pollMs` — how often the extension checks the worker transcript.
@@ -676,9 +684,14 @@ omp-wezterm-worker/
 │   │   ├── worktree.ts          the isolated git worktree
 │   │   ├── spawn.ts             starting and resuming a worker
 │   │   ├── spawn-claude.ts      starting a Claude Code worker
+│   │   ├── spawn-codex.ts       starting a Codex worker
 │   │   ├── resume-claude.ts     resuming a Claude Code worker
 │   │   ├── resume-guard.ts      the pane check of the source run of a resume
 │   │   ├── claude-session.ts    the Claude Code session of a worker
+│   │   ├── codex-binary.ts      the Codex program of the machine and its version
+│   │   ├── codex-client.ts      the client of one Codex app server
+│   │   ├── codex-launch.ts      the app server, the TUI and the first turn of a Codex worker
+│   │   ├── codex-process.ts     the processes and the panes of a Codex worker
 │   │   ├── claude-bridge.ts     the loopback bridge of a native worker
 │   │   ├── claude-run-state.ts  the native state of a Claude Code run
 │   │   ├── native-ledger.ts     the execution ledger of a native run
@@ -811,6 +824,10 @@ omp-wezterm-worker/
 │   ├── resume-comms.test.ts     the communication check of the resume tool
 │   ├── proof-codex.test.ts      the source of each Codex protocol message and the rules of the evidence
 │   ├── proof-codex-background.test.ts  the background file of the Codex proof and the verdict of it
+│   ├── proof-codex-binary.test.ts the search of the Codex program of the machine
+│   ├── codex-binary.test.ts     the Codex program, its version and its refusal
+│   ├── codex-spawn.test.ts      the spawn of a Codex worker and its cleanup
+│   ├── codex-spawn-helpers.ts   the fakes of the tests of a Codex spawn
 │   ├── takeover.test.ts         the takeover of a task of another session
 │   ├── takeover-process.test.ts the process record of the new owner of a task
 │   ├── takeover-helpers.ts      the helpers of the takeover tests
