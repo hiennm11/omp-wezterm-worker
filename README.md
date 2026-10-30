@@ -342,7 +342,7 @@ the check has no other signal.
 The check starts the checker of the ste100 skill in a child process. The
 skill is the only checker of this repository. The check writes the text into
 a file of a temporary directory, and it removes the directory after the
-check. The word list of this repository is `resources/ste100-dictionary.json`.
+check. The checker uses the word list of the skill. This repository has no word list.
 
 The setting `ste100Skill` names the folder of the skill. The default is
 `~/.claude/skills/ste100`. A path that starts with `~` expands to the home
@@ -759,8 +759,6 @@ omp-wezterm-worker/
 │       ├── codex-dialog.ts      the TUI of a Codex scenario that answers the approval dialogs
 │       ├── codex-resume.ts      the resume scenario of the Codex proof
 │       └── codex-tui.ts         the pane evidence and the approval of the Codex TUI
-├── resources/
-│   └── ste100-dictionary.json   the word list of the ste100 checker
 ├── tests/
 │   ├── harness.ts               a test host for the extension
 │   ├── fixtures/                the real texts that the tests read

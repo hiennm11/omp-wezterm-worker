@@ -69,8 +69,6 @@ test("the document check gives every document and the reporting contract to the 
 		assert.equal(calls[0].cwd, ROOT);
 		assert.equal(calls[0].contract, true, "the reporting contract goes to the same call");
 		for (const document of CHECKED_DOCUMENTS) assert.ok(calls[0].args.includes(document), document);
-		const dictionary = calls[0].args[calls[0].args.indexOf("--dictionary") + 1];
-		assert.ok(dictionary?.endsWith("ste100-dictionary.json"));
 	}
 });
 
@@ -86,26 +84,4 @@ test("the list of documents holds existing files and leaves out the evidence of 
 	assert.ok(!CHECKED_DOCUMENTS.includes("docs/trials/windows-trial.md"));
 	assert.ok(!CHECKED_DOCUMENTS.includes("docs/backend-proof-evidence.md"));
 	assert.ok(CHECKED_DOCUMENTS.includes("AGENTS.md"));
-});
-
-test("the word list of the repository keeps the terms of the glossary and the other words", () => {
-	const words = JSON.parse(readFileSync(join(ROOT, "resources", "ste100-dictionary.json"), "utf8")) as Record<
-		string,
-		string
-	>;
-	assert.ok(Object.keys(words).length > 2000);
-	for (const term of [
-		"event",
-		"events",
-		"resume",
-		"resumed",
-		"attempt",
-		"deliver",
-		"delivered",
-		"restored",
-	]) {
-		assert.equal(term in words, false, term);
-	}
-	assert.equal(words.utilize, "use");
-	assert.equal(words.therefore, "thus");
 });
