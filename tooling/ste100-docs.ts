@@ -51,8 +51,8 @@ const INSTALL_STEPS = [
  * The command that scores every document.
  *
  * The command starts the checker of the skill with node. It gives the skill
- * the word list of this repository, every document and the reporting
- * contract. The exit code of the checker is the exit code of the command.
+ * every document and the reporting contract. The exit code of the checker is
+ * the exit code of the command.
  */
 export async function main(exec: RunFn, skill: string, root: string): Promise<number> {
 	const cli = join(skill, "dist", "cli.js");
@@ -61,10 +61,9 @@ export async function main(exec: RunFn, skill: string, root: string): Promise<nu
 		return 2;
 	}
 	const contract = join(tmpdir(), `wt-ste100-contract-${process.pid}.md`);
-	const dictionary = join(root, "resources", "ste100-dictionary.json");
 	try {
 		writeFileSync(contract, REPORTING_CONTRACT, "utf8");
-		const args = [cli, "--dictionary", dictionary, ...CHECKED_DOCUMENTS, contract];
+		const args = [cli, ...CHECKED_DOCUMENTS, contract];
 		const result = await exec("node", args, root);
 		if (result.stdout) console.log(result.stdout.trimEnd());
 		if (result.stderr) console.log(result.stderr.trimEnd());

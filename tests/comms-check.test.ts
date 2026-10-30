@@ -105,15 +105,6 @@ test("the skill checker runs with node on a file that holds the text", async () 
 	assert.equal(calls[0].text, CLEAN);
 });
 
-test("the skill checker reads the word list of the repository", async () => {
-	const { exec, calls } = fakeExec(scored(100));
-	await checkComms(exec, SKILL, CLEAN, "task", WARN);
-	const args = calls[0].args;
-	const dictionary = args[args.indexOf("--dictionary") + 1];
-	assert.ok(dictionary?.endsWith("ste100-dictionary.json"));
-	assert.ok(existsSync(dictionary));
-});
-
 test("the file of the text is removed after the check", async () => {
 	const { exec, calls } = fakeExec(scored(100));
 	await checkComms(exec, SKILL, CLEAN, "task", WARN);

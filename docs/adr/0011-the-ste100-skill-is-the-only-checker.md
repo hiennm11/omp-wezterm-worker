@@ -14,7 +14,7 @@ The ste100 skill is the only checker of this repository. The repository keeps no
 
 The extension starts the checker of the skill with node. The checker runs in a child process. The text goes into a file of a temporary directory, and the checker reads the file. The extension removes the directory after the check.
 
-The word list of the repository lives in `resources/ste100-dictionary.json`. The checker of the skill reads this list. The list holds the terms of the glossary of this repository, so the checker accepts the words of this project.
+The checker uses the word list of the skill. The repository keeps no word list. The checker of the skill does not read another list.
 
 The setting `ste100Skill` names the folder of the skill. The default is the folder of the user. A config file can set another folder. A path that starts with `~` expands to the home folder of the user.
 

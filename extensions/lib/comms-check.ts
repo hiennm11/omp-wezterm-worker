@@ -64,9 +64,6 @@ const MAX_FINDINGS = 5;
 /** The number of words that a text must have to be checked. */
 const MIN_WORDS = 3;
 
-/** The word list of this repository. The checker reads it for every text. */
-const DICTIONARY = join(import.meta.dirname, "..", "..", "resources", "ste100-dictionary.json");
-
 /** The letters that a Vietnamese text carries. */
 const VIETNAMESE_LETTERS = "àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũừứựửữỳýỵỷỹđ";
 
@@ -149,7 +146,7 @@ export async function checkComms(
 	const file = join(dir, "text.md");
 	try {
 		writeFileSync(file, body, "utf8");
-		const args = [join(skill, "dist", "cli.js"), "--json", "--dictionary", DICTIONARY, file];
+		const args = [join(skill, "dist", "cli.js"), "--json", file];
 		let run: RunResult;
 		try {
 			run = await exec("node", args);
