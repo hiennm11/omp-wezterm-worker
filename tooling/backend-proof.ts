@@ -14,8 +14,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { runClaudeProof } from "./backend-proof/claude-run.ts";
+import { findCodexBinary } from "./backend-proof/codex-binary.ts";
 import { runCodexProof } from "./backend-proof/codex-run.ts";
-import { findCodexBinary } from "./backend-proof/codex-server.ts";
 import { createEvidenceStore, observationsFile } from "./backend-proof/evidence.ts";
 import {
 	ArgumentError,

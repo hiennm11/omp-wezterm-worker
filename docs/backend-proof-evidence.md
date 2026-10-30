@@ -204,6 +204,20 @@ The proof of the Codex backend stays open. The next run of the proof shows which
 
 Ticket 1 stays open. Tickets 2 to 5 stay blocked for the Codex half of the feature.
 
+### The defect of the fixed path of Codex
+
+The proof looked for the Codex program at one fixed path. That path starts with `C:/Program Files/nodejs`. The path does not exist on this machine.
+
+The proof then started the program `cmd.exe` with the arguments `app-server`. The command never started `codex.exe`. Every scenario failed with the detail `the scenario wrote no evidence`.
+
+The real program sits in the folder of npm. The command `where codex` prints the path of `codex.cmd` in that folder. The proof now reads that output and builds the paths of the program from it.
+
+The old fixed path stays a candidate. The proof checks every candidate with the argument `--version`. The first candidate that runs gives the program and its version. The proof records the path and the version in `versions.json`.
+
+The proof returns null when no candidate runs. The runner then reports the backend as `unavailable`. The proof never starts a shell as the Codex program.
+
+The search of the path is the function `codexBinaryCandidates`. It takes the output of `where codex` and the root of the npm folder. It returns a list of candidate paths. A test checks the function without a pane.
+
 ### The scenario background of the Codex proof
 
 The scenario `background` proves the difference between the return of the foreground tool and the later settlement of a background task. The model starts a detached background process that waits 60 seconds, calls the report tool, and ends its turn. The text tells the model not to wait for the process. The proof polls the file of the process while the turn runs, so it can see the file at the right time. The file comes after the report only when the task really ran in the background.

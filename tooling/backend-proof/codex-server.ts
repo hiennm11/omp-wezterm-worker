@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { createServer } from "node:net";
 import { join } from "node:path";
 
@@ -9,7 +8,7 @@ import {
 	observationOf,
 	reportServerArgs,
 } from "./codex.ts";
-import type { CodexBinary, CodexHandle, CodexProofOptions } from "./codex-handle.ts";
+import type { CodexHandle, CodexProofOptions } from "./codex-handle.ts";
 import { startListener } from "./listener.ts";
 import type { ScenarioOutcome } from "./scenarios.ts";
 import { runProgram } from "./shared.ts";
@@ -35,30 +34,6 @@ export function wait(ms: number): Promise<void> {
 /** The path of the report server of the proof. */
 function reportServerPath(): string {
 	return join(import.meta.dirname, "report-server.ts");
-}
-
-/**
- * Find the Codex binary of the machine.
- *
- * The proof prefers the build that the native queue contract needs. A Node
- * spawn of `codex` resolves to the stale desktop install on this machine, so
- * the proof looks for the npm build first and records the version that it
- * used.
- */
-export async function findCodexBinary(): Promise<CodexBinary | null> {
-	const candidates = [
-		"C:/Program Files/nodejs/node_modules/@openai/codex/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe",
-	];
-	for (const bin of candidates) {
-		if (!existsSync(bin)) continue;
-		const result = await runProgram(bin, ["--version"]);
-		if (result.code === 0) {
-			return { bin, version: result.stdout.trim() };
-		}
-	}
-	const fallback = await runProgram("cmd.exe", ["/c", "codex", "--version"]);
-	if (fallback.code === 0) return { bin: "cmd.exe", version: fallback.stdout.trim() };
-	return null;
 }
 
 /**
