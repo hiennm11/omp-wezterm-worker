@@ -303,3 +303,11 @@ _Avoid_: Ownership, monitor, session identity
 **Counted action**:
 An external action that the runtime counts until it settles. The release waits for the counted actions that started before it. The end and the stop of a monitor run as counted actions.
 _Avoid_: Operation, call, write
+
+**Codex identity**:
+The record of a Codex worker that names its app server, its TUI, its thread and its Codex program. The payload of the run row holds the whole record, so it needs no column.
+_Avoid_: Codex session, worker handle
+
+**App server**:
+The Codex program that holds the thread of a Codex worker. The extension starts one app server for each worker, and the TUI attaches to the thread of that server.
+_Avoid_: Codex daemon, shared server
