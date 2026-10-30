@@ -755,6 +755,7 @@ omp-wezterm-worker/
 │   ├── backend-proof.ts         the compatibility probe of the native backends
 │   └── backend-proof/           the modules of the probe
 │       ├── codex-background.ts  the background scenario of the Codex proof
+│       ├── codex-binary.ts      the search of the Codex program of the machine
 │       ├── codex-handle.ts      the handle of a Codex scenario and the rules of its evidence
 │       ├── codex-dialog.ts      the TUI of a Codex scenario that answers the approval dialogs
 │       ├── codex-resume.ts      the resume scenario of the Codex proof

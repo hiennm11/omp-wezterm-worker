@@ -10,11 +10,12 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { findCodexBinary } from "./codex-binary.ts";
 import { attachScenarioTui } from "./codex-dialog.ts";
 import { type CodexProofOptions, runScenario, stopHandle } from "./codex-handle.ts";
 import { runApproval, runBackground, runRecovery, runSettingsUsage, runStop } from "./codex-lifecycle.ts";
 import { runResume } from "./codex-resume.ts";
-import { attachTui, findCodexBinary, recordMessages, startServer, wait } from "./codex-server.ts";
+import { attachTui, recordMessages, startServer, wait } from "./codex-server.ts";
 import { answerApprovalDialog, checkTuiPane, recordTuiText } from "./codex-tui.ts";
 import type { ScenarioOutcome } from "./scenarios.ts";
 import { makeFixture } from "./shared.ts";
