@@ -1,6 +1,6 @@
 # Codex backend workers
 
-Status: proposed design. The owner has not accepted it. The extension does not implement the Codex backend yet. A spawn that names `codex` is still refused.
+Status: accepted design. The owner accepted it on 2026-10-30. The extension does not implement the Codex backend yet. A spawn that names `codex` is still refused.
 
 ## Context
 
@@ -51,9 +51,9 @@ A background task of a Codex worker outlives the turn. The proof showed a detach
 
 The proof does not show the following. The supervisor needs a decision for each one before the backend ships, and the decision is not made here.
 
-- How the report binds to the cycle. The report server records the run. The proof did not compare the report with the id of the turn.
-- How a queued instruction blocks an early report. The proof shows that the queue accepts and delivers an item. It does not show the block.
-- How the supervisor knows that a background task is still open. A Codex worker has no native notification of a background task that the proof found.
+- How the report binds to the cycle. The report server records the run. The proof did not compare the report with the id of the turn. Issue #87 tracks it.
+- How a queued instruction blocks an early report. The proof shows that the queue accepts and delivers an item. It does not show the block. Issue #88 tracks it.
+- How the supervisor knows that a background task is still open. A Codex worker has no native notification of a background task that the proof found. Issue #86 tracks it.
 
 ## Usage and history
 
@@ -73,12 +73,12 @@ The proof found that a stop that closes only one pane leaves the server and its 
 
 The first version supports spawn, the report, the instruction queue, the native usage, cancel and resume.
 
-The first version does not support these items. Each one needs its own issue with a number before the version ships.
+The first version does not support these items. Each one has its own issue. The issue must close, or the owner must accept the gap, before the version ships.
 
-- A recovery of a Codex worker after OMP restarts.
-- A takeover of a running Codex worker by another session.
-- A platform other than Windows.
-- A background task that the supervisor tracks as an execution record.
+- A recovery of a Codex worker after OMP restarts. Issue #83 tracks it.
+- A takeover of a running Codex worker by another session. Issue #84 tracks it.
+- A platform other than Windows. Issue #85 tracks it.
+- A background task that the supervisor tracks as an execution record. Issue #86 tracks it.
 
 ## Reuse of the Claude Code backend
 
