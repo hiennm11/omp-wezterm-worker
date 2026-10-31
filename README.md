@@ -163,7 +163,14 @@ The Codex backend has no implementation yet. The extension refuses a spawn that
 names it. The first slice adds the spawn function of a Codex worker. It
 starts the app server of Codex in one pane, the TUI of Codex in a second pane
 and the task as the first turn. The refusal stays until the last slice,
-because a Codex worker has no report tool and no stop path yet.
+because a Codex worker has no stop path yet.
+
+The report channel of a Codex worker exists. The extension loads a stdio MCP
+server into the app server of Codex. The server posts every report to the
+bridge of the run, and the report reaches the run state of the owner. The
+owner reads the report with the same decision functions that it uses for a
+Claude Code worker. The report carries no cycle id, so the supervisor accepts
+it when the run holds one cycle.
 
 ### Long tasks
 
@@ -692,6 +699,7 @@ omp-wezterm-worker/
 │   │   ├── codex-client.ts      the client of one Codex app server
 │   │   ├── codex-launch.ts      the app server, the TUI and the first turn of a Codex worker
 │   │   ├── codex-process.ts     the processes and the panes of a Codex worker
+│   │   ├── codex-report.ts      the arguments and the environment of the report channel
 │   │   ├── claude-bridge.ts     the loopback bridge of a native worker
 │   │   ├── claude-run-state.ts  the native state of a Claude Code run
 │   │   ├── native-ledger.ts     the execution ledger of a native run
@@ -744,6 +752,8 @@ omp-wezterm-worker/
 │   │   │   └── plugin.json      the manifest of the mod
 │   │   └── hooks/
 │   │       └── register.js      the report tool and the command bridge
+│   ├── codex-report/            the report server of a Codex worker
+│   │   └── report-server.ts     the stdio MCP server that posts the reports
 │   └── worker-tools/            one module for each tool
 │       ├── kit.ts               the shared reply and the worker lookup
 │       ├── spawn.ts, status.ts, steer.ts, peek.ts

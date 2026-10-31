@@ -75,6 +75,8 @@ The first version supports spawn, the report, the instruction queue, the native 
 
 The first slice adds the spawn function of a Codex worker. The function starts the app server in one pane, the TUI in a second pane and the task as the first turn. The refusal of the backend stays until the last slice, because a Codex worker has no report tool and no stop path yet.
 
+The report channel exists. The extension loads a stdio MCP server into the app server. The server posts every report to the bridge of the run, and the report reaches the run state of the owner. The owner reads the report with the decision functions of the Claude Code backend. The report carries no cycle id, so the supervisor accepts it when the run holds one cycle.
+
 The first version does not support these items. Each one has its own issue. The issue must close, or the owner must accept the gap, before the version ships.
 
 - A recovery of a Codex worker after OMP starts again. Issue #83 covers it.

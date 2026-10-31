@@ -53,6 +53,8 @@ export interface CodexFake {
 	clientCalls: { method: string; params: Record<string, unknown> }[];
 	/** The fake client of the test. */
 	connect: (endpoint: string) => Promise<CodexClient>;
+	/** Close the bridges of the runs. A live bridge holds the event loop. */
+	closeBridges: () => Promise<void>;
 }
 
 /**
@@ -183,5 +185,8 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 		taskkills,
 		clientCalls,
 		connect,
+		closeBridges: async () => {
+			for (const bridge of rt.bridges.values()) await bridge.close();
+		},
 	};
 }

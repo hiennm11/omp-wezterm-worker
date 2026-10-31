@@ -41,6 +41,9 @@ async function launch(
 		);
 		return { job, fake };
 	} finally {
+		/* The launch starts the bridge of the run. A live bridge holds the
+		   event loop of the test, so the test closes it. */
+		await fake.closeBridges();
 		fake.rt.closeDb();
 	}
 }
