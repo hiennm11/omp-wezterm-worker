@@ -21,7 +21,12 @@ import { join } from "node:path";
 export const CODEX_REPORT_NAME = "wezterm_worker_report";
 
 /** The variables that the report server inherits from the app server. */
-const REPORT_ENV_VARS = ["WEZTERM_WORKER_URL", "WEZTERM_WORKER_TOKEN", "WEZTERM_WORKER_RUN_ID"];
+const REPORT_ENV_VARS = [
+	"WEZTERM_WORKER_URL",
+	"WEZTERM_WORKER_TOKEN",
+	"WEZTERM_WORKER_RUN_ID",
+	"WEZTERM_WORKER_SESSION_DIR",
+];
 
 /** The path of the report server program. */
 const REPORT_SERVER_PATH = join(import.meta.dirname, "..", "codex-report", "report-server.ts");
@@ -34,6 +39,8 @@ export interface CodexReportTarget {
 	token: string;
 	/** The id of the run. */
 	runId: string;
+	/** The session directory of the run. The report server reads the handover file there. */
+	sessionDir: string;
 }
 
 /** The arguments and the environment of the launch of a Codex worker. */
@@ -71,6 +78,7 @@ export function codexReportLaunch(target: CodexReportTarget): CodexReportLaunch 
 			WEZTERM_WORKER_URL: target.url,
 			WEZTERM_WORKER_TOKEN: target.token,
 			WEZTERM_WORKER_RUN_ID: target.runId,
+			WEZTERM_WORKER_SESSION_DIR: target.sessionDir,
 		},
 	};
 }

@@ -128,7 +128,12 @@ export async function spawnCodexWorker(
 
 	markIssued(db, attemptId, Date.now());
 
-	const report = codexReportLaunch({ url: bridge.baseUrl, token: bridge.token, runId: jobId });
+	const report = codexReportLaunch({
+		url: bridge.baseUrl,
+		token: bridge.token,
+		runId: jobId,
+		sessionDir: job.sessionDir,
+	});
 	const launch = await launchCodex(rt, job, binary, report, deps);
 	if (launch.error) {
 		markUnused(db, attemptId, Date.now());

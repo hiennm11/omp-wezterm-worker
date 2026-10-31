@@ -91,9 +91,10 @@ The extension starts a turn only when the owner gave an instruction. A resume wi
 
 A resume refuses to start while the pane of the TUI of the source run is open. It also refuses to start while the pane of the app server is open. It refuses to start when the machine cannot list the panes. A failed resume ends the program of the app server and closes both panes.
 
+The recovery of a Codex worker after a restart of OMP exists. The new session finds the app server through the identity of the job in the registry, so the extension never scans the machine. The extension proves the identity with three checks. A process with the id of the identity must exist. Its name must be `codex.exe`. Its command line must hold `app-server --listen ws://127.0.0.1:<port>` with the port of the identity. A failed check means that the worker is not attached, so the extension stops it as failed and names the check that failed. The extension sets the process id of the identity to null before that stop, so the stop closes the panes and never ends a program that the check did not prove. The same command line check guards the stop of a running worker, so a process id that the system gave to another `codex.exe` of the user stays alive. The new session connects to the app server again and resumes the thread of the worker. The client of the app server then joins the run state, so the owner can steer the worker and stop its open turn. The report server of Codex reads the handover file of the session directory on every post, so the reports of the worker reach the new owner. The usage of a restored run is partial, because the turns before the restart stay unmeasured.
+
 The first version does not support these items. Each one has its own issue. The issue must close, or the owner must accept the gap, before the version ships.
 
-- A recovery of a Codex worker after OMP starts again. Issue #83 covers it.
 - A takeover of a running Codex worker by another session. Issue #84 covers it.
 - A platform other than Windows. Issue #85 covers it.
 - A background task that the supervisor monitors as an execution record. Issue #86 covers it.

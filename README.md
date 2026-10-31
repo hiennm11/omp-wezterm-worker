@@ -192,6 +192,19 @@ starts no turn. A resume refuses to start while the pane of the TUI of the
 source run is open. It also refuses to start while the pane of the app
 server of the source run is open.
 
+The recovery of a Codex worker after a restart of OMP exists. A new session
+finds the app server through the identity of the job in the registry. The
+extension proves that the process is the same `codex.exe` with three checks:
+the process of the identity must exist, its name must be `codex.exe`, and its
+command line must hold the app server of the port of the identity. A failed
+check stops the worker as failed and names the check that failed. The stop
+never ends a program that the check did not prove, so the program of another
+`codex.exe` of the user stays alive. The new session connects to the app
+server again and resumes the thread of the worker. The client of the app
+server then joins the run state. The owner can steer the worker and stop its
+open turn. The report server of Codex reads the handover file of the session
+directory on every post, so the reports of the worker reach the new owner.
+
 ### Long tasks
 
 A worker runs for as long as it needs, until its deadline. The deadline is a
@@ -735,6 +748,7 @@ omp-wezterm-worker/
 │   │   ├── restored-run.ts      the words of a restored native run
 │   │   ├── bridge-handover.ts   the handover of a bridge to a new owner
 │   │   ├── reattach-native.ts   the re-attachment of a native worker after a restart
+│   │   ├── reattach-codex.ts    the re-attachment of a Codex worker after a restart
 │   │   ├── steer-native.ts      steering a worker that runs a native backend
 │   │   ├── limits.ts            the launch limits and the nested-worker rule
 │   │   ├── monitor.ts           watching a worker and the deadline rules
@@ -874,6 +888,8 @@ omp-wezterm-worker/
 │   ├── reattach-native.test.ts  the re-attachment of a native worker after a restart
 │   ├── reattach-native-stop.test.ts the stop of a native worker whose re-attachment fails
 │   ├── reattach-native-helpers.ts the helpers of the re-attachment tests
+│   ├── reattach-codex.test.ts   the re-attachment of a Codex worker after a restart
+│   ├── codex-report-handover.test.ts the handover file of the report server of a Codex worker
 │   ├── restored-run.test.ts    the usage of a native run that a restart restored
 │   ├── restored-run-text.test.ts the texts of a restored native run
 │   ├── recover-task.test.ts    the replay of a result that a restart lost
@@ -999,6 +1015,8 @@ breaks a test.
 | `takeover-process.test.ts` | A takeover of a session without a start time stores the start time of its process. A takeover refuses when the session cannot read the start time of its process. A task taken over with a start time is not a lock. |
 | `reattach-native.test.ts` | A native worker gets a new bridge and a new handover. The worker follows the new bridge and the old token is refused. The run state keeps the native session id of the worker. Only the open rows of the run become the open calls of the state. The new owner receives the report of the worker and ends the run. An open row blocks the completion until a settlement arrives. attachWorker gives a native worker a bridge and a monitor. attachWorker ends a native worker whose pane is gone. attachWorker keeps the old behaviour for an OMP worker. A handover that cannot be written leaves no bridge and no state. attachWorker fails the worker when the re-attachment fails. |
 | `reattach-native-stop.test.ts` | A failed re-attachment closes the pane of the native worker, and the open rows of the run become unknown. A failed re-attachment frees the execution of the group. A stop that the pane list does not confirm leaves the worker running with a pending stop and a monitor, and the next poll ends the worker as failed. |
+| `reattach-codex.test.ts` | The identity of a running app server passes the three checks. A process that is gone fails the check of the process. A process of another name fails the check of the name. An app server of another port fails the check of the command line. A restored Codex worker gets a client, a run state and a handover file. A restored worker that fails the identity check is stopped as failed. A stop of a restored worker interrupts the open turn. A stop of a running worker ends no app server of another port. |
+| `codex-report-handover.test.ts` | The report server posts to the address of the handover file. The report server follows the handover file when it changes. The report server falls back to the environment without a handover file. The report server falls back to the environment with a malformed handover file. |
 | `restored-run.test.ts` | The re-attachment marks the usage of the run with the time of the restart. A restored run with a measured turn has a partial usage, and the note says that the counts start at the restart of OMP. A run that never restarted keeps a measured usage. A restored run without a measured turn stays unknown. A restored run with a turn without usage keeps both reasons. |
 | `restored-run-text.test.ts` | The turn label says that a restart cut the count. The snapshot notice shows only for a restored run without a snapshot. The delivery of a restored native run says since the restart. The status of a live restored run names the missing snapshot. The status of a run that never restarted shows no restart text. The status of a finished restored run still says since the restart. |
 | `recover-task.test.ts` | A finished run without a sent delivery is selected. A cancelled run stays out. A run without a mark is selected. The replay sends only the result that this session owns and never delivered. A delivery that throws does not stop the replay of the next run. The first recovery marks the time and replays no run that ended before it. |
