@@ -329,7 +329,7 @@ The cycle of a run that no completed turn closes. A stop interrupts the open tur
 _Avoid_: Running turn, current cycle
 
 **Codex stop**:
-The stop of a Codex worker. It interrupts the open turn, ends the program of the app server and closes the pane of the app server and the pane of the TUI. The stop is confirmed when no step failed.
+The stop of a Codex worker. It interrupts the open turn, ends the program of the app server and closes the pane of the app server and the pane of the TUI. The stop is confirmed when no step failed. A worker that ends on its own ends its app server the same way.
 _Avoid_: Pane close, worker stop
 
 **Codex thread**:
@@ -343,3 +343,7 @@ _Avoid_: Restart, resume, takeover
 **Identity check**:
 The proof that a process is the app server of a Codex worker. The process of the identity must exist, its name must be `codex.exe`, and its command line must hold the app server of the port of that identity.
 _Avoid_: Process lookup, name check, port scan
+
+**Rollout file**:
+The file that holds the turns of a Codex thread. The file lives in `~/.codex/sessions`. The extension never removes it, and a cancel of a worker leaves it on the disk.
+_Avoid_: Transcript, log, session file

@@ -226,17 +226,17 @@ async function main(): Promise<number> {
 			return 1;
 		}
 
-		/* A backend that is not implemented is refused. The extension
-		   never falls back to OMP. */
+		/* An unknown backend is refused. The extension never falls back to
+		   OMP. */
 		const unknown = await host.call("wezterm_spawn_worker", {
 			task: "Read baseline.txt.",
 			cwd: repo,
-			backend: "codex",
+			backend: "not-a-backend",
 		});
 		const unknownText = host.text(unknown);
-		console.log("codex refusal:", unknownText);
-		if (!unknownText.includes("not implemented")) {
-			console.log("FAIL: the spawn accepted a backend that is not implemented");
+		console.log("unknown backend refusal:", unknownText);
+		if (!unknownText.includes("Unknown backend")) {
+			console.log("FAIL: the spawn accepted a backend that the extension does not know");
 			return 1;
 		}
 

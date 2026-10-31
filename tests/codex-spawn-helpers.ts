@@ -55,6 +55,8 @@ export interface CodexFake {
 	order: string[];
 	/** The calls of WezTerm. */
 	weztermCalls: string[][];
+	/** The programs that the fake was asked to start, in order. */
+	programs: string[];
 	/** The panes that the fake holds. */
 	panes: Set<number>;
 	/** The panes that the fake closed. */
@@ -93,6 +95,7 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 
 	const order: string[] = [];
 	const weztermCalls: string[][] = [];
+	const programs: string[] = [];
 	const panes = new Set<number>();
 	const killedPanes: number[] = [];
 	const taskkills: string[] = [];
@@ -131,6 +134,9 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 
 	const weztermAnswer = (command: string) => {
 		weztermCalls.push(command.split(" "));
+		/* The program of a pane stands after the "--" of the WezTerm
+		   command. The test reads it to know which CLI started. */
+		const program = command.split("-- ").pop()?.split(" ")[0] ?? "";
 		if (command.includes("app-server")) {
 			endpoint = command.split("--listen ")[1]?.split(" ")[0] ?? endpoint;
 			panes.add(serverPaneId);
@@ -143,12 +149,14 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 				});
 			}
 			order.push("server-pane");
+			programs.push(program);
 			return { code: 0, stdout: String(serverPaneId), stderr: "" };
 		}
 		if (command.includes("--remote")) {
 			if (options.failTuiLaunch) return { code: 1, stdout: "", stderr: "the TUI did not start" };
 			panes.add(tuiPaneId);
 			order.push("tui-pane");
+			programs.push(program);
 			return { code: 0, stdout: String(tuiPaneId), stderr: "" };
 		}
 		if (command.includes("kill-pane")) {
@@ -236,12 +244,16 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 			setMessageHandler: () => undefined,
 		};
 	};
+	/* The tool of a spawn reaches the app server through the seam of the
+	   runtime, so the fake client answers every connection. */
+	rt.codexConnect = connect;
 
 	return {
 		rt,
 		dir,
 		order,
 		weztermCalls,
+		programs,
 		panes,
 		killedPanes,
 		taskkills,
