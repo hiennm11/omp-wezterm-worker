@@ -5,12 +5,20 @@
  * the worker calls its report tool. The server posts every report to the
  * bridge of the run, and it answers the call only after the post succeeded.
  *
+ * The server reads the address and the token of the bridge from the handover
+ * file of its session directory. A restart of OMP gives the run a new
+ * bridge, and the new owner writes that file again. The server reads the
+ * file on every post, so the worker follows the new owner. A missing file or
+ * a malformed file gives the address and the token of the environment.
+ *
  * The server imports only Node modules. It reads the address, the token and
  * the run id from its environment, so the token never reaches a command
  * line.
  */
 
 import { createInterface } from "node:readline";
+
+import { readHandover } from "../lib/bridge-handover.ts";
 
 /** The name of the MCP server and of its report tool. */
 const REPORT_TOOL = "wezterm_worker_report";
@@ -60,6 +68,24 @@ export function reportProblem(params: Record<string, unknown>): string | null {
 		return "A needs input report needs the decision or information that you need.";
 	}
 	return null;
+}
+
+/**
+ * The target that the server posts to.
+ *
+ * The handover file of the session directory names the bridge of the current
+ * owner. The server reads the file on every post, so a restart of OMP does
+ * not lose the reports of the worker. A missing file or a malformed file
+ * gives the address and the token of the environment.
+ */
+export function resolveTarget(env: NodeJS.ProcessEnv = process.env): ReportTarget {
+	const sessionDir = env.WEZTERM_WORKER_SESSION_DIR;
+	const handover = sessionDir ? readHandover(sessionDir) : null;
+	return {
+		url: handover?.url ?? env.WEZTERM_WORKER_URL ?? "",
+		token: handover?.token ?? env.WEZTERM_WORKER_TOKEN ?? "",
+		runId: env.WEZTERM_WORKER_RUN_ID ?? "",
+	};
 }
 
 /**
@@ -122,11 +148,13 @@ const REPORT_TOOL_SCHEMA = {
  * Answer one message of the JSON-RPC protocol.
  *
  * The function returns the answer of the message, or null when the message
- * needs no answer. A notification never gets an answer.
+ * needs no answer. A notification never gets an answer. The server reads the
+ * handover file on every post, so the reports of the worker follow the
+ * current owner.
  */
 export async function handleMessage(
 	message: ReportMessage,
-	target: ReportTarget,
+	env: NodeJS.ProcessEnv = process.env,
 ): Promise<Record<string, unknown> | null> {
 	const id = message.id ?? null;
 	const method = message.method ?? "";
@@ -162,7 +190,7 @@ export async function handleMessage(
 		/* The report reaches the owner before the answer does. A report that
 		   the bridge refused is a failure of the channel, and the worker must
 		   know it. */
-		const recorded = await postReport(target, args);
+		const recorded = await postReport(resolveTarget(env), args);
 		if (!recorded) {
 			return jsonRpcError(id, -32000, "The bridge of the run did not record the report.");
 		}
@@ -182,11 +210,6 @@ export async function handleMessage(
  * form to stdout. Every diagnostic goes to stderr.
  */
 export function runReportServer(): void {
-	const target: ReportTarget = {
-		url: process.env.WEZTERM_WORKER_URL ?? "",
-		token: process.env.WEZTERM_WORKER_TOKEN ?? "",
-		runId: process.env.WEZTERM_WORKER_RUN_ID ?? "",
-	};
 	const lines = createInterface({ input: process.stdin });
 
 	lines.on("line", (line) => {
@@ -198,7 +221,7 @@ export function runReportServer(): void {
 				process.stdout.write(`${JSON.stringify(jsonRpcError(null, -32700, "parse error"))}\n`);
 				return;
 			}
-			const answer = await handleMessage(message, target);
+			const answer = await handleMessage(message, process.env);
 			if (answer) process.stdout.write(`${JSON.stringify(answer)}\n`);
 		})();
 	});

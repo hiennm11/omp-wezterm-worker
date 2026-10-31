@@ -121,7 +121,12 @@ export async function resumeCodexWorker(
 	reserveAttempt(db, attemptId, jobId, Date.now());
 	markIssued(db, attemptId, Date.now());
 
-	const report = codexReportLaunch({ url: bridge.baseUrl, token: bridge.token, runId: jobId });
+	const report = codexReportLaunch({
+		url: bridge.baseUrl,
+		token: bridge.token,
+		runId: jobId,
+		sessionDir: job.sessionDir,
+	});
 	const launch = await launchCodex(rt, job, binary, report, deps, {
 		resume: { threadId: params.threadId, message: params.message },
 	});

@@ -115,20 +115,21 @@ export async function findCodexServerProcesses(rt: WorkerRuntime, port: number):
 }
 
 /**
- * The name of the program of a process.
+ * The rows of the process table that hold one process id.
  *
- * The function returns null when the process is gone or when the table
- * cannot be read.
+ * The function reads the process table and keeps the row of that process id.
+ * A process that is gone gives an empty list.
  */
-export async function readProcessName(rt: WorkerRuntime, pid: number): Promise<string | null> {
+export async function readProcessRows(rt: WorkerRuntime, pid: number | null): Promise<CodexProcessRow[]> {
+	if (pid === null) return [];
 	const result = await rt.exec("powershell", [
 		"-NoProfile",
 		"-Command",
-		`Get-CimInstance Win32_Process -Filter "ProcessId = ${Math.trunc(pid)}" | ForEach-Object { $_.Name }`,
+		`Get-CimInstance Win32_Process -Filter "ProcessId = ${Math.trunc(pid)}" | ` +
+			`Select-Object ProcessId,Name,CommandLine | ConvertTo-Json -Compress`,
 	]);
-	if (result.code !== 0) return null;
-	const name = result.stdout.trim().split("\n")[0]?.trim() ?? "";
-	return name ? name : null;
+	if (result.code !== 0) return [];
+	return parseCodexProcessRows(result.stdout);
 }
 
 /**
@@ -136,8 +137,10 @@ export async function readProcessName(rt: WorkerRuntime, pid: number): Promise<s
  *
  * The function ends the process of the app server first. The pane of the
  * server still holds that process, so the process id cannot change to
- * another program between the check of the name and the end. Then the
- * function closes the pane of the TUI and the pane of the server.
+ * another program between the check of the name and the end. The command
+ * line must also hold the app server of the port of the identity, so a
+ * process id that the system gave to another `codex.exe` of the user stays
+ * alive.
  *
  * The function never fails. A missing pane or a missing process is not an
  * error. It returns the names of the steps that failed.
@@ -150,8 +153,11 @@ export async function endCodexProcesses(
 	if (!identity) return failed;
 
 	if (identity.serverPid !== null) {
-		const name = await readProcessName(rt, identity.serverPid);
-		if (name !== null && mayEndCodexProcess(name)) {
+		const rows = await readProcessRows(rt, identity.serverPid);
+		const row = rows.find((entry) => entry.processId === identity.serverPid);
+		const proven =
+			row !== undefined && mayEndCodexProcess(row.name) && isCodexServerProcess(row, identity.port);
+		if (proven) {
 			const killed = await rt.exec("taskkill", ["/PID", String(identity.serverPid), "/T", "/F"]);
 			if (killed.code !== 0) failed.push(`the app server: ${describeFailure(killed)}`);
 		}

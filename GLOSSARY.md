@@ -335,3 +335,11 @@ _Avoid_: Pane close, worker stop
 **Codex thread**:
 The conversation of a Codex worker. A new worker starts a thread, and a resumed worker continues the thread of its source run. The thread keeps its id and its turns.
 _Avoid_: Codex session, rollout file, app server
+
+**Codex recovery**:
+The act of attaching a Codex worker that a restart of OMP left running. The new session finds the app server through the Codex identity, proves the process, and connects to that app server again.
+_Avoid_: Restart, resume, takeover
+
+**Identity check**:
+The proof that a process is the app server of a Codex worker. The process of the identity must exist, its name must be `codex.exe`, and its command line must hold the app server of the port of that identity.
+_Avoid_: Process lookup, name check, port scan

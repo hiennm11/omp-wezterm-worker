@@ -39,6 +39,10 @@ export interface CodexFakeOptions {
 	serverWaitMs?: number;
 	/** The number of calls of `taskkill` that fail before they succeed. */
 	taskkillFailures?: number;
+	/** The processes of the machine before the launch starts. */
+	seedProcesses?: Array<{ pid: number; name: string; commandLine: string }>;
+	/** The id of the turn that the thread of the test still runs. */
+	openTurnId?: string;
 }
 
 /** The fake runtime of the tests of a Codex spawn. */
@@ -99,6 +103,10 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 	const processes = new Map<number, { name: string; commandLine: string }>();
 	let nextProcessId = 4200;
 	let endpoint = "";
+	for (const row of options.seedProcesses ?? []) {
+		processes.set(row.pid, { name: row.name, commandLine: row.commandLine });
+		if (row.pid >= nextProcessId) nextProcessId = row.pid + 1;
+	}
 
 	const exec = async (
 		bin: string,
@@ -160,11 +168,16 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 
 	const powershellAnswer = (command: string) => {
 		if (command.includes("Select-Object ProcessId,Name,CommandLine")) {
-			const rows = [...processes.entries()].map(([pid, row]) => ({
-				ProcessId: pid,
-				Name: row.name,
-				CommandLine: row.commandLine,
-			}));
+			const wanted = command.includes("ProcessId = ")
+				? Number.parseInt(command.split("ProcessId = ")[1]?.split(" ")[0] ?? "", 10)
+				: null;
+			const rows = [...processes.entries()]
+				.filter(([pid]) => wanted === null || pid === wanted)
+				.map(([pid, row]) => ({
+					ProcessId: pid,
+					Name: row.name,
+					CommandLine: row.commandLine,
+				}));
 			if (rows.length === 0) return { code: 0, stdout: "", stderr: "" };
 			return { code: 0, stdout: JSON.stringify(rows), stderr: "" };
 		}
@@ -204,6 +217,11 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 				}
 				if (method === "thread/start") {
 					return { id: 1, result: { thread: { id: "thread-1" } } } satisfies CodexProtocolMessage;
+				}
+				if (method === "thread/turns/list") {
+					const turnId = options.openTurnId ?? null;
+					const data = turnId === null ? [] : [{ id: turnId, status: "inProgress" }];
+					return { id: 1, result: { data } } satisfies CodexProtocolMessage;
 				}
 				return { id: 1, result: {} } satisfies CodexProtocolMessage;
 			},
