@@ -85,6 +85,12 @@ The open parts of these two parts are the client of the app server and the stop 
 
 The stop of a Codex worker exists. The extension ends the open turn with the request `turn/interrupt`, and it ignores a failure of that request. Then it ends the program of the app server and it closes the pane of the app server and the pane of the TUI. The extension confirms the stop only when no step failed. A failed step leaves the worker running with a pending stop, so the next cancel and the monitor retry the stop. The client of the app server closes with the run, so a run that ends early closes its socket too.
 
+The resume of a Codex worker exists. The extension continues the thread of the source run with the request `thread/resume`. The thread keeps its id and its turns, so the worker comes back with its history. The resume starts no new thread and names no thread. The rollout file of the source run already exists. The TUI of the resumed run starts with the command `resume` and the thread id of the source run.
+
+The extension starts a turn only when the owner gave an instruction. A resume without an instruction opens the thread and starts no turn. The new run has a new run id, a new bridge and a new report channel. The report of the source run cannot finish it.
+
+A resume refuses to start while the pane of the TUI of the source run is open. It also refuses to start while the pane of the app server is open. It refuses to start when the machine cannot list the panes. A failed resume ends the program of the app server and closes both panes.
+
 The first version does not support these items. Each one has its own issue. The issue must close, or the owner must accept the gap, before the version ships.
 
 - A recovery of a Codex worker after OMP starts again. Issue #83 covers it.

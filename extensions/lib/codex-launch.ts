@@ -7,9 +7,8 @@
  * machine.
  */
 
-import { REPORTING_CONTRACT } from "./bootstrap-prompt.ts";
 import type { CodexBinary } from "./codex-binary.ts";
-import { type CodexClient, connectCodexServer, threadIdOf } from "./codex-client.ts";
+import { type CodexClient, connectCodexServer } from "./codex-client.ts";
 import {
 	type CodexProcessRow,
 	endCodexProcesses,
@@ -18,6 +17,7 @@ import {
 } from "./codex-process.ts";
 import type { CodexReportLaunch } from "./codex-report.ts";
 import { attachCodexEvents } from "./codex-session.ts";
+import { resumeThread, startThread } from "./codex-thread.ts";
 import type { CodexIdentity, Job } from "./job.ts";
 import { launchProgram } from "./pane.ts";
 import { delay } from "./process.ts";
@@ -46,6 +46,25 @@ export interface CodexLaunchResult {
 }
 
 /**
+ * The thread that a launch continues.
+ *
+ * A new launch starts a thread. A resume continues the thread of a source
+ * run, so the worker comes back with its history.
+ */
+export interface CodexResumeTarget {
+	/** The id of the thread of the source run. */
+	threadId: string;
+	/** The follow-up instruction, when the owner gave one. */
+	message?: string;
+}
+
+/** The options of one Codex launch. */
+export interface CodexLaunchOptions {
+	/** Continue a thread instead of starting a new one. */
+	resume?: CodexResumeTarget;
+}
+
+/**
  * Start the app server, the TUI and the first turn of a Codex worker.
  */
 export async function launchCodex(
@@ -54,6 +73,7 @@ export async function launchCodex(
 	binary: CodexBinary,
 	report: CodexReportLaunch,
 	deps: CodexLaunchDeps = {},
+	options: CodexLaunchOptions = {},
 ): Promise<CodexLaunchResult> {
 	const port = await reserveFreePort();
 	const endpoint = `ws://127.0.0.1:${port}`;
@@ -93,7 +113,9 @@ export async function launchCodex(
 		return { error: e instanceof Error ? e.message : String(e), threadId: "" };
 	}
 
-	const prepared = await prepareThread(client, job);
+	const prepared = options.resume
+		? await resumeThread(client, options.resume.threadId)
+		: await startThread(client, job);
 	if (prepared.error) {
 		client.close();
 		await endCodexProcesses(rt, identity);
@@ -115,6 +137,27 @@ export async function launchCodex(
 	}
 	identity.tuiPaneId = tuiPaneId;
 	job.paneId = tuiPaneId;
+
+	/* A new worker sends its task as the first turn. A resumed worker sends
+	   the instruction of the owner, and only when the owner gave one. A
+	   resume without an instruction opens the thread and starts no turn. */
+	if (options.resume) {
+		const message = options.resume.message;
+		if (!message) return { error: null, threadId: prepared.threadId };
+		const turn = await client.request("turn/start", {
+			threadId: prepared.threadId,
+			input: [{ type: "text", text: message }],
+		});
+		if (turn.error) {
+			client.close();
+			await endCodexProcesses(rt, identity);
+			return {
+				error: `the first turn of Codex failed: ${turn.error.message}`,
+				threadId: prepared.threadId,
+			};
+		}
+		return { error: null, threadId: prepared.threadId };
+	}
 
 	const turn = await client.request("turn/start", {
 		threadId: prepared.threadId,
@@ -202,48 +245,4 @@ async function startTuiPane(
 	const failure = await launchProgram(rt, job, binary.bin, args);
 	if (failure) return null;
 	return job.paneId;
-}
-
-/** The result of the preparation of the thread of a Codex worker. */
-interface ThreadResult {
-	/** The reason that the preparation failed, or null when it succeeded. */
-	error: string | null;
-	/** The id of the thread. */
-	threadId: string;
-}
-
-/**
- * Prepare the thread of a Codex worker.
- *
- * The order of the calls is fixed. The request `thread/start` alone writes no
- * rollout file, and the TUI then ends at once. The request `thread/name/set`
- * writes that file, and the request `thread/resume` makes the server load it.
- */
-async function prepareThread(client: CodexClient, job: Job): Promise<ThreadResult> {
-	const started = await client.request("thread/start", threadStartParams(job));
-	if (started.error) return { error: `the thread of Codex failed: ${started.error.message}`, threadId: "" };
-	const threadId = threadIdOf(started);
-	if (!threadId) return { error: "the thread of Codex holds no id.", threadId: "" };
-
-	const named = await client.request("thread/name/set", { threadId, name: job.id });
-	if (named.error) return { error: `the name of the thread failed: ${named.error.message}`, threadId: "" };
-
-	const resumed = await client.request("thread/resume", { threadId });
-	if (resumed.error)
-		return { error: `the thread of Codex did not resume: ${resumed.error.message}`, threadId: "" };
-
-	return { error: null, threadId };
-}
-
-/**
- * The parameters of the request `thread/start`.
- *
- * The model goes to the request only when the job names one. An omitted
- * model uses the default of Codex. The field `developerInstructions` carries
- * the reporting contract, so the worker knows how to report its task state.
- */
-function threadStartParams(job: Job): Record<string, unknown> {
-	const params: Record<string, unknown> = { cwd: job.cwd, developerInstructions: REPORTING_CONTRACT };
-	if (job.model) params.model = job.model;
-	return params;
 }

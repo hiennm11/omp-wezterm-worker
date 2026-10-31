@@ -183,6 +183,15 @@ Two parts stay open. The client of the app server stays open after the
 launch, and the stop of a worker closes it. The report channel of a Codex
 worker is a separate slice.
 
+The resume of a Codex worker exists. The resume continues the thread of the
+source run, so the worker comes back with its full history. The new run has
+its own run id, its own bridge and its own report channel, so the report of
+the source run cannot finish it. A resume starts a turn only when the owner
+gave an instruction. A resume without an instruction opens the thread and
+starts no turn. A resume refuses to start while the pane of the TUI of the
+source run is open. It also refuses to start while the pane of the app
+server of the source run is open.
+
 ### Long tasks
 
 A worker runs for as long as it needs, until its deadline. The deadline is a
@@ -704,6 +713,7 @@ omp-wezterm-worker/
 │   │   ├── spawn-claude.ts      starting a Claude Code worker
 │   │   ├── spawn-codex.ts       starting a Codex worker
 │   │   ├── resume-claude.ts     resuming a Claude Code worker
+│   │   ├── resume-codex.ts      resuming a Codex worker
 │   │   ├── resume-guard.ts      the pane check of the source run of a resume
 │   │   ├── claude-session.ts    the Claude Code session of a worker
 │   │   ├── codex-binary.ts      the Codex program of the machine and its version
@@ -711,6 +721,7 @@ omp-wezterm-worker/
 │   │   ├── codex-events.ts      the events of a Codex worker
 │   │   ├── codex-session.ts     the session and the instruction queue of a Codex worker
 │   │   ├── codex-launch.ts      the app server, the TUI and the first turn of a Codex worker
+│   │   ├── codex-thread.ts      the thread of a Codex worker and the resume of it
 │   │   ├── codex-process.ts     the processes and the panes of a Codex worker
 │   │   ├── codex-stop.ts        the stop of a Codex worker and the close of its client
 │   │   ├── codex-report.ts      the arguments and the environment of the report channel
@@ -855,6 +866,8 @@ omp-wezterm-worker/
 │   ├── codex-spawn.test.ts      the spawn of a Codex worker and its cleanup
 │   ├── codex-spawn-helpers.ts   the fakes of the tests of a Codex spawn
 │   ├── codex-stop.test.ts       the stop of a Codex worker and the close of its client
+│   ├── codex-resume.test.ts     the resume of a Codex worker
+│   ├── codex-resume-helpers.ts  the helpers of the tests of a Codex resume
 │   ├── takeover.test.ts         the takeover of a task of another session
 │   ├── takeover-process.test.ts the process record of the new owner of a task
 │   ├── takeover-helpers.ts      the helpers of the takeover tests
