@@ -32,14 +32,14 @@ test("a run with an unknown backend field is an OMP run", () => {
 	assert.equal(readBackend({ backend: "something-else" }), "omp");
 });
 
-test("a backend that is not implemented is refused", () => {
-	assert.match(backendRefusal("codex") ?? "", /not implemented/);
-	assert.match(backendRefusal("codex") ?? "", /never falls back/);
+test("the Codex backend is implemented", () => {
+	assert.equal(backendRefusal("codex"), null);
 });
 
 test("an implemented backend has no refusal", () => {
 	assert.equal(backendRefusal("omp"), null);
 	assert.equal(backendRefusal("claude"), null);
+	assert.equal(backendRefusal("codex"), null);
 });
 
 test("a report of the current cycle is the bound report", () => {

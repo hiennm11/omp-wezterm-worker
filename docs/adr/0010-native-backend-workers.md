@@ -1,6 +1,6 @@
 # Native backend workers
 
-Status: accepted design. The extension implements the Claude Code backend. The Codex backend has no implementation yet.
+Status: accepted design. The extension implements the Claude Code backend. The Codex backend is described in ADR 0012.
 
 ## Scope
 
@@ -76,7 +76,7 @@ A native worker keeps the configuration, the credentials, the MCP servers and th
 
 An omitted model uses the default of the selected CLI. The extension passes an explicit model identifier through without any change. The OMP model default stays OMP-specific.
 
-The `tools` parameter is OMP-only. The extension refuses a spawn that names a Claude Code or a Codex worker and gives a tool list before the launch.
+The `tools` parameter is OMP-only. The extension refuses a spawn that names a native worker and gives a tool list before the launch.
 
 ## Usage and history
 

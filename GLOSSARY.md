@@ -329,9 +329,13 @@ The cycle of a run that no completed turn closes. A stop interrupts the open tur
 _Avoid_: Running turn, current cycle
 
 **Codex stop**:
-The stop of a Codex worker. It interrupts the open turn, ends the program of the app server and closes the pane of the app server and the pane of the TUI. The stop is confirmed when no step failed.
+The stop of a Codex worker. It interrupts the open turn, ends the program of the app server and closes the pane of the app server and the pane of the TUI. The stop is confirmed when no step failed. A worker that ends on its own ends its app server the same way.
 _Avoid_: Pane close, worker stop
 
 **Codex thread**:
 The conversation of a Codex worker. A new worker starts a thread, and a resumed worker continues the thread of its source run. The thread keeps its id and its turns.
 _Avoid_: Codex session, rollout file, app server
+
+**Rollout file**:
+The file that holds the turns of a Codex thread. The file lives in `~/.codex/sessions`. The extension never removes it, and a cancel of a worker leaves it on the disk.
+_Avoid_: Transcript, log, session file

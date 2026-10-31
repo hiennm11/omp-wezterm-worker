@@ -8,7 +8,7 @@
  */
 
 import type { CodexBinary } from "./codex-binary.ts";
-import { type CodexClient, connectCodexServer } from "./codex-client.ts";
+import type { CodexClient } from "./codex-client.ts";
 import {
 	type CodexProcessRow,
 	endCodexProcesses,
@@ -104,7 +104,7 @@ export async function launchCodex(
 	}
 	identity.serverPid = servers[0].processId;
 
-	const connect = deps.connect ?? ((target: string) => connectCodexServer(target));
+	const connect = deps.connect ?? rt.codexConnect;
 	let client: CodexClient;
 	try {
 		client = await connect(endpoint);
