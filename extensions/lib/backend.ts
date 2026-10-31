@@ -3,7 +3,8 @@
  *
  * A worker runs in the CLI that the user selected. The OMP backend keeps the
  * current behavior. The Claude backend runs a real Claude Code session in a
- * pane. The Codex backend is not implemented yet.
+ * pane. The Codex backend runs a real Codex app server and a Codex TUI in two
+ * panes.
  *
  * A run that the database holds without a backend field is an OMP run. The
  * migration never guesses a different backend.
@@ -13,9 +14,9 @@
 export type WorkerBackend = "omp" | "claude" | "codex";
 
 /** The backends that the extension can start today. */
-export const IMPLEMENTED_BACKENDS: WorkerBackend[] = ["omp", "claude"];
+export const IMPLEMENTED_BACKENDS: WorkerBackend[] = ["omp", "claude", "codex"];
 
-/** The backends that a spawn may name, including the ones that are not ready. */
+/** The backends that a spawn may name. */
 export const KNOWN_BACKENDS: WorkerBackend[] = ["omp", "claude", "codex"];
 
 /**

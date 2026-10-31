@@ -296,7 +296,7 @@ The smoke run `tooling/claude-smoke.ts` starts a real Claude Code session throug
 | :- | :- |
 | The worker reports its task | The report file holds `{"runId":"wz-...","cycleId":"...","state":"completed","result":"SMOKE-OK"}`. The status shows the result and the backend. |
 | An explicit tool list | The spawn refuses it: "The tools parameter applies to an OMP worker only." |
-| A backend that is not implemented | The spawn refuses it: "The backend 'codex' is not implemented." The extension never falls back to OMP. |
+| An unknown backend | The spawn refuses it: "Unknown backend 'not-a-backend'." The extension never falls back to OMP. |
 | A resume | The resumed run reuses the native session id, gets a new run id, and reports `RESUME-OK`. |
 | A steering instruction | The instruction goes through the bridge, the native session queues it, and the worker reports `STEER-OK`. |
 

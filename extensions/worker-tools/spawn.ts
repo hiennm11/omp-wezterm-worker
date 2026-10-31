@@ -20,6 +20,7 @@ import { monitorJob, monitorNativeJob } from "../lib/monitor.ts";
 import { acquireTask, bindSession, maySupervise } from "../lib/owner.ts";
 import { spawnWorker } from "../lib/spawn.ts";
 import { spawnClaudeWorker } from "../lib/spawn-claude.ts";
+import { spawnCodexWorker } from "../lib/spawn-codex.ts";
 import {
 	commsDetails,
 	commsNoticeLine,
@@ -99,6 +100,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				.describe(
 					"The CLI that runs the worker: 'omp' (default), 'claude' or 'codex'. " +
 						"A Claude worker runs a real Claude Code session in its pane. " +
+						"A Codex worker runs a real Codex app server and a Codex TUI in two panes. " +
 						"The extension never falls back to another backend.",
 				),
 			placement: z
@@ -119,7 +121,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				.boolean()
 				.optional()
 				.describe(
-					"Close the worker pane when the worker finishes. Defaults to the config value (true). Set false to keep the pane open for inspection.",
+					"Close the worker pane when the worker finishes. Defaults to the config value (true). Set false to keep the pane open for inspection. A Codex worker always closes its panes, because its TUI needs the app server of that pane.",
 				),
 		}),
 		loadMode: "essential",
@@ -191,18 +193,29 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 							timeoutMs: params.timeoutMs,
 							closePaneOnFinish: params.closePaneOnFinish,
 						})
-					: await spawnWorker(rt, {
-							jobId: admitted.jobId,
-							task: params.task,
-							cwd: params.cwd || ctx.cwd,
-							label: params.label,
-							model: params.model,
-							tools: params.tools,
-							placement,
-							isolated: params.isolated,
-							timeoutMs: params.timeoutMs,
-							closePaneOnFinish: params.closePaneOnFinish,
-						});
+					: backend === "codex"
+						? await spawnCodexWorker(rt, {
+								jobId: admitted.jobId,
+								task: params.task,
+								cwd: resolve(params.cwd || ctx.cwd),
+								label: params.label,
+								model: params.model ?? null,
+								isolated: params.isolated,
+								timeoutMs: params.timeoutMs,
+								closePaneOnFinish: params.closePaneOnFinish,
+							})
+						: await spawnWorker(rt, {
+								jobId: admitted.jobId,
+								task: params.task,
+								cwd: params.cwd || ctx.cwd,
+								label: params.label,
+								model: params.model,
+								tools: params.tools,
+								placement,
+								isolated: params.isolated,
+								timeoutMs: params.timeoutMs,
+								closePaneOnFinish: params.closePaneOnFinish,
+							});
 
 			if (job.status === "failed") {
 				return reply(

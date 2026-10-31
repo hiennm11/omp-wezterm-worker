@@ -1,6 +1,6 @@
 # Codex backend workers
 
-Status: accepted design. The owner accepted it on 2026-10-30. The extension has no Codex backend yet. The extension still refuses a spawn that names `codex`.
+Status: accepted design. The owner accepted it on 2026-10-30. The extension has a Codex backend. A spawn that names `codex` starts a Codex worker.
 
 ## Context
 
@@ -63,17 +63,21 @@ The command `resume` keeps the thread. The second app server opens the same thre
 
 The thread lives in `~/.codex`. The extension never edits it and never removes it.
 
+The app server of Codex writes a trust entry into `~/.codex/config.toml` when the request `thread/start` names a folder that the configuration does not trust yet. The extension never writes that file itself. The write of the app server keeps the settings, the credentials, the projects and the model of the user, so the extension must not prevent it.
+
 ## Stops and cleanup
 
 A stop ends the turn through the protocol, and then it ends the program of the app server. The program belongs to the user, so the extension reads the name of the program before it ends it. It ends the program only when the name is `codex.exe`. If another program took the process id, the name differs and that program stays alive. The extension ends the child programs of the server with it, and it closes both panes.
 
 The proof found that a stop that closes only one pane leaves the server and its child programs on the machine. The stop of the extension must close both panes and end the program, on every path, including an early return.
 
+A worker that ends on its own ends its app server too. The end of the run closes both panes and ends the program of the server, so the machine holds nothing of a finished worker. The pane policy of the spawn cannot keep a Codex pane open for inspection, because the TUI needs the server of that pane.
+
 ## Scope of the first version
 
 The first version supports spawn, the report, the instruction queue, the native usage, cancel and `resume`.
 
-The first slice adds the spawn function of a Codex worker. The function starts the app server in one pane, the TUI in a second pane and the task as the first turn. The refusal of the backend stays until the last slice, because a Codex worker has no report tool and no stop path yet.
+The spawn function of a Codex worker exists. The function starts the app server in one pane, the TUI in a second pane and the task as the first turn. The spawn tool names the Codex worker when the caller asks for the backend `codex`. The tool refuses a spawn with a tool list and the Codex backend before the launch. A Codex worker uses the tools of its own CLI.
 
 The report channel exists. The extension loads a stdio MCP server into the app server. The server posts every report to the bridge of the run, and the report reaches the run state of the owner. The owner reads the report with the decision functions of the Claude Code backend. The report carries no cycle id, so the supervisor accepts it when the run holds one cycle.
 
