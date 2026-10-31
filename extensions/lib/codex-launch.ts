@@ -17,6 +17,7 @@ import {
 	reserveFreePort,
 } from "./codex-process.ts";
 import type { CodexReportLaunch } from "./codex-report.ts";
+import { attachCodexEvents } from "./codex-session.ts";
 import type { CodexIdentity, Job } from "./job.ts";
 import { launchProgram } from "./pane.ts";
 import { delay } from "./process.ts";
@@ -100,6 +101,11 @@ export async function launchCodex(
 	}
 	identity.threadId = prepared.threadId;
 	job.nativeSessionId = prepared.threadId;
+
+	/* The events of the app server fill the run state of the worker. The
+	   spawn function made the run state with the bridge. The attachment
+	   starts before the first turn, so no event is lost. */
+	attachCodexEvents(rt, job, client);
 
 	const tuiPaneId = await startTuiPane(rt, job, binary, port, prepared.threadId);
 	if (tuiPaneId === null) {

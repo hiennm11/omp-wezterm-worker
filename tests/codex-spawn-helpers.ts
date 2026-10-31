@@ -172,6 +172,7 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 				clientCalls.push({ method, params });
 			},
 			close: () => undefined,
+			setMessageHandler: () => undefined,
 		};
 	};
 

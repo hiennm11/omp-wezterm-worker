@@ -172,6 +172,17 @@ owner reads the report with the same decision functions that it uses for a
 Claude Code worker. The report carries no cycle id, so the supervisor accepts
 it when the run holds one cycle.
 
+The events and the instruction queue of a Codex worker exist. The extension
+reads the messages of the app server and turns them into the observations of
+a native run. A Codex worker therefore fills the same run state as a Claude
+worker, and the status tool shows the same counts. A steering instruction
+goes to the model of the running turn through the request `turn/steer`, and a
+permission request refuses it while the request waits for the person.
+
+Two parts stay open. The client of the app server stays open after the
+launch, and the stop of a worker closes it. The report channel of a Codex
+worker is a separate slice.
+
 ### Long tasks
 
 A worker runs for as long as it needs, until its deadline. The deadline is a
@@ -697,6 +708,8 @@ omp-wezterm-worker/
 │   │   ├── claude-session.ts    the Claude Code session of a worker
 │   │   ├── codex-binary.ts      the Codex program of the machine and its version
 │   │   ├── codex-client.ts      the client of one Codex app server
+│   │   ├── codex-events.ts      the events of a Codex worker
+│   │   ├── codex-session.ts     the session and the instruction queue of a Codex worker
 │   │   ├── codex-launch.ts      the app server, the TUI and the first turn of a Codex worker
 │   │   ├── codex-process.ts     the processes and the panes of a Codex worker
 │   │   ├── codex-report.ts      the arguments and the environment of the report channel

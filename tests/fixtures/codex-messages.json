@@ -1,0 +1,475 @@
+{
+	"note": "Real messages of the Codex proof of 2026-10-31, codex-cli 0.166.0. The two turns come from the scenario resume. The proof recorded the method with the prefix codex, and the app server sends the bare method. The fixture holds the bare method. The paths of the machine and the names of the MCP servers of the user are removed. The shape of every message is unchanged.",
+	"turnStarted1": {
+		"source": "turn/started",
+		"payload": {
+			"threadId": "thread-1",
+			"turn": {
+				"id": "turn-1",
+				"rootTurnId": "01a190b3-00ed-78f3-aca1-fff4b215cfc2",
+				"items": [],
+				"itemsView": "notLoaded",
+				"status": "inProgress",
+				"error": null,
+				"startedAt": 1793429012,
+				"completedAt": null,
+				"durationMs": null
+			}
+		}
+	},
+	"tokenUsageTurn1": [
+		{
+			"source": "thread/tokenUsage/updated",
+			"payload": {
+				"threadId": "thread-1",
+				"turnId": "turn-1",
+				"tokenUsage": {
+					"total": {
+						"totalTokens": 14775,
+						"inputTokens": 14712,
+						"cachedInputTokens": 14464,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 63,
+						"reasoningOutputTokens": 0
+					},
+					"last": {
+						"totalTokens": 14775,
+						"inputTokens": 14712,
+						"cachedInputTokens": 14464,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 63,
+						"reasoningOutputTokens": 0
+					},
+					"modelContextWindow": 258400
+				}
+			}
+		},
+		{
+			"source": "thread/tokenUsage/updated",
+			"payload": {
+				"threadId": "thread-1",
+				"turnId": "turn-1",
+				"tokenUsage": {
+					"total": {
+						"totalTokens": 29579,
+						"inputTokens": 29489,
+						"cachedInputTokens": 29056,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 90,
+						"reasoningOutputTokens": 0
+					},
+					"last": {
+						"totalTokens": 14804,
+						"inputTokens": 14777,
+						"cachedInputTokens": 14592,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 27,
+						"reasoningOutputTokens": 0
+					},
+					"modelContextWindow": 258400
+				}
+			}
+		},
+		{
+			"source": "thread/tokenUsage/updated",
+			"payload": {
+				"threadId": "thread-1",
+				"turnId": "turn-1",
+				"tokenUsage": {
+					"total": {
+						"totalTokens": 44580,
+						"inputTokens": 44447,
+						"cachedInputTokens": 43648,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 133,
+						"reasoningOutputTokens": 0
+					},
+					"last": {
+						"totalTokens": 15001,
+						"inputTokens": 14958,
+						"cachedInputTokens": 14592,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 43,
+						"reasoningOutputTokens": 0
+					},
+					"modelContextWindow": 258400
+				}
+			}
+		},
+		{
+			"source": "thread/tokenUsage/updated",
+			"payload": {
+				"threadId": "thread-1",
+				"turnId": "turn-1",
+				"tokenUsage": {
+					"total": {
+						"totalTokens": 59668,
+						"inputTokens": 59495,
+						"cachedInputTokens": 58368,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 173,
+						"reasoningOutputTokens": 0
+					},
+					"last": {
+						"totalTokens": 15088,
+						"inputTokens": 15048,
+						"cachedInputTokens": 14720,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 40,
+						"reasoningOutputTokens": 0
+					},
+					"modelContextWindow": 258400
+				}
+			}
+		},
+		{
+			"source": "thread/tokenUsage/updated",
+			"payload": {
+				"threadId": "thread-1",
+				"turnId": "turn-1",
+				"tokenUsage": {
+					"total": {
+						"totalTokens": 59668,
+						"inputTokens": 59495,
+						"cachedInputTokens": 58368,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 173,
+						"reasoningOutputTokens": 0
+					},
+					"last": {
+						"totalTokens": 15088,
+						"inputTokens": 15048,
+						"cachedInputTokens": 14720,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 40,
+						"reasoningOutputTokens": 0
+					},
+					"modelContextWindow": 258400
+				}
+			}
+		}
+	],
+	"turnCompleted1": {
+		"source": "turn/completed",
+		"payload": {
+			"threadId": "thread-1",
+			"turn": {
+				"id": "turn-1",
+				"rootTurnId": "01a190b3-00ed-78f3-aca1-fff4b215cfc2",
+				"items": [],
+				"itemsView": "summary",
+				"status": "completed",
+				"error": null,
+				"startedAt": 1793429012,
+				"completedAt": 1793429025,
+				"durationMs": 12803
+			}
+		}
+	},
+	"turnStarted2": {
+		"source": "turn/started",
+		"payload": {
+			"threadId": "thread-1",
+			"turn": {
+				"id": "turn-2",
+				"rootTurnId": "01a190b3-c249-7861-a34e-e1c9507b7f49",
+				"items": [],
+				"itemsView": "notLoaded",
+				"status": "inProgress",
+				"error": null,
+				"startedAt": 1793429062,
+				"completedAt": null,
+				"durationMs": null
+			}
+		}
+	},
+	"tokenUsageTurn2": [
+		{
+			"source": "thread/tokenUsage/updated",
+			"payload": {
+				"threadId": "thread-1",
+				"turnId": "turn-2",
+				"tokenUsage": {
+					"total": {
+						"totalTokens": 74824,
+						"inputTokens": 74612,
+						"cachedInputTokens": 73216,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 212,
+						"reasoningOutputTokens": 0
+					},
+					"last": {
+						"totalTokens": 15156,
+						"inputTokens": 15117,
+						"cachedInputTokens": 14848,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 39,
+						"reasoningOutputTokens": 0
+					},
+					"modelContextWindow": 258400
+				}
+			}
+		},
+		{
+			"source": "thread/tokenUsage/updated",
+			"payload": {
+				"threadId": "thread-1",
+				"turnId": "turn-2",
+				"tokenUsage": {
+					"total": {
+						"totalTokens": 90050,
+						"inputTokens": 89794,
+						"cachedInputTokens": 88192,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 256,
+						"reasoningOutputTokens": 0
+					},
+					"last": {
+						"totalTokens": 15226,
+						"inputTokens": 15182,
+						"cachedInputTokens": 14976,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 44,
+						"reasoningOutputTokens": 0
+					},
+					"modelContextWindow": 258400
+				}
+			}
+		},
+		{
+			"source": "thread/tokenUsage/updated",
+			"payload": {
+				"threadId": "thread-1",
+				"turnId": "turn-2",
+				"tokenUsage": {
+					"total": {
+						"totalTokens": 105348,
+						"inputTokens": 105067,
+						"cachedInputTokens": 103168,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 281,
+						"reasoningOutputTokens": 0
+					},
+					"last": {
+						"totalTokens": 15298,
+						"inputTokens": 15273,
+						"cachedInputTokens": 14976,
+						"cacheWriteInputTokens": 0,
+						"outputTokens": 25,
+						"reasoningOutputTokens": 0
+					},
+					"modelContextWindow": 258400
+				}
+			}
+		}
+	],
+	"turnCompleted2": {
+		"source": "turn/completed",
+		"payload": {
+			"threadId": "thread-1",
+			"turn": {
+				"id": "turn-2",
+				"rootTurnId": "01a190b3-c249-7861-a34e-e1c9507b7f49",
+				"items": [],
+				"itemsView": "summary",
+				"status": "completed",
+				"error": null,
+				"startedAt": 1793429062,
+				"completedAt": 1793429069,
+				"durationMs": 7508
+			}
+		}
+	},
+	"commandItemStarted": {
+		"source": "item/started",
+		"payload": {
+			"item": {
+				"type": "commandExecution",
+				"id": "exec-492ddd8e-0b98-488d-8cc5-4ae915817260",
+				"pluginId": null,
+				"scriptPath": null,
+				"command": "\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" -Command 'Get-Content -Raw -LiteralPath baseline.txt'",
+				"cwd": "C:\\tmp\\fixture",
+				"processId": "15007",
+				"source": "unifiedExecStartup",
+				"status": "inProgress",
+				"commandActions": [
+					{
+						"type": "read",
+						"command": "Get-Content -Raw -LiteralPath baseline.txt",
+						"name": "baseline.txt",
+						"path": "C:\\tmp\\fixture\\baseline.txt"
+					}
+				],
+				"aggregatedOutput": null,
+				"exitCode": null,
+				"durationMs": null,
+				"startedAtMs": 1793428905208,
+				"completedAtMs": null
+			},
+			"threadId": "thread-1",
+			"turnId": "turn-1",
+			"startedAtMs": 1793428905208
+		}
+	},
+	"commandItemCompleted": {
+		"source": "item/completed",
+		"payload": {
+			"item": {
+				"type": "commandExecution",
+				"id": "exec-492ddd8e-0b98-488d-8cc5-4ae915817260",
+				"pluginId": null,
+				"scriptPath": null,
+				"command": "\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" -Command 'Get-Content -Raw -LiteralPath baseline.txt'",
+				"cwd": "C:\\tmp\\fixture",
+				"processId": "15007",
+				"source": "unifiedExecStartup",
+				"status": "completed",
+				"commandActions": [
+					{
+						"type": "read",
+						"command": "Get-Content -Raw -LiteralPath baseline.txt",
+						"name": "baseline.txt",
+						"path": "C:\\tmp\\fixture\\baseline.txt"
+					}
+				],
+				"aggregatedOutput": "BASELINE\n\r\n",
+				"exitCode": 0,
+				"durationMs": 452,
+				"startedAtMs": 1793428905208,
+				"completedAtMs": 1793428905661
+			},
+			"threadId": "thread-1",
+			"turnId": "turn-1",
+			"completedAtMs": 1793428905661
+		}
+	},
+	"reportItemStarted": {
+		"source": "item/started",
+		"payload": {
+			"item": {
+				"type": "mcpToolCall",
+				"id": "exec-1de5be4d-9cad-42c9-9283-0152da49c016",
+				"server": "report_server",
+				"tool": "wezterm_worker_report",
+				"status": "inProgress",
+				"arguments": {
+					"state": "working"
+				},
+				"appContext": null,
+				"mcpAppUi": null,
+				"pluginId": null,
+				"readOnlyHint": null,
+				"result": null,
+				"error": null,
+				"durationMs": null,
+				"startedAtMs": 1793428909137,
+				"completedAtMs": null
+			},
+			"threadId": "thread-1",
+			"turnId": "turn-1",
+			"startedAtMs": 1793428909137
+		}
+	},
+	"reportItemCompleted": {
+		"source": "item/completed",
+		"payload": {
+			"item": {
+				"type": "mcpToolCall",
+				"id": "exec-1de5be4d-9cad-42c9-9283-0152da49c016",
+				"server": "report_server",
+				"tool": "wezterm_worker_report",
+				"status": "completed",
+				"arguments": {
+					"state": "working"
+				},
+				"appContext": null,
+				"mcpAppUi": null,
+				"pluginId": null,
+				"readOnlyHint": null,
+				"result": {
+					"content": [
+						{
+							"type": "text",
+							"text": "The task state is now working."
+						}
+					],
+					"structuredContent": null,
+					"_meta": null
+				},
+				"error": null,
+				"durationMs": 63,
+				"startedAtMs": 1793428909137,
+				"completedAtMs": 1793428909201
+			},
+			"threadId": "thread-1",
+			"turnId": "turn-1",
+			"completedAtMs": 1793428909201
+		}
+	},
+	"approvalRequest": {
+		"source": "item/commandExecution/requestApproval",
+		"payload": {
+			"kind": "command",
+			"threadId": "thread-1",
+			"turnId": "turn-1",
+			"itemId": "exec-492ddd8e-0b98-488d-8cc5-4ae915817260",
+			"startedAtMs": 1793429125039,
+			"environmentId": "local",
+			"command": "\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" -Command 'Set-Content -NoNewline -Path approval.txt -Value APPROVED'",
+			"cwd": "C:\\tmp\\fixture",
+			"commandActions": [
+				{
+					"type": "unknown",
+					"command": "Set-Content -NoNewline -Path approval.txt -Value APPROVED"
+				}
+			],
+			"proposedExecpolicyAmendment": [
+				"Set-Content",
+				"-NoNewline",
+				"-Path",
+				"approval.txt",
+				"-Value",
+				"APPROVED"
+			],
+			"availableDecisions": [
+				"accept",
+				{
+					"acceptWithExecpolicyAmendment": {
+						"execpolicy_amendment": [
+							"Set-Content",
+							"-NoNewline",
+							"-Path",
+							"approval.txt",
+							"-Value",
+							"APPROVED"
+						]
+					}
+				},
+				"cancel"
+			]
+		}
+	},
+	"steerItemStarted": {
+		"source": "item/started",
+		"payload": {
+			"item": {
+				"type": "userMessage",
+				"id": "01a190b2-183d-7091-9cb7-ce337c402560",
+				"clientId": "client-user-message-1",
+				"content": [
+					{
+						"type": "text",
+						"text": "Write QUEUED to queued.txt",
+						"text_elements": []
+					}
+				],
+				"startedAtMs": 1793428953255,
+				"completedAtMs": null
+			},
+			"threadId": "thread-1",
+			"turnId": "turn-1",
+			"startedAtMs": 1793428953255
+		}
+	}
+}

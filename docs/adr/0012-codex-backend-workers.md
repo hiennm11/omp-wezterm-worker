@@ -77,6 +77,12 @@ The first slice adds the spawn function of a Codex worker. The function starts t
 
 The report channel exists. The extension loads a stdio MCP server into the app server. The server posts every report to the bridge of the run, and the report reaches the run state of the owner. The owner reads the report with the decision functions of the Claude Code backend. The report carries no cycle id, so the supervisor accepts it when the run holds one cycle.
 
+The events of a Codex worker exist. The extension reads the messages of the app server and turns them into the observations of a native run. The reducer and the ledger of a native run then do the rest. A Codex worker fills the same run state as a Claude worker. The usage of a turn is the change of the totals of the thread. The change runs from the last update before the turn to the last update of the turn.
+
+The instruction queue of a Codex worker exists. The owner sends a steering instruction with the request `turn/steer`, and the server joins it to the running turn. An accepted instruction waits for its delivery. The delivery shows in the item of the message that the server sends for it.
+
+The open parts of these two parts are the client of the app server and the stop of a worker. The client stays open after the launch, and the stop slice closes it. A run that ends before its client closes keeps a socket open. The report of a Codex worker also stays open, because the report channel is a separate slice.
+
 The first version does not support these items. Each one has its own issue. The issue must close, or the owner must accept the gap, before the version ships.
 
 - A recovery of a Codex worker after OMP starts again. Issue #83 covers it.
