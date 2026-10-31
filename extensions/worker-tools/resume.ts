@@ -12,6 +12,7 @@ import { monitorJob, monitorNativeJob } from "../lib/monitor.ts";
 import { acquireTask, bindSession, maySupervise, taskKey } from "../lib/owner.ts";
 import { readOwnership } from "../lib/ownership.ts";
 import { resumeClaudeWorker } from "../lib/resume-claude.ts";
+import { resumeCodexWorker } from "../lib/resume-codex.ts";
 import { resumeWorker } from "../lib/spawn.ts";
 import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
 import { commsDetails, commsRefusalLine, findJob, refusalReply, reply, type ToolDeps } from "./kit.ts";
@@ -116,12 +117,19 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 								message: params.message,
 								placement: params.placement === "tab" ? "tab" : "split",
 							})
-						: await resumeClaudeWorker(rt, {
-								jobId: admitted.jobId,
-								source: job,
-								sessionId: sessionId as string,
-								message: params.message,
-							});
+						: backend === "codex"
+							? await resumeCodexWorker(rt, {
+									jobId: admitted.jobId,
+									source: job,
+									threadId: sessionId as string,
+									message: params.message,
+								})
+							: await resumeClaudeWorker(rt, {
+									jobId: admitted.jobId,
+									source: job,
+									sessionId: sessionId as string,
+									message: params.message,
+								});
 				if (resumed.status === "failed") {
 					return reply(
 						`Could not resume worker: ${resumed.error ?? "unknown error"}`,

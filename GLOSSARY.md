@@ -331,3 +331,7 @@ _Avoid_: Running turn, current cycle
 **Codex stop**:
 The stop of a Codex worker. It interrupts the open turn, ends the program of the app server and closes the pane of the app server and the pane of the TUI. The stop is confirmed when no step failed.
 _Avoid_: Pane close, worker stop
+
+**Codex thread**:
+The conversation of a Codex worker. A new worker starts a thread, and a resumed worker continues the thread of its source run. The thread keeps its id and its turns.
+_Avoid_: Codex session, rollout file, app server

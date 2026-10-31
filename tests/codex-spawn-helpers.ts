@@ -19,6 +19,12 @@ export interface CodexFakeOptions {
 	version?: string;
 	/** The method of the client that answers with an error. */
 	failClientMethod?: string;
+	/** The number of client calls that succeed before the failure starts. */
+	failAfter?: number;
+	/** The number of the connection that fails. The first connection is one. */
+	failClientConnect?: number;
+	/** The exit code of the pane list. A code other than zero hides the list. */
+	listCode?: number;
 	/** The TUI pane does not start. */
 	failTuiLaunch?: boolean;
 	/** The number of processes that match the server of the test. */
@@ -55,6 +61,8 @@ export interface CodexFake {
 	clientCalls: { method: string; params: Record<string, unknown> }[];
 	/** The number of times that a client of the test was closed. */
 	clientCloses: number;
+	/** The clients that the test closed. */
+	closedClients: number[];
 	/** The fake client of the test. */
 	connect: (endpoint: string) => Promise<CodexClient>;
 	/** Close the bridges of the runs. A live bridge holds the event loop. */
@@ -86,6 +94,10 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 	const taskkills: string[] = [];
 	const clientCalls: { method: string; params: Record<string, unknown> }[] = [];
 	let clientCloses = 0;
+	/* The processes of the fake machine. A program that the taskkill ended is
+	   gone, so a second read of the process table does not name it. */
+	const processes = new Map<number, { name: string; commandLine: string }>();
+	let nextProcessId = 4200;
 	let endpoint = "";
 
 	const exec = async (
@@ -100,6 +112,8 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 				taskkillFailures -= 1;
 				return { code: 1, stdout: "", stderr: "the taskkill failed" };
 			}
+			const pid = Number.parseInt(args[args.indexOf("/PID") + 1] ?? "", 10);
+			if (Number.isFinite(pid)) processes.delete(pid);
 			return { code: 0, stdout: "", stderr: "" };
 		}
 		if (bin === "powershell") return powershellAnswer(command);
@@ -112,6 +126,14 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 		if (command.includes("app-server")) {
 			endpoint = command.split("--listen ")[1]?.split(" ")[0] ?? endpoint;
 			panes.add(serverPaneId);
+			for (let index = 0; index < serverProcessCount; index += 1) {
+				const pid = nextProcessId;
+				nextProcessId += 1;
+				processes.set(pid, {
+					name: serverProcessName,
+					commandLine: `"${binary}" app-server --listen ${endpoint}`,
+				});
+			}
 			order.push("server-pane");
 			return { code: 0, stdout: String(serverPaneId), stderr: "" };
 		}
@@ -128,6 +150,8 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 			return { code: 0, stdout: "", stderr: "" };
 		}
 		if (command.includes("list --format json")) {
+			const code = options.listCode ?? 0;
+			if (code !== 0) return { code, stdout: "", stderr: "" };
 			const listing = [...panes].map((pane_id) => ({ pane_id, tab_id: 1, window_id: 1 }));
 			return { code: 0, stdout: JSON.stringify(listing), stderr: "" };
 		}
@@ -136,20 +160,19 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 
 	const powershellAnswer = (command: string) => {
 		if (command.includes("Select-Object ProcessId,Name,CommandLine")) {
-			const rows: unknown[] = [];
-			for (let index = 0; index < serverProcessCount; index += 1) {
-				rows.push({
-					ProcessId: 4200 + index,
-					Name: serverProcessName,
-					CommandLine: `"${binary}" app-server --listen ${endpoint}`,
-				});
-			}
+			const rows = [...processes.entries()].map(([pid, row]) => ({
+				ProcessId: pid,
+				Name: row.name,
+				CommandLine: row.commandLine,
+			}));
 			if (rows.length === 0) return { code: 0, stdout: "", stderr: "" };
 			return { code: 0, stdout: JSON.stringify(rows), stderr: "" };
 		}
 		if (command.includes("ForEach-Object")) {
-			if (!serverProcessName) return { code: 0, stdout: "", stderr: "" };
-			return { code: 0, stdout: serverProcessName, stderr: "" };
+			const pid = Number.parseInt(command.split("ProcessId = ")[1]?.split(" ")[0] ?? "", 10);
+			const name = processes.get(pid)?.name ?? "";
+			if (!name) return { code: 0, stdout: "", stderr: "" };
+			return { code: 0, stdout: name, stderr: "" };
 		}
 		return { code: 0, stdout: "", stderr: "" };
 	};
@@ -158,15 +181,22 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 	rt.config.stateDir = dir;
 	rt.config.codexBin = binary;
 
+	let connections = 0;
+	const closedClients: number[] = [];
 	const connect = async (target: string): Promise<CodexClient> => {
 		endpoint = target;
+		connections += 1;
+		const number = connections;
+		const fails = connections === (options.failClientConnect ?? 1);
 		order.push("initialize");
 		order.push("initialized");
+		let calls = 0;
 		return {
 			request: async (method: string, params: Record<string, unknown> = {}) => {
 				order.push(method);
 				clientCalls.push({ method, params });
-				if (method === options.failClientMethod) {
+				calls += 1;
+				if (fails && method === options.failClientMethod && calls > (options.failAfter ?? 0)) {
 					return {
 						id: 1,
 						error: { code: -1, message: `the ${method} of the fake failed` },
@@ -183,6 +213,7 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 			},
 			close: () => {
 				clientCloses += 1;
+				closedClients.push(number);
 			},
 			setMessageHandler: () => undefined,
 		};
@@ -200,6 +231,7 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 		get clientCloses() {
 			return clientCloses;
 		},
+		closedClients,
 		connect,
 		closeBridges: async () => {
 			for (const bridge of rt.bridges.values()) await bridge.close();
