@@ -23,6 +23,13 @@ export interface CodexClient {
 	notify: (method: string, params?: Record<string, unknown>) => void;
 	/** Close the connection. */
 	close: () => void;
+	/**
+	 * Set the handler of the messages that are not the answer of a request.
+	 *
+	 * The client never answers a request of the server. The real TUI owns
+	 * that answer.
+	 */
+	setMessageHandler: (handler: (message: CodexProtocolMessage) => void) => void;
 }
 
 /** The client name that the extension uses. */
@@ -58,6 +65,7 @@ export async function connectCodexServer(
 	const socket = new WebSocket(endpoint);
 	const waiters = new Map<number, (message: CodexProtocolMessage) => void>();
 	let nextId = 1;
+	let handler: (message: CodexProtocolMessage) => void = () => undefined;
 
 	const { promise: opened, resolve: resolveOpened, reject: rejectOpened } = Promise.withResolvers<void>();
 	socket.addEventListener("open", () => resolveOpened());
@@ -66,9 +74,22 @@ export async function connectCodexServer(
 	);
 	socket.addEventListener("message", (event) => {
 		const message = JSON.parse(String(event.data)) as CodexProtocolMessage;
-		if (typeof message.id !== "number") return;
+		/* A message that names a method is a notification or a request of
+		   the server. The handler reads it. The client never answers it,
+		   because the real TUI owns that answer. */
+		if (typeof message.method === "string" && message.method.length > 0) {
+			handler(message);
+			return;
+		}
+		if (typeof message.id !== "number") {
+			handler(message);
+			return;
+		}
 		const waiter = waiters.get(message.id);
-		if (!waiter) return;
+		if (!waiter) {
+			handler(message);
+			return;
+		}
 		waiters.delete(message.id);
 		waiter(message);
 	});
@@ -106,6 +127,9 @@ export async function connectCodexServer(
 		request,
 		notify,
 		close: () => socket.close(),
+		setMessageHandler: (next: (message: CodexProtocolMessage) => void) => {
+			handler = next;
+		},
 	};
 }
 

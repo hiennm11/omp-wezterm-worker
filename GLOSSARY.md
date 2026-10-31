@@ -315,3 +315,11 @@ _Avoid_: Codex daemon, shared server
 **Report channel**:
 The path of a report from a Codex worker to the run state of its owner. The extension loads a stdio MCP server into the app server, and the server posts every report to the bridge of the run.
 _Avoid_: Report file, observation queue, webhook
+
+**Codex event**:
+A message of the app server that the extension turns into an observation of a native run. The turn start, the turn end, the items and the permission requests are the events of a Codex worker.
+_Avoid_: Codex message, notification, app server event
+
+**Codex steering instruction**:
+An instruction that the request `turn/steer` sends to the model of the running turn of a Codex worker. The server joins it to the turn, and the model receives it in the same turn.
+_Avoid_: Queued message, prompt, follow-up
