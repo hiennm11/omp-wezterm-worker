@@ -8,8 +8,10 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { readBackend } from "./backend.ts";
 import { clearHandover } from "./bridge-handover.ts";
 import type { BridgeState } from "./claude-bridge.ts";
+import { closeCodexClient, codexStopFailure, stopCodexWorker } from "./codex-stop.ts";
 import { releaseExecutionByHolder } from "./groups.ts";
 import { failJob, type Job, type JobStatus, type PendingStop } from "./job.ts";
 import { closeLedger, completionBlockerOf } from "./ledger-sync.ts";
@@ -106,6 +108,10 @@ export async function finalizeJob(
 	}
 	rt.claudeStates.delete(job.id);
 
+	// The client of the app server holds a socket. The run ends here, so the
+	// socket closes with it. A run that ended early closes its socket too.
+	closeCodexClient(rt, job);
+
 	rt.persist();
 }
 
@@ -148,8 +154,16 @@ export async function stopJob(
 		// reconciles it before it steers, resumes, or cleans up.
 		const intentId = `stop-${job.id}`;
 		recordStopIntent(rt.openDb(), intentId, job.id, status, error, Date.now());
-		// Kill only the pane this extension created. Never touch other panes.
-		const failure = job.paneId === null ? null : await closePaneConfirmed(rt, job.paneId);
+		// A Codex worker owns an app server and a TUI. Its stop ends the
+		// program of the app server and closes both of its panes. Every
+		// other backend kills only the pane this extension created, so a
+		// pane of the user is never touched.
+		const failure =
+			readBackend(job) === "codex"
+				? codexStopFailure(await stopCodexWorker(rt, job))
+				: job.paneId === null
+					? null
+					: await closePaneConfirmed(rt, job.paneId);
 		if (failure === null) {
 			// finalizeJob must not close the pane a second time.
 			job.paneClosed = true;
