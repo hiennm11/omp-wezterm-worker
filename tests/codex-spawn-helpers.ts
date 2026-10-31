@@ -62,7 +62,7 @@ export interface CodexFake {
  * The client records the steps of the launch in the order of the test.
  */
 export function codexFake(options: CodexFakeOptions = {}): CodexFake {
-	const version = options.version ?? "codex-cli 0.147.0";
+	const version = options.version ?? "codex-cli 0.166.0";
 	const serverPaneId = options.serverPaneId ?? 11;
 	const tuiPaneId = options.tuiPaneId ?? 12;
 	const serverProcessCount = options.serverProcessCount ?? 1;

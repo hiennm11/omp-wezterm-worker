@@ -59,22 +59,22 @@ test("an empty text holds no version", () => {
 });
 
 test("a version that is too low is refused", () => {
-	const refusal = codexVersionRefusal("codex-cli 0.140.0");
+	const refusal = codexVersionRefusal("codex-cli 0.147.0");
 	assert.ok(refusal, "the refusal is missing");
-	assert.match(refusal, /0\.140\.0/);
 	assert.match(refusal, /0\.147\.0/);
+	assert.match(refusal, /0\.166\.0/);
 });
 
 test("a version that cannot be parsed is refused", () => {
 	const refusal = codexVersionRefusal("codex-cli unknown");
 	assert.ok(refusal, "the refusal is missing");
-	assert.match(refusal, /0\.147\.0/);
+	assert.match(refusal, /0\.166\.0/);
 });
 
 test("a missing version is refused", () => {
 	const refusal = codexVersionRefusal(null);
 	assert.ok(refusal, "the refusal is missing");
-	assert.match(refusal, /0\.147\.0/);
+	assert.match(refusal, /0\.166\.0/);
 });
 
 test("the version that the extension needs is not refused", () => {
@@ -82,7 +82,7 @@ test("the version that the extension needs is not refused", () => {
 });
 
 test("a version above the minimum is not refused", () => {
-	assert.equal(codexVersionRefusal("codex-cli 0.165.0"), null);
+	assert.equal(codexVersionRefusal("codex-cli 0.170.0"), null);
 });
 
 test("the first candidate is the Codex binary of the npm folder", () => {

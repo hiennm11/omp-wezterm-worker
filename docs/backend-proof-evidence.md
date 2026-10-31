@@ -262,7 +262,29 @@ Each scenario ran alone after the fix. The verdicts of the runs:
 | `no-report` | pass | 1 native turn(s) ended and no report arrived, so the run has no completed verdict |
 | `approval` | pass | 1 native approval request(s) reached the observer |
 
-The proof of the Codex backend stays open. The other six scenarios of the run still show the verdicts of the run of 2026-10-30.
+The proof of the Codex backend stayed open after that run. The next section records the full run on the newer build.
+
+### The full run on codex-cli 0.166.0
+
+The full run of the proof ran on 2026-10-31. Its evidence sits in `C:\tmp\codex-proof-7`. It used the build codex-cli 0.166.0. All nine scenarios passed in one run.
+
+| Scenario | Verdict | Detail |
+| :- | :- | :- |
+| `observe` | pass | turns started: 1, completed: 1, report: recorded |
+| `queue` | pass | one accepted entry became a delivered input; delivered items: 1 |
+| `no-report` | pass | 1 native turn(s) ended and no report arrived |
+| `resume` | pass | the thread id stayed the same; stored turns: 1; new reports: 1 |
+| `settings-usage` | pass | the native usage endpoint answered that it needs ChatGPT authentication |
+| `approval` | pass | 1 native approval request(s) reached the observer |
+| `background` | pass | the background file appeared 58 seconds after the report |
+| `recovery` | pass | the observer reconnected to the same server |
+| `stop` | pass | 1 interrupted turn(s); unrelated panes survive |
+
+The run left no pane and no `codex.exe` on the machine.
+
+The extension needs this build or a later one, so `MIN_CODEX_VERSION` is 0.166.0. The earlier minimum was 0.147.0. That build has no method `thread/queue/add`, and the queue scenario had to use `turn/steer` there.
+
+The scenario `settings-usage` passes without the usage of the account. The endpoint `account/usage/read` needs a ChatGPT login. The usage of a turn comes from the event `thread/tokenUsage/updated`.
 
 ## The production Claude Code backend
 

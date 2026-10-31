@@ -24,8 +24,8 @@ const CODEX_PACKAGE = ["node_modules", "@openai", "codex"];
 /** The name of the npm package that holds the Codex program for Windows. */
 const WINDOWS_PACKAGE = ["node_modules", "@openai", "codex-win32-x64"];
 
-/** The lowest version of the Codex program that the extension supports. */
-export const MIN_CODEX_VERSION = "0.147.0";
+/** The lowest version of the Codex program that the extension supports. The full proof passed on this version. */
+export const MIN_CODEX_VERSION = "0.166.0";
 
 /** The Codex program of the machine. */
 export interface CodexBinary {

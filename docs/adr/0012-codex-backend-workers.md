@@ -6,7 +6,7 @@ Status: accepted design. The owner accepted it on 2026-10-30. The extension has 
 
 ADR 0010 lets a worker run in a native CLI. The extension has the Claude Code backend. ADR 0010 says that the Codex backend needs a different bridge, because Codex has no mod inside its process.
 
-The Codex proof in `tooling/backend-proof/` now runs all nine scenarios against codex-cli 0.165.0 on Windows. The decisions below come from that evidence. The file `docs/backend-proof-evidence.md` lists the evidence folders of the runs. A decision that the proof did not test says so.
+The Codex proof in `tooling/backend-proof/` runs all nine scenarios on Windows. The last full run passed on codex-cli 0.166.0. The decisions below come from that evidence. The file `docs/backend-proof-evidence.md` lists the evidence folders of the runs. A decision that the proof did not test says so.
 
 ## The app server
 
