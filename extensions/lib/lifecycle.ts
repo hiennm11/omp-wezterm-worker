@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { readBackend } from "./backend.ts";
 import { clearHandover } from "./bridge-handover.ts";
 import type { BridgeState } from "./claude-bridge.ts";
+import { endCodexProcesses } from "./codex-process.ts";
 import { closeCodexClient, codexStopFailure, stopCodexWorker } from "./codex-stop.ts";
 import { releaseExecutionByHolder } from "./groups.ts";
 import { failJob, type Job, type JobStatus, type PendingStop } from "./job.ts";
@@ -53,6 +54,20 @@ export async function finalizeJob(
 	job.result = result;
 	job.finishedAt = Date.now();
 	rt.stopMonitor(job.id);
+
+	/* A Codex worker owns an app server and a TUI in two panes. The server
+	   ends with the worker, so a worker that ends on its own leaves the
+	   machine as clean as a worker that a cancel stops. The stop path ended
+	   both already and set the flag, so the end of the run repeats neither.
+	   The TUI needs the server, so the pane policy of the spawn cannot keep
+	   a Codex pane open for inspection. */
+	if (readBackend(job) === "codex" && !job.paneClosed) {
+		const failed = await endCodexProcesses(rt, job.codex ?? null);
+		job.paneClosed = failed.length === 0;
+		if (failed.length > 0 && job.error === null) {
+			job.error = `The cleanup of the worker failed: ${failed.join("; ")}`;
+		}
+	}
 
 	// Close the pane this worker created. Only this pane id, never a sweep
 	// over the pane list, so panes belonging to the user are never touched.

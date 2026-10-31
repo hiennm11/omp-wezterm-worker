@@ -205,6 +205,37 @@ test("a run that completes closes its client", async () => {
 	}
 });
 
+test("a run that completes ends the program of the app server and closes both panes", async () => {
+	/* A Codex worker that finishes on its own must leave the machine as
+	   clean as a worker that a cancel stops. */
+	const { job, fake } = await launch();
+	try {
+		await finalizeJob(fake.rt, job, "completed", null, "OK");
+		assert.equal(fake.taskkills.length, 1, "the program of the app server stayed alive");
+		assert.equal(fake.killedPanes.includes(11), true, "the pane of the app server stayed open");
+		assert.equal(fake.killedPanes.includes(12), true, "the pane of the TUI stayed open");
+		assert.equal(fake.panes.size, 0, "a pane stayed open");
+	} finally {
+		await fake.closeBridges();
+		fake.rt.closeDb();
+	}
+});
+
+test("a Codex worker closes its panes even when the spawn keeps the pane open", async () => {
+	/* The TUI needs the app server of its pane, so the pane policy of the
+	   spawn cannot keep a Codex pane open. */
+	const { job, fake } = await launch();
+	job.closePaneOnFinish = false;
+	try {
+		await finalizeJob(fake.rt, job, "completed", null, "OK");
+		assert.equal(fake.taskkills.length, 1, "the program of the app server stayed alive");
+		assert.equal(fake.panes.size, 0, "a pane stayed open");
+	} finally {
+		await fake.closeBridges();
+		fake.rt.closeDb();
+	}
+});
+
 test("a cancel of an OMP worker and of a Claude worker ends no program of Codex", async () => {
 	for (const backend of ["omp", "claude"] as const) {
 		const f = paneFake();
