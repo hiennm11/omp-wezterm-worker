@@ -14,9 +14,11 @@ import { findCodexBinary } from "./codex-binary.ts";
 import { attachScenarioTui } from "./codex-dialog.ts";
 import { type CodexProofOptions, runScenario, stopHandle } from "./codex-handle.ts";
 import { runApproval, runBackground, runRecovery, runSettingsUsage, runStop } from "./codex-lifecycle.ts";
+import { deliveredInstructionCount, queueSteerParams, queueTaskText, queueVerdict } from "./codex-queue.ts";
 import { runResume } from "./codex-resume.ts";
 import { attachTui, recordMessages, startServer, wait } from "./codex-server.ts";
 import { answerApprovalDialog, checkTuiPane, recordTuiText } from "./codex-tui.ts";
+import type { Verdict } from "./evidence.ts";
 import type { ScenarioOutcome } from "./scenarios.ts";
 import { makeFixture } from "./shared.ts";
 
@@ -162,42 +164,68 @@ async function runQueue(options: CodexProofOptions, fixture: string, bin: string
 		}
 		await wait(3000);
 
-		const clientUserMessageId = randomUUID();
-		const added = await handle.client.request("thread/queue/add", {
+		/* The turn must stay busy, or the native program has no turn to join.
+		   The command of the task waits 20 seconds. */
+		const turn = await handle.client.request("turn/start", {
 			threadId: handle.threadId,
-			clientUserMessageId,
-			input: [{ type: "text", text: "Write QUEUED to queued.txt" }],
+			input: [{ type: "text", text: queueTaskText() }],
 		});
-		if (added.error) {
-			return { scenario, verdict: "fail", detail: `the queue refused the message: ${added.error.message}` };
+		if (turn.error) {
+			return { scenario, verdict: "fail", detail: turn.error.message };
 		}
-		const queued = (added.result as { queuedSubmission?: { id?: string } } | undefined)?.queuedSubmission;
-		const repeated = await handle.client.request("thread/queue/add", {
-			threadId: handle.threadId,
-			clientUserMessageId,
-			input: [{ type: "text", text: "Write QUEUED to queued.txt" }],
-		});
-		const list = await handle.client.request("thread/queue/list", { threadId: handle.threadId });
-		const entries = (list.result as { data?: unknown[] } | undefined)?.data ?? [];
-		await wait(15000);
+		const turnId = (turn.result as { turn?: { id?: string } } | undefined)?.turn?.id ?? "";
+		if (!turnId) {
+			return { scenario, verdict: "fail", detail: "the native program started no turn" };
+		}
+		await wait(6000);
+
+		const clientUserMessageId = randomUUID();
+		const steered = await handle.client.request(
+			"turn/steer",
+			queueSteerParams(handle.threadId, turnId, clientUserMessageId),
+		);
+		await wait(20000);
 		recordMessages(options, handle.client, scenario);
 
-		const delivered = options.observations.filter(
-			(o) =>
-				o.source === "codex.item/started" &&
-				(o.payload as { item?: { clientId?: string } })?.item?.clientId === clientUserMessageId,
-		);
-		const detail = `queued id: ${queued?.id ?? "none"}; repeated request: ${
-			repeated.error ? "refused" : "accepted"
-		}; queue entries: ${entries.length}; delivered items: ${delivered.length}`;
-		if (!queued?.id) return { scenario, verdict: "fail", detail };
-		if (delivered.length === 0) {
-			return { scenario, verdict: "fail", detail: `${detail}; the accepted entry never reached a turn` };
-		}
-		return { scenario, verdict: "pass", detail };
+		const delivered = deliveredInstructionCount(options.observations, clientUserMessageId);
+		const verdict = queueVerdict({
+			accepted: !steered.error,
+			refusal: steered.error?.message ?? null,
+			delivered,
+		});
+		return { scenario, verdict: verdict.verdict, detail: verdict.detail };
 	} finally {
 		await stopHandle(handle);
 	}
+}
+
+/**
+ * The task of the no-report scenario.
+ *
+ * The task forbids every tool. The model of Codex answers a plain question
+ * with the report tool when the tool stands ready. The task must ask for
+ * ordinary answer text only, or the scenario proves nothing.
+ */
+export function noReportTaskText(): string {
+	return "Answer with the word DONE only. Do not call any tool.";
+}
+
+/**
+ * The verdict of the no-report scenario.
+ *
+ * The scenario passes only when a native turn ended and no report arrived.
+ */
+export function noReportVerdict(reports: number, completed: number): { verdict: Verdict; detail: string } {
+	if (reports > 0) {
+		return { verdict: "fail", detail: "a report arrived although none was requested" };
+	}
+	if (completed === 0) {
+		return { verdict: "unavailable", detail: "the native turn never completed" };
+	}
+	return {
+		verdict: "pass",
+		detail: `${completed} native turn(s) ended and no report arrived, so the run has no completed verdict`,
+	};
 }
 
 /** Run the no-report scenario. */
@@ -215,23 +243,14 @@ async function runNoReport(
 	try {
 		await handle.client.request("turn/start", {
 			threadId: handle.threadId,
-			input: [{ type: "text", text: "Answer with the word DONE only." }],
+			input: [{ type: "text", text: noReportTaskText() }],
 		});
 		await wait(15000);
 		recordMessages(options, handle.client, scenario);
 		const reports = options.observations.filter((o) => o.source === "report");
 		const completed = options.observations.filter((o) => o.source === "codex.turn/completed").length;
-		if (reports.length > 0) {
-			return { scenario, verdict: "fail", detail: "a report arrived although none was requested" };
-		}
-		if (completed === 0) {
-			return { scenario, verdict: "unavailable", detail: "the native turn never completed" };
-		}
-		return {
-			scenario,
-			verdict: "pass",
-			detail: `${completed} native turn(s) ended and no report arrived, so the run has no completed verdict`,
-		};
+		const verdict = noReportVerdict(reports.length, completed);
+		return { scenario, verdict: verdict.verdict, detail: verdict.detail };
 	} finally {
 		await stopHandle(handle);
 	}

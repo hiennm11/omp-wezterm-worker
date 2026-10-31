@@ -1,6 +1,6 @@
 # Backend proof evidence
 
-Status: the Claude Code backend passes every fixed scenario. The Codex backend is not proven.
+Status: the Claude Code backend passes every fixed scenario. The Codex backend is not proven. Its last full run left three scenarios that failed for a defect of the harness. The section "The three failures of the run of 2026-10-30" names each cause and each fix.
 
 This report records what the compatibility probe observed on Windows native. The raw evidence and the probe code live in the evidence directory that the report names.
 
@@ -231,6 +231,38 @@ The verdict is a pure function of those facts. It passes only when a command com
 The task text names the absolute path of the file in the fixture. The third full run named a relative path, and the file did not show.
 
 The scenario with these changes did not run yet. The next run of the proof shows its verdict.
+
+### The three failures of the run of 2026-10-30
+
+The last full run of the Codex proof sits in `C:\tmp\codex-proof-6`. It used the build codex-cli 0.147.0. Six scenarios passed. Three did not.
+
+| Scenario | Verdict of the run | Cause | Label |
+| :- | :- | :- | :- |
+| `queue` | fail, the scenario wrote no evidence | The scenario called a method that the build does not have. | a defect of the harness |
+| `no-report` | fail, a report arrived although none was requested | The task text let the model call the report tool. | a defect of the harness |
+| `approval` | unavailable, 0 native approval requests | The turn inherited the approval policy of the machine. | a defect of the harness |
+
+The scenario `queue` called the methods `thread/queue/add` and `thread/queue/list`. The build 0.147.0 has no such method. The generated schema of the build names `turn/steer` as its only method for an input during a turn. The program answered the request with the code -32600 and the text `unknown variant thread/queue/add`. The request never answered the proof, so the scenario wrote no line of evidence.
+
+The build 0.147.0 keeps the queue of the user in its own file `queue_1.sqlite`. The queue of the protocol arrived in a later build. The source of the build 0.166.0 defines the types `ThreadQueueAddParams` and `ThreadQueueListParams`.
+
+The scenario `queue` now uses the method `turn/steer`. The task starts a shell command that waits 20 seconds, so the turn stays busy. The scenario sends the instruction with a client id. The native program accepts the request and names the instruction by that id. The item of type `userMessage` that carries the id proves that the model received the instruction. The verdict is a pure function of the acceptance, the refusal and the number of delivered items.
+
+The scenario `no-report` asked the model for the word DONE only. The model called the report tool with the result DONE, because the tool stood ready. The Claude version of the scenario also says `Do not call any tool.` The Codex task text lacked that clause. The scenario now uses that clause.
+
+The scenario `approval` started its turn without an approval policy. The configuration of the machine of the user sets `approval_policy = "never"` and `sandbox_mode = "danger-full-access"`. The turn inherited that policy. The core of Codex returns the decision `Allow` for a command under the policy `never`, so the native program ran the command without asking.
+
+The scenario `approval` now pins the policy `untrusted` on its turn. The core of Codex asks the person for every command that it does not know under that policy. The native request `item/commandExecution/requestApproval` then reaches the observer. The scenario still never answers the request, so the person keeps the answer.
+
+Each scenario ran alone after the fix. The verdicts of the runs:
+
+| Scenario | Verdict | Detail |
+| :- | :- | :- |
+| `queue` | pass | one accepted entry became a delivered input; delivered items: 1 |
+| `no-report` | pass | 1 native turn(s) ended and no report arrived, so the run has no completed verdict |
+| `approval` | pass | 1 native approval request(s) reached the observer |
+
+The proof of the Codex backend stays open. The other six scenarios of the run still show the verdicts of the run of 2026-10-30.
 
 ## The production Claude Code backend
 
