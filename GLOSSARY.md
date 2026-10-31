@@ -311,3 +311,7 @@ _Avoid_: Codex session, worker handle
 **App server**:
 The Codex program that holds the thread of a Codex worker. The extension starts one app server for each worker, and the TUI attaches to the thread of that server.
 _Avoid_: Codex daemon, shared server
+
+**Report channel**:
+The path of a report from a Codex worker to the run state of its owner. The extension loads a stdio MCP server into the app server, and the server posts every report to the bridge of the run.
+_Avoid_: Report file, observation queue, webhook

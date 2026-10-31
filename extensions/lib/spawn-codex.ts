@@ -12,11 +12,15 @@
 import { mkdirSync } from "node:fs";
 
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
+import { startBridge } from "./claude-bridge.ts";
+import { createClaudeRunState } from "./claude-run-state.ts";
 import { codexVersionRefusal, findCodexBinary } from "./codex-binary.ts";
 import { type CodexLaunchDeps, launchCodex } from "./codex-launch.ts";
+import { codexReportLaunch } from "./codex-report.ts";
 import { createGroup, setGroupWorktree } from "./groups.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { finalizeJob } from "./lifecycle.ts";
+import { observeNative } from "./native-ledger.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { writeRunContext } from "./worker-context.ts";
 import { createWorktree } from "./worktree.ts";
@@ -88,6 +92,15 @@ export async function spawnCodexWorker(
 
 	mkdirSync(job.sessionDir, { recursive: true });
 
+	/* The bridge holds the observations of the run and the commands of the
+	   owner. The report server of Codex posts every report to it. */
+	const state = createClaudeRunState(jobId);
+	rt.claudeStates.set(jobId, state);
+	const bridge = await startBridge(jobId, (observation) => {
+		observeNative(rt, state, jobId, observation);
+	});
+	rt.bridges.set(jobId, bridge);
+
 	const groupId = `grp-${jobId}`;
 	writeRunContext(job.sessionDir, { runId: jobId, sourceRunId: null, resourceGroup: groupId });
 	const db = rt.openDb();
@@ -105,6 +118,9 @@ export async function spawnCodexWorker(
 		} catch (e) {
 			markUnused(db, attemptId, Date.now());
 			await finalizeJob(rt, job, "failed", e instanceof Error ? e.message : String(e), null);
+			await bridge.close();
+			rt.bridges.delete(jobId);
+			rt.claudeStates.delete(jobId);
 			return job;
 		}
 	}
@@ -112,10 +128,14 @@ export async function spawnCodexWorker(
 
 	markIssued(db, attemptId, Date.now());
 
-	const launch = await launchCodex(rt, job, binary, deps);
+	const report = codexReportLaunch({ url: bridge.baseUrl, token: bridge.token, runId: jobId });
+	const launch = await launchCodex(rt, job, binary, report, deps);
 	if (launch.error) {
 		markUnused(db, attemptId, Date.now());
 		await finalizeJob(rt, job, "failed", launch.error, null);
+		await bridge.close();
+		rt.bridges.delete(jobId);
+		rt.claudeStates.delete(jobId);
 		return job;
 	}
 

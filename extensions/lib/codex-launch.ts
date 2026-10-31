@@ -7,6 +7,7 @@
  * machine.
  */
 
+import { REPORTING_CONTRACT } from "./bootstrap-prompt.ts";
 import type { CodexBinary } from "./codex-binary.ts";
 import { type CodexClient, connectCodexServer, threadIdOf } from "./codex-client.ts";
 import {
@@ -15,6 +16,7 @@ import {
 	findCodexServerProcesses,
 	reserveFreePort,
 } from "./codex-process.ts";
+import type { CodexReportLaunch } from "./codex-report.ts";
 import type { CodexIdentity, Job } from "./job.ts";
 import { launchProgram } from "./pane.ts";
 import { delay } from "./process.ts";
@@ -49,12 +51,13 @@ export async function launchCodex(
 	rt: WorkerRuntime,
 	job: Job,
 	binary: CodexBinary,
+	report: CodexReportLaunch,
 	deps: CodexLaunchDeps = {},
 ): Promise<CodexLaunchResult> {
 	const port = await reserveFreePort();
 	const endpoint = `ws://127.0.0.1:${port}`;
 
-	const serverPaneId = await startServerPane(rt, job, binary, port);
+	const serverPaneId = await startServerPane(rt, job, binary, port, report);
 	if (serverPaneId === null) {
 		return { error: "the app server of Codex did not start.", threadId: "" };
 	}
@@ -153,17 +156,22 @@ async function startServerPane(
 	job: Job,
 	binary: CodexBinary,
 	port: number,
+	report: CodexReportLaunch,
 ): Promise<number | null> {
-	const res = await rt.wezterm([
-		"spawn",
-		"--cwd",
-		job.cwd,
-		"--",
-		binary.bin,
-		"app-server",
-		"--listen",
-		`ws://127.0.0.1:${port}`,
-	]);
+	const res = await rt.wezterm(
+		[
+			"spawn",
+			"--cwd",
+			job.cwd,
+			"--",
+			binary.bin,
+			"app-server",
+			"--listen",
+			`ws://127.0.0.1:${port}`,
+			...report.args,
+		],
+		report.env,
+	);
 	if (res.code !== 0) return null;
 	const paneId = Number.parseInt(res.stdout.trim(), 10);
 	return Number.isFinite(paneId) ? paneId : null;
@@ -225,10 +233,11 @@ async function prepareThread(client: CodexClient, job: Job): Promise<ThreadResul
  * The parameters of the request `thread/start`.
  *
  * The model goes to the request only when the job names one. An omitted
- * model uses the default of Codex.
+ * model uses the default of Codex. The field `developerInstructions` carries
+ * the reporting contract, so the worker knows how to report its task state.
  */
 function threadStartParams(job: Job): Record<string, unknown> {
-	const params: Record<string, unknown> = { cwd: job.cwd };
+	const params: Record<string, unknown> = { cwd: job.cwd, developerInstructions: REPORTING_CONTRACT };
 	if (job.model) params.model = job.model;
 	return params;
 }
