@@ -323,3 +323,11 @@ _Avoid_: Codex message, notification, app server event
 **Codex steering instruction**:
 An instruction that the request `turn/steer` sends to the model of the running turn of a Codex worker. The server joins it to the turn, and the model receives it in the same turn.
 _Avoid_: Queued message, prompt, follow-up
+
+**Open turn**:
+The cycle of a run that no completed turn closes. A stop interrupts the open turn of a Codex worker before it ends the program of the app server.
+_Avoid_: Running turn, current cycle
+
+**Codex stop**:
+The stop of a Codex worker. It interrupts the open turn, ends the program of the app server and closes the pane of the app server and the pane of the TUI. The stop is confirmed when no step failed.
+_Avoid_: Pane close, worker stop

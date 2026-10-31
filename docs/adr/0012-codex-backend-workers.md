@@ -83,6 +83,8 @@ The instruction queue of a Codex worker exists. The owner sends a steering instr
 
 The open parts of these two parts are the client of the app server and the stop of a worker. The client stays open after the launch, and the stop slice closes it. A run that ends before its client closes keeps a socket open. The report of a Codex worker also stays open, because the report channel is a separate slice.
 
+The stop of a Codex worker exists. The extension ends the open turn with the request `turn/interrupt`, and it ignores a failure of that request. Then it ends the program of the app server and it closes the pane of the app server and the pane of the TUI. The extension confirms the stop only when no step failed. A failed step leaves the worker running with a pending stop, so the next cancel and the monitor retry the stop. The client of the app server closes with the run, so a run that ends early closes its socket too.
+
 The first version does not support these items. Each one has its own issue. The issue must close, or the owner must accept the gap, before the version ships.
 
 - A recovery of a Codex worker after OMP starts again. Issue #83 covers it.

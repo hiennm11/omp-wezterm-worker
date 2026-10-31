@@ -31,6 +31,8 @@ export interface CodexFakeOptions {
 	tuiPaneId?: number;
 	/** How long the launch waits for the process of the app server. */
 	serverWaitMs?: number;
+	/** The number of calls of `taskkill` that fail before they succeed. */
+	taskkillFailures?: number;
 }
 
 /** The fake runtime of the tests of a Codex spawn. */
@@ -51,6 +53,8 @@ export interface CodexFake {
 	taskkills: string[];
 	/** The requests that the client made. */
 	clientCalls: { method: string; params: Record<string, unknown> }[];
+	/** The number of times that a client of the test was closed. */
+	clientCloses: number;
 	/** The fake client of the test. */
 	connect: (endpoint: string) => Promise<CodexClient>;
 	/** Close the bridges of the runs. A live bridge holds the event loop. */
@@ -69,6 +73,7 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 	const tuiPaneId = options.tuiPaneId ?? 12;
 	const serverProcessCount = options.serverProcessCount ?? 1;
 	const serverProcessName = options.serverProcessName ?? "codex.exe";
+	let taskkillFailures = options.taskkillFailures ?? 0;
 
 	const dir = mkdtempSync(join(tmpdir(), "wt-codex-"));
 	const binary = join(dir, "codex.exe");
@@ -80,6 +85,7 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 	const killedPanes: number[] = [];
 	const taskkills: string[] = [];
 	const clientCalls: { method: string; params: Record<string, unknown> }[] = [];
+	let clientCloses = 0;
 	let endpoint = "";
 
 	const exec = async (
@@ -90,6 +96,10 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 		if (bin === "wezterm") return weztermAnswer(command);
 		if (bin === "taskkill") {
 			taskkills.push(command);
+			if (taskkillFailures > 0) {
+				taskkillFailures -= 1;
+				return { code: 1, stdout: "", stderr: "the taskkill failed" };
+			}
 			return { code: 0, stdout: "", stderr: "" };
 		}
 		if (bin === "powershell") return powershellAnswer(command);
@@ -171,7 +181,9 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 				order.push(method);
 				clientCalls.push({ method, params });
 			},
-			close: () => undefined,
+			close: () => {
+				clientCloses += 1;
+			},
 			setMessageHandler: () => undefined,
 		};
 	};
@@ -185,6 +197,9 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 		killedPanes,
 		taskkills,
 		clientCalls,
+		get clientCloses() {
+			return clientCloses;
+		},
 		connect,
 		closeBridges: async () => {
 			for (const bridge of rt.bridges.values()) await bridge.close();
