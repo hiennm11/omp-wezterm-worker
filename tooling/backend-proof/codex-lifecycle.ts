@@ -52,6 +52,32 @@ export async function runSettingsUsage(
 	}
 }
 
+/**
+ * The parameters of the turn of the approval scenario.
+ *
+ * The scenario must see a native approval request. The configuration of the
+ * machine of the user can set the policy of the approval to `never`. A turn
+ * without a policy inherits that setting, and the native program then runs
+ * every command without asking. The scenario pins the policy `untrusted`, so
+ * the native program asks the person for every command that it does not know.
+ */
+export function approvalTurnParams(threadId: string): {
+	threadId: string;
+	approvalPolicy: string;
+	input: Array<{ type: "text"; text: string }>;
+} {
+	return {
+		threadId,
+		approvalPolicy: "untrusted",
+		input: [
+			{
+				type: "text",
+				text: "Write APPROVED to approval.txt with a shell command, then call the wezterm_worker_report tool with state completed and result PROOF-APPROVAL.",
+			},
+		],
+	};
+}
+
 /** Run the approval scenario. */
 export async function runApproval(
 	options: CodexProofOptions,
@@ -76,15 +102,7 @@ export async function runApproval(
 			return { scenario, verdict: "fail", detail: tui.error ?? "the TUI did not start" };
 		}
 		await wait(3000);
-		await handle.client.request("turn/start", {
-			threadId: handle.threadId,
-			input: [
-				{
-					type: "text",
-					text: "Write APPROVED to approval.txt with a shell command, then call the wezterm_worker_report tool with state completed and result PROOF-APPROVAL.",
-				},
-			],
-		});
+		await handle.client.request("turn/start", approvalTurnParams(handle.threadId));
 		await wait(15000);
 		recordMessages(options, handle.client, scenario);
 		const requests = handle.client.messages.filter(
