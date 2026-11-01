@@ -19,7 +19,6 @@ import { writeHandover } from "./bridge-handover.ts";
 import { startBridge } from "./claude-bridge.ts";
 import { applyObservation, type ClaudeRunState } from "./claude-run-state.ts";
 import type { CodexClient } from "./codex-client.ts";
-import { connectCodexServer } from "./codex-client.ts";
 import {
 	type CodexProcessRow,
 	isCodexServerProcess,
@@ -134,7 +133,7 @@ export async function reattachCodex(
 		/* The report server of Codex reads the handover file on every post,
 		   so a new owner takes the reports of the worker over. */
 		writeHandover(job.sessionDir, { url: bridge.baseUrl, token: bridge.token });
-		const connect = deps.connect ?? ((endpoint: string) => connectCodexServer(endpoint));
+		const connect = deps.connect ?? rt.codexConnect;
 		client = await connect(`ws://127.0.0.1:${identity.port}`);
 		/* The handler of the client is set before the thread resumes. An
 		   event of the app server then reaches the state of the run, even

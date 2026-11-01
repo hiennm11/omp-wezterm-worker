@@ -6,9 +6,9 @@
  * already started before the authority moves.
  */
 
-import { clearHandover } from "../lib/bridge-handover.ts";
 import { generationOf, taskKey } from "../lib/owner.ts";
 import { beginRelease, commitRelease } from "../lib/ownership.ts";
+import { releaseRunState } from "../lib/release-state.ts";
 import { findJob, reply, type ToolDeps } from "./kit.ts";
 
 export function registerReleaseTool({ pi, rt }: ToolDeps): void {
@@ -81,14 +81,11 @@ export function registerReleaseTool({ pi, rt }: ToolDeps): void {
 				);
 			}
 			/* A released owner accepts no more commands for the worker. The
-			   bridge of a native worker closes, and the handover file goes,
-			   so the worker waits for its next owner. */
-			const bridge = rt.bridges.get(job.id);
-			if (bridge) {
-				rt.bridges.delete(job.id);
-				await bridge.close();
-			}
-			clearHandover(job.sessionDir);
+			   state of the run goes with the release, so this session keeps
+			   no bridge, no client and no run state of the worker. The
+			   handover file goes too, so the worker waits for its next
+			   owner. */
+			await releaseRunState(rt, job);
 			return reply(
 				"The supervision of worker " +
 					job.id +

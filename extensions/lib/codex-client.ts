@@ -66,6 +66,12 @@ export async function connectCodexServer(
 	const waiters = new Map<number, (message: CodexProtocolMessage) => void>();
 	let nextId = 1;
 	let handler: (message: CodexProtocolMessage) => void = () => undefined;
+	/* A closed client is inert. The app server of Codex does not answer the
+	   close frame of a client that holds a thread, so the socket stays open
+	   for a while. The messages that arrive in that time must not reach the
+	   handler, because the handler writes them into the state of a run that
+	   another session now owns. */
+	let closed = false;
 
 	const { promise: opened, resolve: resolveOpened, reject: rejectOpened } = Promise.withResolvers<void>();
 	socket.addEventListener("open", () => resolveOpened());
@@ -73,6 +79,7 @@ export async function connectCodexServer(
 		rejectOpened(new Error(`the app server connection failed: ${String(event.type)}`)),
 	);
 	socket.addEventListener("message", (event) => {
+		if (closed) return;
 		const message = JSON.parse(String(event.data)) as CodexProtocolMessage;
 		/* A message that names a method is a notification or a request of
 		   the server. The handler reads it. The client never answers it,
@@ -126,7 +133,17 @@ export async function connectCodexServer(
 	return {
 		request,
 		notify,
-		close: () => socket.close(),
+		close: () => {
+			closed = true;
+			/* A request that waits for an answer gets no answer, because
+			   the client is closed. The waiter must not wait for the
+			   timeout. */
+			for (const [id, waiter] of waiters) {
+				waiters.delete(id);
+				waiter({ id, error: { code: -1, message: "the client is closed." } });
+			}
+			socket.close();
+		},
 		setMessageHandler: (next: (message: CodexProtocolMessage) => void) => {
 			handler = next;
 		},
