@@ -87,6 +87,7 @@ These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
 
 - Run `npm run check`. It runs the lint, the type check, the scores and every test. Run it one time, and not while another check runs.
 - The integration tests need `omp` and `wezterm`. Report a test that did not run.
+- A change that touches the Codex backend needs a run of `npm run smoke:codex`. The smoke needs the login of the user and it calls a real model, so `npm run check` does not run it. A failed smoke blocks the change. Report a smoke that did not run.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence

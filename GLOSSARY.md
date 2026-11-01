@@ -359,3 +359,15 @@ _Avoid_: Process lookup, name check, port scan
 **Rollout file**:
 The file that holds the turns of a Codex thread. The file lives in `~/.codex/sessions`. The extension never removes it, and a cancel of a worker leaves it on the disk.
 _Avoid_: Transcript, log, session file
+
+**Proof**:
+A run of the protocol harness in `tooling/backend-proof/` against a real native program. It shows what the native program does. It never shows what the extension does.
+_Avoid_: Smoke, end-to-end test, trial
+
+**Smoke**:
+A run of the real extension through its own tools against a real native program. It shows what the extension does. A criterion of a backend closes with a smoke or with a test of the behavior, and never with a proof alone.
+_Avoid_: Proof, trial, integration test
+
+**Direct input**:
+A task text that the person types into the pane of a running native worker. It joins the same run and opens a new instruction cycle. The arrival of the input and its native delivery are separate evidence.
+_Avoid_: Steering input, manual prompt
