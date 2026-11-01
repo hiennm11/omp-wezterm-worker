@@ -136,6 +136,38 @@ async function sendReport(server: RunningServer): Promise<Record<string, unknown
 	return answer;
 }
 
+/**
+ * Send one report that carries the turn id of a call.
+ *
+ * The metadata is the metadata of a real message of the app server of Codex.
+ */
+async function sendReportWithTurn(server: RunningServer, turnId: string): Promise<Record<string, unknown>> {
+	const answer = server.next();
+	server.send({
+		jsonrpc: "2.0",
+		id: 1,
+		method: "tools/call",
+		params: {
+			_meta: {
+				callId: "exec-1b72adc9",
+				"x-codex-turn-metadata": {
+					session_id: "01a197ba-5e5b",
+					thread_id: "01a197ba-5e5b",
+					turn_id: turnId,
+					model: "gpt-6-luna",
+					codex_version: "0.166.0",
+				},
+				threadId: "01a197ba-5e5b",
+				sessionId: "01a197ba-5e5b",
+				itemId: "ctc_098e8a87",
+			},
+			name: "wezterm_worker_report",
+			arguments: { state: "completed", result: "HANDOVER-OK" },
+		},
+	});
+	return answer;
+}
+
 test("the report server posts to the address of the handover file", async () => {
 	const sessionDir = mkdtempSync(join(tmpdir(), "wt-handover-server-"));
 	const first = await startBridge();
@@ -174,6 +206,30 @@ test("the report server writes the report to the report file of the run", async 
 			assert.equal(reports.length, 1, "the report file holds no report");
 			assert.equal(reports[0].state, "completed");
 			assert.equal(reports[0].result, "HANDOVER-OK");
+		} finally {
+			await server.stop();
+		}
+	} finally {
+		await bridge.close();
+		rmSync(sessionDir, { recursive: true, force: true });
+	}
+});
+
+test("the report server writes the turn id of the report to the report file", async () => {
+	const sessionDir = mkdtempSync(join(tmpdir(), "wt-handover-server-"));
+	const bridge = await startBridge();
+	try {
+		writeFileSync(
+			handoverFile(sessionDir),
+			JSON.stringify({ url: bridge.url, token: "first-token" }),
+			"utf8",
+		);
+		const server = await startServer(bridge.url, sessionDir);
+		try {
+			await sendReportWithTurn(server, "01a197ba-7450-7473-ba85-a8a45ed8c122");
+			const reports = readReports(sessionDir, "wz-1");
+			assert.equal(reports.length, 1, "the report file holds no report");
+			assert.equal(reports[0].cycleId, "01a197ba-7450-7473-ba85-a8a45ed8c122");
 		} finally {
 			await server.stop();
 		}

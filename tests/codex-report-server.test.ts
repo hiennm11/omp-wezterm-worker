@@ -193,7 +193,7 @@ test("the server posts a valid report to the bridge", async () => {
 			backend: "codex",
 			runId: "wz-7",
 			source: "report",
-			payload: { state: "completed", result: "SMOKE-OK" },
+			payload: { state: "completed", result: "SMOKE-OK", cycleId: null },
 		});
 	} finally {
 		await server.stop();
@@ -239,6 +239,43 @@ test("the server refuses a tool that it does not hold", async () => {
 		const error = (await answer).error as { message: string } | undefined;
 		assert.ok(error, "the server answered without an error");
 		assert.match(error.message, /unknown tool/);
+	} finally {
+		await server.stop();
+		await bridge.close();
+	}
+});
+
+test("the server sends the turn id of the call as the cycle id", async () => {
+	const bridge = await startBridge(202);
+	const server = await startServer(bridge.url, "wz-9");
+	try {
+		const answer = server.next();
+		server.send({
+			jsonrpc: "2.0",
+			id: 2,
+			method: "tools/call",
+			params: {
+				_meta: {
+					callId: "exec-1b72adc9",
+					"x-codex-turn-metadata": {
+						session_id: "01a197ba-5e5b",
+						thread_id: "01a197ba-5e5b",
+						turn_id: "01a197ba-7450-7473-ba85-a8a45ed8c122",
+						model: "gpt-6-luna",
+						codex_version: "0.166.0",
+					},
+					threadId: "01a197ba-5e5b",
+					sessionId: "01a197ba-5e5b",
+					itemId: "ctc_098e8a87",
+				},
+				name: "wezterm_worker_report",
+				arguments: { state: "completed", result: "SMOKE-OK" },
+			},
+		});
+		const result = (await answer).result as { isError: boolean };
+		assert.equal(result.isError, false);
+		const body = bridge.received[0].body as { payload: { cycleId: string } };
+		assert.equal(body.payload.cycleId, "01a197ba-7450-7473-ba85-a8a45ed8c122");
 	} finally {
 		await server.stop();
 		await bridge.close();

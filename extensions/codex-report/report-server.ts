@@ -28,6 +28,9 @@ const REPORT_TOOL = "wezterm_worker_report";
 /** The states that the report tool accepts. */
 const REPORT_STATES = ["working", "waiting", "needs_input", "completed"];
 
+/** The field of the metadata of a call that holds the turn metadata. */
+const TURN_METADATA_FIELD = "x-codex-turn-metadata";
+
 /** The protocol version that the server answers with. */
 const PROTOCOL_VERSION = "2024-11-05";
 
@@ -91,6 +94,27 @@ export function resolveTarget(env: NodeJS.ProcessEnv = process.env): ReportTarge
 		runId: env.WEZTERM_WORKER_RUN_ID ?? "",
 		sessionDir: sessionDir ?? null,
 	};
+}
+
+/**
+ * The turn id that a call of the report tool carries.
+ *
+ * The app server of Codex sends the turn id in the metadata of the call. A
+ * real run of codex-cli 0.166.0 put it in the field
+ * `x-codex-turn-metadata` of the field `_meta`. The id of that turn is the
+ * id that the event `turn/started` names, so the report binds to the cycle
+ * of that turn.
+ *
+ * The function reads no state, so a test can call it. A call without that
+ * metadata gives null, and the report then names no cycle.
+ */
+export function turnIdOf(params: Record<string, unknown>): string | null {
+	const meta = params._meta;
+	if (!meta || typeof meta !== "object") return null;
+	const turnMetadata = (meta as Record<string, unknown>)[TURN_METADATA_FIELD];
+	if (!turnMetadata || typeof turnMetadata !== "object") return null;
+	const turnId = (turnMetadata as Record<string, unknown>).turn_id;
+	return typeof turnId === "string" && turnId.length > 0 ? turnId : null;
 }
 
 /**
@@ -159,8 +183,11 @@ const REPORT_TOOL_SCHEMA = {
  *
  * The function never throws. The report file is a convenience, and a file
  * that cannot be written must not stop the report.
+ *
+ * The file holds the turn id of the report, so a report that arrives while no
+ * owner holds the task keeps the cycle that produced it.
  */
-function writeReportFile(target: ReportTarget, args: unknown): void {
+function writeReportFile(target: ReportTarget, args: unknown, cycleId: string | null): void {
 	if (!target.sessionDir || !target.runId) return;
 	const params = (args ?? {}) as Record<string, unknown>;
 	const state = String(params.state ?? "");
@@ -168,7 +195,7 @@ function writeReportFile(target: ReportTarget, args: unknown): void {
 	try {
 		appendReport(target.sessionDir, {
 			runId: target.runId,
-			cycleId: null,
+			cycleId,
 			state: state as ReportState,
 			result: typeof params.result === "string" ? params.result : null,
 			dependency: typeof params.dependency === "string" ? params.dependency : null,
@@ -217,20 +244,24 @@ export async function handleMessage(
 		});
 	}
 	if (method === "tools/call") {
-		const params = (message.params ?? {}) as { name?: string; arguments?: Record<string, unknown> };
+		const params = (message.params ?? {}) as Record<string, unknown>;
 		if (params.name !== REPORT_TOOL) {
 			return jsonRpcError(id, -32602, `unknown tool ${String(params.name)}`);
 		}
-		const args = params.arguments ?? {};
+		const args = (params.arguments ?? {}) as Record<string, unknown>;
 		const problem = reportProblem(args);
 		if (problem) return jsonRpc(id, { content: [{ type: "text", text: problem }], isError: true });
+		/* The turn id names the cycle that produced the report. A call
+		   without that id names no cycle, and the supervisor then binds the
+		   report to no cycle. */
+		const cycleId = turnIdOf(params);
 		/* The report reaches the owner before the answer does. A report that
 		   the bridge refused is a failure of the channel, and the worker must
 		   know it. The report file keeps the report even when the bridge of
 		   the run is gone, so the next owner still reads it. */
 		const target = resolveTarget(env);
-		writeReportFile(target, args);
-		const recorded = await postReport(target, args);
+		writeReportFile(target, args, cycleId);
+		const recorded = await postReport(target, { ...args, cycleId });
 		if (!recorded) {
 			return jsonRpcError(id, -32000, "The bridge of the run did not record the report.");
 		}

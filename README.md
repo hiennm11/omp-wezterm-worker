@@ -172,7 +172,7 @@ of that thread.
 | The model | An omitted model uses the default of Codex. A named model is passed through unchanged. |
 | The tool list | A spawn with `tools` and the Codex backend is refused before the launch. A Codex worker uses the tools of Codex. |
 | The deadline | A Codex worker takes the `timeoutMs` of its spawn, the same way an OMP worker does. The pane policy of the spawn does not apply, because the TUI needs the app server of its pane. |
-| The report | The report channel loads a stdio MCP server into the app server. The report reaches the run state of the owner. |
+| The report | The report channel loads a stdio MCP server into the app server. The report reaches the run state of the owner. The report names the turn that produced it. |
 | The steering | A steering instruction goes to the model of the running turn through the request `turn/steer`. A running tool is not interrupted. |
 | The usage | The event `thread/tokenUsage/updated` gives the usage of a turn. A count that Codex does not report stays missing. |
 | The resume | The resume continues the thread of the source run, so the worker comes back with its history and a new run id. |
@@ -182,8 +182,10 @@ The report channel of a Codex worker exists. The extension loads a stdio MCP
 server into the app server of Codex. The server posts every report to the
 bridge of the run, and the report reaches the run state of the owner. The
 owner reads the report with the same decision functions that it uses for a
-Claude Code worker. The report carries no cycle id, so the supervisor accepts
-it when the run holds one cycle.
+Claude Code worker. The report server reads the id of the turn from the
+metadata of the call, and it sends that id as the cycle id of the report. A
+report that names no cycle never ends a worker, and it raises one event with
+the condition `missing_report` for the owner.
 
 The events and the instruction queue of a Codex worker exist. The extension
 reads the messages of the app server and turns them into the observations of
