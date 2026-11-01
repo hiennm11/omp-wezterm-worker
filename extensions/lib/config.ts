@@ -140,21 +140,24 @@ export function readSkillFolder(value: unknown, fallback: string): string {
  * type-checked before it is applied, so a wrong type in the file cannot
  * break the extension.
  *
+ * The variable `OMP_WORKER_CONFIG_FILE` names the config file. It applies
+ * only when the caller names no file. A caller that names a file keeps that
+ * file. The variable lets a test host ignore the file of the user, so the
+ * result of a test does not depend on a file outside the repository.
+ *
  * `env` is passed in so a test does not have to mutate the process
  * environment.
  */
-export function loadConfig(
-	file: string = defaultConfigFile(),
-	env: NodeJS.ProcessEnv = process.env,
-): WorkerConfig {
+export function loadConfig(file?: string, env: NodeJS.ProcessEnv = process.env): WorkerConfig {
+	const path = file ?? env.OMP_WORKER_CONFIG_FILE ?? defaultConfigFile();
 	const cfg: WorkerConfig = { ...DEFAULT_CONFIG };
 	const guidance: string[] = [];
 	// The guidance belongs to the last load. A load without a problem clears
 	// the guidance of the load before it.
 	lastGuidance = null;
 	try {
-		if (existsSync(file)) {
-			const raw = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+		if (existsSync(path)) {
+			const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
 			for (const key of CONFIG_STRING_KEYS) {
 				const v = raw[key];
 				if (typeof v === "string") cfg[key] = v;
