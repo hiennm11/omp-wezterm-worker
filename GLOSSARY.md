@@ -230,7 +230,7 @@ The state of a resource group whose deletion started. It refuses every new run a
 _Avoid_: Deleted, cleaned, closed
 
 **Release**:
-The end of the supervision of a task. The worker keeps running and the authority moves to another session.
+The end of the supervision of a task. The worker keeps running and the authority moves to another session. The session that released the task keeps no bridge, no client and no run state of the worker, so no observation of the worker reaches it any more.
 _Avoid_: Cancel, stop, close
 
 **Drain**:
@@ -339,6 +339,14 @@ _Avoid_: Codex session, rollout file, app server
 **Codex recovery**:
 The act of attaching a Codex worker that a restart of OMP left running. The new session finds the app server through the Codex identity, proves the process, and connects to that app server again.
 _Avoid_: Restart, resume, takeover
+
+**Codex takeover**:
+The act of attaching a Codex worker that another session released. The new session runs the same identity check as the recovery, and connects to the app server of the worker again. The worker keeps its id, and no second app server starts.
+_Avoid_: Restart, resume, recovery
+
+**Released client**:
+A client of an app server that its session closed with a release. A closed client delivers no message to its handler, so the released session receives no observation of the worker.
+_Avoid_: Live client, stale client
 
 **Identity check**:
 The proof that a process is the app server of a Codex worker. The process of the identity must exist, its name must be `codex.exe`, and its command line must hold the app server of the port of that identity.

@@ -497,6 +497,24 @@ released task of this session has an owner that can close the worker. The
 tool `wezterm_worker_cancel` refuses such a task. Its message names
 `wezterm_worker_takeover`.
 
+**A release gives the state of the run away.** The session that releases a
+task keeps no bridge, no client and no run state of the worker. The bridge
+of a native worker closes, and the client of a Codex worker closes. The
+handover file goes too, so the worker waits for its next owner. A closed
+client of an app server delivers no message to its handler. So no
+observation of the worker reaches the session that released it. The release
+never stops the worker, never ends the app server and never closes a pane.
+
+**A new session takes over a released Codex worker.** The takeover of a Codex
+worker runs the same identity check as the recovery after a restart of OMP.
+The new session finds the app server through the Codex identity, proves the
+process, and connects to that app server again. The new session starts a new
+bridge and writes the handover file again. The report server of Codex reads
+the handover file on every post, so the reports of the worker reach the new
+owner. The worker keeps its id, and no second app server and no second worker
+start. A takeover whose identity check fails stops the worker as `failed`,
+and it ends no program that the check did not prove.
+
 The write compares the generation that the check read. So an ownership that
 moves at the same time refuses the takeover. A takeover of a finished worker
 moves the ownership and starts no monitor. So the finished worker keeps its
@@ -772,6 +790,7 @@ omp-wezterm-worker/
 │   │   ├── bridge-handover.ts   the handover of a bridge to a new owner
 │   │   ├── reattach-native.ts   the re-attachment of a native worker after a restart
 │   │   ├── reattach-codex.ts    the re-attachment of a Codex worker after a restart
+│   │   ├── release-state.ts     the state of a run that a release gives away
 │   │   ├── steer-native.ts      steering a worker that runs a native backend
 │   │   ├── limits.ts            the launch limits and the nested-worker rule
 │   │   ├── monitor.ts           watching a worker and the deadline rules
@@ -908,6 +927,8 @@ omp-wezterm-worker/
 │   ├── takeover.test.ts         the takeover of a task of another session
 │   ├── takeover-process.test.ts the process record of the new owner of a task
 │   ├── takeover-helpers.ts      the helpers of the takeover tests
+│   ├── codex-takeover.test.ts   the takeover of a running Codex worker
+│   ├── codex-websocket-server.ts the WebSocket server of the tests of the Codex client
 │   ├── reattach-native.test.ts  the re-attachment of a native worker after a restart
 │   ├── reattach-native-stop.test.ts the stop of a native worker whose re-attachment fails
 │   ├── reattach-native-helpers.ts the helpers of the re-attachment tests
@@ -1036,6 +1057,7 @@ breaks a test.
 | `codex-stop.test.ts` | A cancel of a Codex worker ends the program of the app server, closes both panes and closes the client. A cancel interrupts the open turn. A cancel without an open turn sends no interrupt. A cancel after the turn ended sends no interrupt. A cancel that cannot end a step leaves the worker running, and a retry confirms it. A run that completes closes its client. A run that completes ends the program of the app server and closes both panes. A Codex worker closes its panes even when the spawn keeps the pane open. A cancel of an OMP worker and of a Claude worker ends no program of Codex. |
 | `takeover.test.ts` | A released task of another session is taken over. A dead owner process gives the task. A live owner process keeps the task. An unreadable process table refuses the takeover. A session that owns an active task refuses the takeover. A session that owns a releasing task refuses the takeover. A session takes back a task that it released. A native worker is taken over and gets a bridge. An ownership that changes during the check refuses the takeover. A takeover of a live worker starts the monitor. A takeover of a worker whose pane is gone ends the worker. A session that takes back a released task of a worker whose pane is gone ends the worker. A takeover of a finished worker keeps its status and starts no monitor. A takeover of a task with an open attempt settles the attempt. |
 | `takeover-process.test.ts` | A takeover of a session without a start time stores the start time of its process. A takeover refuses when the session cannot read the start time of its process. A task taken over with a start time is not a lock. |
+| `codex-takeover.test.ts` | A release of a Codex worker leaves no client and no run state behind. The worker keeps running, and no pane closes and no program ends. A second session takes over a released Codex worker. It gets a client, a run state and a handover file. It starts no second app server and no second worker. A second session takes over a Codex worker of a dead first session. A takeover of a Codex worker that fails the identity check stops it as failed, and it ends no program of the user. The release of an OMP worker closes no bridge and ends no program. The release of a Claude worker closes its bridge and keeps the worker. A closed client of the app server delivers no message to its handler. |
 | `reattach-native.test.ts` | A native worker gets a new bridge and a new handover. The worker follows the new bridge and the old token is refused. The run state keeps the native session id of the worker. Only the open rows of the run become the open calls of the state. The new owner receives the report of the worker and ends the run. An open row blocks the completion until a settlement arrives. attachWorker gives a native worker a bridge and a monitor. attachWorker ends a native worker whose pane is gone. attachWorker keeps the old behaviour for an OMP worker. A handover that cannot be written leaves no bridge and no state. attachWorker fails the worker when the re-attachment fails. |
 | `reattach-native-stop.test.ts` | A failed re-attachment closes the pane of the native worker, and the open rows of the run become unknown. A failed re-attachment frees the execution of the group. A stop that the pane list does not confirm leaves the worker running with a pending stop and a monitor, and the next poll ends the worker as failed. |
 | `reattach-codex.test.ts` | The identity of a running app server passes the three checks. A process that is gone fails the check of the process. A process of another name fails the check of the name. An app server of another port fails the check of the command line. A restored Codex worker gets a client, a run state and a handover file. A restored worker that fails the identity check is stopped as failed. A stop of a restored worker interrupts the open turn. A stop of a running worker ends no app server of another port. |
