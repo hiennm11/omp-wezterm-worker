@@ -313,7 +313,7 @@ The Codex program that holds the thread of a Codex worker. The extension starts 
 _Avoid_: Codex daemon, shared server
 
 **Report channel**:
-The path of a report from a Codex worker to the run state of its owner. The extension loads a stdio MCP server into the app server, and the server posts every report to the bridge of the run.
+The path of a report from a Codex worker to the run state of its owner. The extension loads a stdio MCP server into the app server, and the server posts every report to the bridge of the run. The server reads the id of the turn from the metadata of the call, and it sends that id as the cycle id of the report.
 _Avoid_: Report file, observation queue, webhook
 
 **Codex event**:

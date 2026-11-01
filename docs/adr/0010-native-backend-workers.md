@@ -34,7 +34,7 @@ Every rule of ADR 0009 about task evidence applies to a native worker.
 
 A report is the only evidence that proves a task state. Ordinary answer text proves nothing. A native end-of-turn event proves nothing.
 
-A report binds to its run and to its instruction cycle. A report of an earlier cycle cannot finish newer work. A backend that cannot name its cycle sends no cycle, and the supervisor accepts its report only when the run holds one cycle.
+A report binds to its run and to its instruction cycle. A report of an earlier cycle cannot finish newer work. A report that names no cycle binds to no cycle, and the supervisor never finishes a worker with it. The supervisor raises one event for such a report, so the owner learns that the worker sent a report that the supervisor cannot use.
 
 The instruction cycle of a native worker is the native turn. A cycle starts at the accepted task instruction or at a steering input. It ends at the native turn boundary when no foreground call of the turn is open.
 

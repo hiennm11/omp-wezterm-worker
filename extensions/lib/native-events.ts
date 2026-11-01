@@ -21,11 +21,32 @@ import { createEvent, eventKey, resolveObsoleteEvent } from "./events.ts";
 export const PERMISSION_CONDITION = "permission_request";
 
 /**
+ * The condition that a report without a cycle raises.
+ *
+ * A report that names no cycle proves nothing about the work that runs now.
+ * The owner must know that the worker sent a report that the supervisor
+ * cannot use.
+ */
+export const MISSING_REPORT_CONDITION = "missing_report";
+
+/**
+ * The evidence id of a report without a cycle.
+ *
+ * The id is stable, so a second report without a cycle finds the event that
+ * exists and creates no second event.
+ */
+const MISSING_REPORT_EVIDENCE_ID = "report-without-cycle";
+
+/**
  * Record the events of a native run.
  *
  * The function creates the event of a permission request once. It resolves
  * the event when the request settles. A repeated observation never creates a
  * second event.
+ *
+ * The function creates the event of a report without a cycle once. A report
+ * that names a cycle proves nothing about the work that runs now, so the
+ * owner must see it.
  */
 export function recordNativeEvents(db: LifecycleDb, runId: string, state: ClaudeRunState, now: number): void {
 	for (const [callId, tool] of state.openApprovals) {
@@ -39,6 +60,21 @@ export function recordNativeEvents(db: LifecycleDb, runId: string, state: Claude
 			PERMISSION_CONDITION,
 			PERMISSION_CONDITION,
 			JSON.stringify({ callId, tool }),
+			true,
+			now,
+		);
+	}
+	if (state.reports.some((report) => report.cycleId === null)) {
+		const evidenceId = MISSING_REPORT_EVIDENCE_ID;
+		const key = eventKey(runId, evidenceId, MISSING_REPORT_CONDITION);
+		createEvent(
+			db,
+			`ev-${runId}-${evidenceId}-${MISSING_REPORT_CONDITION}`,
+			key,
+			runId,
+			MISSING_REPORT_CONDITION,
+			MISSING_REPORT_CONDITION,
+			null,
 			true,
 			now,
 		);

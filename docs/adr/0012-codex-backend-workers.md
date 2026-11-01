@@ -47,11 +47,12 @@ The extension sets `approval_mode="approve"` for the report tool only. This is a
 
 A report is the only evidence of a task state. A native end of turn proves nothing. The instruction cycle of a Codex worker is the native turn. The event `turn/started` opens it and the event `turn/completed` closes it. The supervisor reads these events from the app server.
 
+The report server names the cycle of the report. The app server sends the id of the turn in the metadata of the call of the report tool. The report server reads that id and sends it as the cycle id of the report. The id of that turn is the id that the event `turn/started` names. A report that names no cycle binds to no cycle, and the supervisor never finishes a worker with it. The supervisor raises one event with the condition `missing_report` for such a report.
+
 A background task of a Codex worker outlives the turn. The proof showed a background process that wrote its file 57 seconds after the report and 54 seconds after the turn. The foreground return and the end of the background task are separate facts. The supervisor must not read the end of a turn as the end of a task.
 
 The proof does not show these items. The supervisor needs a decision for each one before the backend ships. This ADR does not make these decisions.
 
-- How the report links to the cycle. The report server records the run. The proof did not compare the report with the id of the turn. Issue #87 covers it.
 - How a queued instruction blocks an early report. The proof shows that the queue accepts an item and gives it to the worker. It does not show the block. Issue #88 covers it.
 - How the supervisor knows that a background task is still open. The proof found no native notification of a background task in a Codex worker. Issue #86 covers it.
 
@@ -79,11 +80,11 @@ The first version supports spawn, the report, the instruction queue, the native 
 
 The spawn function of a Codex worker exists. The function starts the app server in one pane, the TUI in a second pane and the task as the first turn. The spawn tool names the Codex worker when the caller asks for the backend `codex`. The tool refuses a spawn with a tool list and the Codex backend before the launch. A Codex worker uses the tools of its own CLI.
 
-The report channel exists. The extension loads a stdio MCP server into the app server. The server posts every report to the bridge of the run, and the report reaches the run state of the owner. The owner reads the report with the decision functions of the Claude Code backend. The report carries no cycle id, so the supervisor accepts it when the run holds one cycle.
+The report channel exists. The extension loads a stdio MCP server into the app server. The server posts every report to the bridge of the run, and the report reaches the run state of the owner. The owner reads the report with the decision functions of the Claude Code backend. The report server reads the id of the turn from the metadata of the call, and it sends that id as the cycle id of the report. A report that names no cycle never ends a worker. The supervisor raises one event with the condition `missing_report` for such a report.
 
 The events of a Codex worker exist. The extension reads the messages of the app server and turns them into the observations of a native run. The reducer and the ledger of a native run then do the rest. A Codex worker fills the same run state as a Claude worker. The usage of a turn is the change of the totals of the thread. The change runs from the last update before the turn to the last update of the turn.
 
-The instruction queue of a Codex worker exists. The owner sends a steering instruction with the request `turn/steer`, and the server joins it to the running turn. An accepted instruction waits for its delivery. The delivery shows in the item of the message that the server sends for it.
+The instruction queue of a Codex worker exists. The owner sends a steering instruction with the request `turn/steer`, and the server joins it to the running turn. An accepted instruction waits for its delivery. The delivery shows in the item of the message that the server sends for it. An accepted instruction blocks the completion of the run until the native program delivers it, so a report that arrives before the delivery never finishes the worker. The rule of ADR 0010 does this, and the rule of the Claude Code backend does the same.
 
 The open parts of these two parts are the client of the app server and the stop of a worker. The client stays open after the launch, and the stop slice closes it. A run that ends before its client closes keeps a socket open. The report of a Codex worker also stays open, because the report channel is a separate slice.
 
