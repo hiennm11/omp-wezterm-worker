@@ -110,6 +110,12 @@ The first version does not support these items. Each one has its own issue. The 
 - A platform other than Windows. Issue #85 covers it.
 - A background task that the supervisor monitors as an execution record. Issue #86 covers it.
 
+The spec of the feature says that a known background task blocks the completion. The Codex backend does not meet this sentence in the first version. The owner named this exception on 2026-11-01, and the spec carries the same exception. The exception covers the background task only. No other item of the spec has one.
+
+A criterion of this backend closes with a smoke or with a test of the behavior. A proof of the protocol shows what Codex does, and it never closes a criterion alone. The smoke runs on demand with `npm run smoke:codex`, and not as a part of `npm run check`, because it needs the login of the user and it calls a real model. A failed smoke blocks the criterion, and no criterion of the first version ships with a reduced mode.
+
+A report binds to its cycle with the turn id. The call of an MCP tool carries the turn id in `params._meta["x-codex-turn-metadata"].turn_id`. The probe of 2026-11-01 showed it on codex-cli 0.166.0 through the app server, and the turn id changes between two turns of one thread. The report server sends that id as the cycle of the report. A report with no turn id never ends a worker. The supervisor raises an event for the owner instead. The older rule of ADR 0010, that a report with no cycle counts while the run holds one cycle, does not hold after a takeover, because the new owner restores only the open turn.
+
 ## Reuse of the Claude Code backend
 
 The decision functions stay as they are. They are pure, and they read the run state and the events. The first version uses the completion rule, the report decision, the ledger and the event model again.
