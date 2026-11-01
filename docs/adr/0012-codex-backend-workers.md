@@ -51,9 +51,8 @@ The report server names the cycle of the report. The app server sends the id of 
 
 A background task of a Codex worker outlives the turn. The proof showed a background process that wrote its file 57 seconds after the report and 54 seconds after the turn. The foreground return and the end of the background task are separate facts. The supervisor must not read the end of a turn as the end of a task.
 
-The proof does not show these items. The supervisor needs a decision for each one before the backend ships. This ADR does not make these decisions.
+The proof does not show this item. The supervisor needs a decision for it before the backend ships. This ADR does not make this decision.
 
-- How a queued instruction blocks an early report. The proof shows that the queue accepts an item and gives it to the worker. It does not show the block. Issue #88 covers it.
 - How the supervisor knows that a background task is still open. The proof found no native notification of a background task in a Codex worker. Issue #86 covers it.
 
 ## Usage and history
