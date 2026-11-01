@@ -192,7 +192,10 @@ reads the messages of the app server and turns them into the observations of
 a native run. A Codex worker therefore fills the same run state as a Claude
 worker, and the status tool shows the same counts. A steering instruction
 goes to the model of the running turn through the request `turn/steer`, and a
-permission request refuses it while the request waits for the person.
+permission request refuses it while the request waits for the person. An
+accepted instruction blocks the completion of the run until the native
+program delivers it, so a report that arrives before the delivery never ends
+the worker.
 
 The stop of a Codex worker exists. The stop ends the open turn, ends the
 program of the app server and closes the pane of the app server and the pane
