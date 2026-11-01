@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { acquireTask, bindSession, generationOf } from "../extensions/lib/owner.ts";
-import { acquireOwnership, readOwnership } from "../extensions/lib/ownership.ts";
+import { acquireOwnership, beginRelease, commitRelease, readOwnership } from "../extensions/lib/ownership.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 
@@ -146,6 +146,23 @@ test("another session never takes a task, even when the old process is gone", as
 		assert.match(result.acquired ? "" : result.reason, /session-old.*Take over explicitly/);
 		assert.equal(ownerOf(rt)?.sessionId, "session-old");
 		assert.equal(generationOf(rt, "wz-1"), null);
+	} finally {
+		finish(rt, dir);
+	}
+});
+
+test("a released task of another session waits for an explicit takeover", async () => {
+	const { rt, dir } = fakeRuntime({ code: 0, stdout: "" });
+	try {
+		seedOwner(rt, "session-old", 900, OLD_START);
+		beginRelease(rt.openDb(), "task-wz-1", "session-old", 1, 1100);
+		commitRelease(rt.openDb(), "task-wz-1", "session-old", 1, 1200);
+		bindSession(rt, viewOf("session-new"));
+		const result = await acquireTask(rt, "wz-1");
+		assert.equal(result.acquired, false);
+		assert.match(result.acquired ? "" : result.reason, /released.*Take over explicitly/);
+		assert.equal(ownerOf(rt)?.sessionId, "session-old");
+		assert.equal(ownerOf(rt)?.phase, "released");
 	} finally {
 		finish(rt, dir);
 	}

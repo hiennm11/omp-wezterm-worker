@@ -23,6 +23,7 @@ import { type ClaudeRunState, createClaudeRunState } from "./claude-run-state.ts
 import { outstandingExecutions } from "./executions.ts";
 import type { Job } from "./job.ts";
 import { observeNative } from "./native-ledger.ts";
+import { readReports } from "./report-store.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 
 /**
@@ -66,6 +67,12 @@ export function restoreRunState(rt: WorkerRuntime, job: Job): ClaudeRunState {
 		if (row.state !== "open") continue;
 		if (row.callId === null || row.toolName === null) continue;
 		state.openCalls.set(row.callId, row.toolName);
+	}
+	/* A report that arrived while no owner held the task is in the report
+	   file. The new owner reads it, so the report of the worker is not
+	   lost. */
+	for (const report of readReports(job.sessionDir, job.id)) {
+		state.reports.push({ cycleId: report.cycleId ?? null, state: report.state, result: report.result });
 	}
 	return state;
 }

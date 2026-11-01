@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { handoverFile } from "../extensions/lib/bridge-handover.ts";
+import { readReports } from "../extensions/lib/report-store.ts";
 
 /** The path of the report server program. */
 const SERVER_PATH = join(import.meta.dirname, "..", "extensions", "codex-report", "report-server.ts");
@@ -153,6 +154,56 @@ test("the report server posts to the address of the handover file", async () => 
 	} finally {
 		await first.close();
 		await second.close();
+		rmSync(sessionDir, { recursive: true, force: true });
+	}
+});
+
+test("the report server writes the report to the report file of the run", async () => {
+	const sessionDir = mkdtempSync(join(tmpdir(), "wt-handover-server-"));
+	const bridge = await startBridge();
+	try {
+		writeFileSync(
+			handoverFile(sessionDir),
+			JSON.stringify({ url: bridge.url, token: "first-token" }),
+			"utf8",
+		);
+		const server = await startServer(bridge.url, sessionDir);
+		try {
+			await sendReport(server);
+			const reports = readReports(sessionDir, "wz-1");
+			assert.equal(reports.length, 1, "the report file holds no report");
+			assert.equal(reports[0].state, "completed");
+			assert.equal(reports[0].result, "HANDOVER-OK");
+		} finally {
+			await server.stop();
+		}
+	} finally {
+		await bridge.close();
+		rmSync(sessionDir, { recursive: true, force: true });
+	}
+});
+
+test("the report server writes the report when the bridge of the run is gone", async () => {
+	const sessionDir = mkdtempSync(join(tmpdir(), "wt-handover-server-"));
+	const bridge = await startBridge();
+	const url = bridge.url;
+	try {
+		/* The release of the owner closed the bridge and removed the
+		   handover file. The report of the worker must still reach the disk,
+		   so the next owner reads it. */
+		writeFileSync(handoverFile(sessionDir), JSON.stringify({ url, token: "first-token" }), "utf8");
+		await bridge.close();
+		rmSync(handoverFile(sessionDir), { force: true });
+		const server = await startServer(url, sessionDir);
+		try {
+			await sendReport(server);
+			const reports = readReports(sessionDir, "wz-1");
+			assert.equal(reports.length, 1, "the report file holds no report");
+			assert.equal(reports[0].result, "HANDOVER-OK");
+		} finally {
+			await server.stop();
+		}
+	} finally {
 		rmSync(sessionDir, { recursive: true, force: true });
 	}
 });
