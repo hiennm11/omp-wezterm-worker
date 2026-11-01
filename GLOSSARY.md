@@ -348,6 +348,10 @@ _Avoid_: Restart, resume, recovery
 A client of an app server that its session closed with a release. A closed client delivers no message to its handler, so the released session receives no observation of the worker.
 _Avoid_: Live client, stale client
 
+**Report file**:
+The file of a session directory that holds the reports of a run. The report server of Codex writes every report to it before it posts to the bridge. The file keeps a report that arrived while no owner held the task.
+_Avoid_: Transcript, log, bridge
+
 **Identity check**:
 The proof that a process is the app server of a Codex worker. The process of the identity must exist, its name must be `codex.exe`, and its command line must hold the app server of the port of that identity.
 _Avoid_: Process lookup, name check, port scan

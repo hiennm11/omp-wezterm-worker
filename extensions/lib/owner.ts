@@ -118,6 +118,10 @@ export async function previousOwnerState(rt: WorkerRuntime, held: Ownership): Pr
  * process of the previous owner is confirmed gone. If two live processes open
  * the same session, the first one keeps the authority. An unreadable process
  * table refuses the acquisition.
+ *
+ * A released task of another session waits for the takeover tool. The
+ * startup of a session must not take the task of a released worker, because
+ * the takeover tool is the way that the owner gives the task away.
  */
 export async function acquireTask(rt: WorkerRuntime, jobId: string): Promise<Acquisition> {
 	const sessionId = rt.sessionId;
@@ -133,22 +137,33 @@ export async function acquireTask(rt: WorkerRuntime, jobId: string): Promise<Acq
 	const key = taskKey(jobId);
 
 	const held = readOwnership(db, key).owner;
-	if (held && held.phase !== "released") {
-		if (held.sessionId !== sessionId) {
+	if (held) {
+		if (held.phase === "released") {
+			/* The owner released the task. Only the takeover tool may take
+			   it, because the tool is the way that the owner gives it away. */
+			if (held.sessionId !== sessionId) {
+				return {
+					acquired: false,
+					kind: "owned",
+					reason: `The task was released by session ${held.sessionId}. Take over explicitly.`,
+				};
+			}
+		} else if (held.sessionId !== sessionId) {
 			return {
 				acquired: false,
 				kind: "owned",
 				reason: `The task is owned by session ${held.sessionId}. Take over explicitly.`,
 			};
-		}
-		const sameProcess = held.processId === rt.processId && held.processStartedAt === rt.processStartedAt;
-		if (!sameProcess) {
-			const previous = await previousOwnerState(rt, held);
-			if (previous.state === "unknown") {
-				return { acquired: false, kind: "unknown", reason: previous.reason };
-			}
-			if (previous.state === "alive") {
-				return { acquired: false, kind: "owned", reason: previous.reason };
+		} else {
+			const sameProcess = held.processId === rt.processId && held.processStartedAt === rt.processStartedAt;
+			if (!sameProcess) {
+				const previous = await previousOwnerState(rt, held);
+				if (previous.state === "unknown") {
+					return { acquired: false, kind: "unknown", reason: previous.reason };
+				}
+				if (previous.state === "alive") {
+					return { acquired: false, kind: "owned", reason: previous.reason };
+				}
 			}
 		}
 	}

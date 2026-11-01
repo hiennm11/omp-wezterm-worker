@@ -19,6 +19,8 @@
 import { createInterface } from "node:readline";
 
 import { readHandover } from "../lib/bridge-handover.ts";
+import type { ReportState } from "../lib/report-model.ts";
+import { appendReport } from "../lib/report-store.ts";
 
 /** The name of the MCP server and of its report tool. */
 const REPORT_TOOL = "wezterm_worker_report";
@@ -40,6 +42,8 @@ export interface ReportTarget {
 	token: string;
 	/** The id of the run. */
 	runId: string;
+	/** The session directory of the run. The report file lives there. */
+	sessionDir: string | null;
 }
 
 /** One message of the JSON-RPC protocol. */
@@ -85,6 +89,7 @@ export function resolveTarget(env: NodeJS.ProcessEnv = process.env): ReportTarge
 		url: handover?.url ?? env.WEZTERM_WORKER_URL ?? "",
 		token: handover?.token ?? env.WEZTERM_WORKER_TOKEN ?? "",
 		runId: env.WEZTERM_WORKER_RUN_ID ?? "",
+		sessionDir: sessionDir ?? null,
 	};
 }
 
@@ -145,11 +150,43 @@ const REPORT_TOOL_SCHEMA = {
 };
 
 /**
+ * Write the report to the report file of the run.
+ *
+ * The bridge of the run is the live channel. It closes when the owner of the
+ * run releases the task, and the next owner starts a new bridge. The report
+ * file is the durable channel, so a report that arrives in that gap is not
+ * lost. The next owner reads the file and finds the report.
+ *
+ * The function never throws. The report file is a convenience, and a file
+ * that cannot be written must not stop the report.
+ */
+function writeReportFile(target: ReportTarget, args: unknown): void {
+	if (!target.sessionDir || !target.runId) return;
+	const params = (args ?? {}) as Record<string, unknown>;
+	const state = String(params.state ?? "");
+	if (!REPORT_STATES.includes(state as ReportState)) return;
+	try {
+		appendReport(target.sessionDir, {
+			runId: target.runId,
+			cycleId: null,
+			state: state as ReportState,
+			result: typeof params.result === "string" ? params.result : null,
+			dependency: typeof params.dependency === "string" ? params.dependency : null,
+			resumeCondition: typeof params.resumeCondition === "string" ? params.resumeCondition : null,
+			needs: typeof params.needs === "string" ? params.needs : null,
+			detail: typeof params.detail === "string" ? params.detail : null,
+		});
+	} catch {
+		/* the file is a convenience, never a requirement */
+	}
+}
+
+/**
  * Answer one message of the JSON-RPC protocol.
  *
  * The function returns the answer of the message, or null when the message
- * needs no answer. A notification never gets an answer. The server reads the
- * handover file on every post, so the reports of the worker follow the
+ * needs no answer. A notification never gets an answer. The server reads
+ * the handover file on every post, so the reports of the worker follow the
  * current owner.
  */
 export async function handleMessage(
@@ -189,8 +226,11 @@ export async function handleMessage(
 		if (problem) return jsonRpc(id, { content: [{ type: "text", text: problem }], isError: true });
 		/* The report reaches the owner before the answer does. A report that
 		   the bridge refused is a failure of the channel, and the worker must
-		   know it. */
-		const recorded = await postReport(resolveTarget(env), args);
+		   know it. The report file keeps the report even when the bridge of
+		   the run is gone, so the next owner still reads it. */
+		const target = resolveTarget(env);
+		writeReportFile(target, args);
+		const recorded = await postReport(target, args);
 		if (!recorded) {
 			return jsonRpcError(id, -32000, "The bridge of the run did not record the report.");
 		}

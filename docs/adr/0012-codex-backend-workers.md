@@ -101,6 +101,10 @@ The takeover of a running Codex worker by another session exists. The second ses
 
 The release of a Codex worker closes the client of the app server and removes the run state of the worker. A closed client delivers no message to its handler, so the first session receives no observation of the worker after the release. The release never stops the worker, never ends the app server and never closes a pane.
 
+The report of a Codex worker reaches the owner through the bridge of the run. The bridge closes when the owner releases the task, and the next owner starts a new bridge. The report file of the session directory is the durable channel. The report server of Codex writes every report to that file before it posts to the bridge. A report that arrives while no owner holds the task is therefore not lost, and the new owner reads the file when it builds the run state of the worker.
+
+A released task waits for the takeover tool. The startup of a session does not take the task of a released worker, because the takeover tool is the way that the owner gives a task away.
+
 The first version does not support these items. Each one has its own issue. The owner accepted these gaps on 2026-11-01, so the first version ships with them.
 
 - A platform other than Windows. Issue #85 covers it.
