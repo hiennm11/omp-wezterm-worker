@@ -340,8 +340,18 @@ extension never reads the pane screen text to get a result.
 }
 ```
 
-Environment overrides: `OMP_WORKER_OMP_BIN`, `OMP_WORKER_WEZTERM_BIN`,
-`OMP_WORKER_STATE_DIR`.
+Environment overrides:
+
+- `OMP_WORKER_OMP_BIN`: the `omp` program that a worker runs.
+- `OMP_WORKER_WEZTERM_BIN`: the `wezterm` program that opens the pane.
+- `OMP_WORKER_STATE_DIR`: the folder that holds the registry and the
+  transcripts.
+- `OMP_WORKER_CONFIG_FILE`: the path of the config file. The default is
+  `~/.omp/agent/wezterm-worker.json`. The variable applies only when the
+  caller names no file. The test host names a path inside its state
+  directory, so a test does not depend on the config file of the user.
+
+The keys of the config file:
 
 - `timeoutMs` — total deadline for a worker, in ms. `0` disables it.
 - `codexBin` — the Codex program that a Codex worker runs. The default is

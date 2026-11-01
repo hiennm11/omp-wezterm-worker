@@ -56,6 +56,19 @@ test("the file overrides the defaults", () => {
 	assert.equal(cfg.maxLaunchesPerRequest, 9);
 });
 
+test("the environment variable names the config file", () => {
+	const file = configFile({ maxActiveWorkers: 7 });
+	const cfg = loadConfig(undefined, { OMP_WORKER_CONFIG_FILE: file });
+	assert.equal(cfg.maxActiveWorkers, 7);
+});
+
+test("a file argument wins over the environment variable", () => {
+	const file = configFile({ maxActiveWorkers: 7 });
+	const other = configFile({ maxActiveWorkers: 5 });
+	const cfg = loadConfig(other, { OMP_WORKER_CONFIG_FILE: file });
+	assert.equal(cfg.maxActiveWorkers, 5);
+});
+
 test("the environment wins over the file", () => {
 	const file = configFile({ ompBin: "/from/file", stateDir: "/from/file" });
 	const cfg = loadConfig(file, {

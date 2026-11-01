@@ -155,10 +155,20 @@ export async function closePanesAndWait(paneIds: Iterable<number>, timeoutMs = 3
  *
  * `stateDir` holds the registry and the transcripts. The environment is set
  * before the extension reads its config.
+ *
+ * The host names a config file inside the state directory. No file exists at
+ * that path, so the host uses the defaults. The test then does not depend on
+ * the config file of the user.
+ *
+ * The runtime lives at module scope, so every host of one test file shares
+ * the counter of launches of the current request. Each host stands for a new
+ * main session, so the host starts a new request. Without this, the fourth
+ * launch of one test file meets the default limit of three launches.
  */
 export function createHost(options: { stateDir?: string; cwd: string; sessionId?: string }): TestHost {
 	const stateDir = options.stateDir ?? mkdtempSync(join(tmpdir(), "wt-host-"));
 	process.env.OMP_WORKER_STATE_DIR = stateDir;
+	process.env.OMP_WORKER_CONFIG_FILE = join(stateDir, "wezterm-worker.json");
 
 	const host: TestHost = {
 		tools: new Map(),
@@ -258,6 +268,10 @@ export function createHost(options: { stateDir?: string; cwd: string; sessionId?
 	};
 
 	extension(pi as never);
+	// The `input` event starts a new request. The handler is synchronous.
+	for (const entry of host.handlers) {
+		if (entry.event === "input") entry.handler({}, {});
+	}
 	return host;
 }
 
