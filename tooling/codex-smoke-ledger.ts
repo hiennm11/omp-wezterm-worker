@@ -183,14 +183,14 @@ function delayInState(_state: SmokeState, ms: number): Promise<void> {
 }
 
 /**
- * The panes that the smoke test created.
+ * The new processes of the Codex program.
  *
- * The function reads the pane list before the spawn and after it. The panes
- * that the smoke test created are the new ones. The function never touches a
- * pane of the user.
+ * The function reads the process table before the spawn and after it. The
+ * function keeps only the processes of the Codex program, because the
+ * extension starts no other program for a Codex worker.
  */
-export function newPanes(before: number[], after: number[]): number[] {
-	return after.filter((pane) => !before.includes(pane));
+export function newCodexProcesses(before: ProcessRow[], after: ProcessRow[]): ProcessRow[] {
+	return newProcesses(before, after).filter((row) => row.name.toLowerCase() === "codex.exe");
 }
 
 /**

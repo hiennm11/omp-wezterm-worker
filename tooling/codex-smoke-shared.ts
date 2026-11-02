@@ -9,11 +9,12 @@
  * and the processes that it created.
  */
 
+import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { createHost, type TestHost } from "../tests/harness.ts";
-import { codexAuthFile, codexConfigFile, hashOfFile } from "./codex-smoke-home.ts";
+import { codexAuthFile, codexConfigFile, configText, hashOfFile } from "./codex-smoke-home.ts";
 import {
 	closePane,
 	codexProcessRows,
@@ -41,6 +42,8 @@ export interface SmokeState {
 	stateDir: string;
 	/** The folder that holds the temporary Git repository. */
 	repo: string;
+	/** The folder under the temporary folder that holds the repository. */
+	fixtureParent: string;
 	/** The panes that the smoke test created. */
 	ownPanes: Set<number>;
 	/** The process ids that the smoke test started. */
@@ -65,6 +68,8 @@ export interface SmokeState {
 	daemonBefore: number[];
 	/** The hash of the config of Codex before the first spawn. */
 	configHashBefore: string;
+	/** The text of the config of Codex before the first spawn. */
+	configTextBefore: string;
 	/** The hash of the credentials of Codex before the first spawn. */
 	authHashBefore: string;
 }
@@ -88,18 +93,25 @@ export function delay(ms: number): Promise<void> {
 }
 
 /**
- * Build the temporary folder that holds the files of the smoke test.
+ * Build the temporary Git repository of the smoke test.
  *
- * The folder sits inside a project that the config of Codex already trusts.
- * The folder holds no Git repository of its own. The app server of Codex
- * resolves the trust of the repository of the closest parent, so a folder
- * with a repository of its own would get a trust entry of its own, and the
- * config of the user would change.
+ * The repository sits in a new folder under the temporary folder of the
+ * machine. The folder holds no repository of the user, so the smoke test
+ * never writes into a checkout of the user.
+ *
+ * The app server of Codex writes a trust entry into the config of the user
+ * for the folder of the repository. The smoke test accepts that write and
+ * it checks that the rest of the config did not change.
  */
 export function makeRepo(parent: string): string {
 	const dir = join(parent, "run");
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, "baseline.txt"), "BASELINE\n", "utf8");
+	execFileSync("git", ["init", "-b", "main"], { cwd: dir, stdio: "ignore" });
+	execFileSync("git", ["config", "user.name", "Smoke"], { cwd: dir });
+	execFileSync("git", ["config", "user.email", "smoke@example.invalid"], { cwd: dir });
+	execFileSync("git", ["add", "-A"], { cwd: dir });
+	execFileSync("git", ["commit", "-m", "init"], { cwd: dir });
 	return dir;
 }
 
@@ -158,6 +170,11 @@ export function authHash(): string {
 	return hashOfFile(codexAuthFile());
 }
 
+/** The text of the config of Codex now. */
+export function configFileText(): string {
+	return configText();
+}
+
 /**
  * Write the config file of the smoke test.
  *
@@ -193,6 +210,26 @@ export function recordThread(state: SmokeState, threadId: string | null): void {
 	if (!threadId) return;
 	if (state.ownThreadIds.includes(threadId)) return;
 	state.ownThreadIds.push(threadId);
+}
+
+/**
+ * Record the panes of a worker of the smoke test.
+ *
+ * The function records the pane that the spawn tool returned and the panes
+ * of the identity of the worker. The cleanup closes only these panes. The
+ * function never records a pane by a difference of two lists, because a pane
+ * that another program opens during the run is not a pane of the smoke test.
+ */
+export function recordPanes(
+	state: SmokeState,
+	tuiPaneId: number | null,
+	identity: { serverPaneId: number | null; tuiPaneId: number | null },
+): void {
+	const ids = [tuiPaneId, identity.tuiPaneId, identity.serverPaneId];
+	for (const id of ids) {
+		if (id === null) continue;
+		state.ownPanes.add(id);
+	}
 }
 
 /**

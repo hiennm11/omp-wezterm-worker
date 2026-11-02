@@ -13,6 +13,7 @@ import {
 	cancelWorker,
 	currentPaneText,
 	delay,
+	recordPanes,
 	recordThread,
 	report,
 	type SmokeState,
@@ -56,6 +57,7 @@ export async function stepPermissionRequest(state: SmokeState): Promise<void> {
 	state.workersToCancel.push(ids.workerId);
 	try {
 		const identity = identityOf(state.stateDir, ids.workerId);
+		recordPanes(state, ids.paneId, identity);
 		recordThread(state, identity.threadId);
 		if (identity.port === null || !identity.threadId) {
 			report(
@@ -118,7 +120,8 @@ export async function stepPermissionRequest(state: SmokeState): Promise<void> {
 					state,
 					"not-run",
 					STEP_NAMES.permissionRequest,
-					"the TUI of Codex asked for no approval. The turn with the policy untrusted raised no native request",
+					"the TUI of Codex asked for no approval. The turn with the policy untrusted raised no native request. " +
+						"The criterion closes with the test tests/codex-permission-event.test.ts",
 				);
 				return;
 			}

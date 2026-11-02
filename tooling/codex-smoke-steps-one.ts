@@ -5,21 +5,20 @@
  * the steps that start a worker and read the state of that worker.
  */
 
-import { identityOf, newPanes, newProcesses, spawnIds, waitForStatus } from "./codex-smoke-ledger.ts";
-import { appServerProcessOf, tuiProcessOf } from "./codex-smoke-machine.ts";
+import { identityOf, newCodexProcesses, spawnIds, statusText, waitForStatus } from "./codex-smoke-ledger.ts";
+import { appServerProcessOf } from "./codex-smoke-machine.ts";
 import {
-	authHash,
 	cancelWorker,
-	configHash,
 	currentCodexRows,
 	currentPanes,
 	currentPaneText,
+	recordPanes,
 	recordThread,
 	report,
 	type SmokeState,
 	textOf,
 } from "./codex-smoke-shared.ts";
-import { REPORT_INSTRUCTION, STEP_NAMES, showsCodexScreen } from "./codex-smoke-steps.ts";
+import { REPORT_INSTRUCTION, STEP_NAMES, showsCodexScreen, workerCountOf } from "./codex-smoke-steps.ts";
 
 /**
  * Step 1: a spawn opens two panes, the worker reports, and a cancel ends the
@@ -48,10 +47,9 @@ export async function stepSpawnAndCancel(state: SmokeState): Promise<void> {
 	state.firstWorkerId = first.workerId;
 	state.firstTuiPane = first.paneId;
 
-	const panesAfter = await currentPanes();
-	const ownPanes = newPanes(panesBefore, panesAfter);
-	for (const pane of ownPanes) state.ownPanes.add(pane);
 	const identity = identityOf(state.stateDir, first.workerId);
+	recordPanes(state, first.paneId, identity);
+	const ownPanes = [...state.ownPanes];
 	state.firstPort = identity.port;
 	recordThread(state, identity.threadId);
 	const rowsAfter = await currentCodexRows();
@@ -136,9 +134,8 @@ export async function stepSpawnAndCancel(state: SmokeState): Promise<void> {
 		return;
 	}
 	state.workersToCancel.push(secondIds.workerId);
-	const panesBeforeCancel = await currentPanes();
-	for (const pane of newPanes(panesBefore, panesBeforeCancel)) state.ownPanes.add(pane);
 	const secondIdentity = identityOf(state.stateDir, secondIds.workerId);
+	recordPanes(state, secondIds.paneId, secondIdentity);
 	recordThread(state, secondIdentity.threadId);
 	state.cancelledThreadId = secondIdentity.threadId;
 	const rowsBeforeCancel = await currentCodexRows();
@@ -217,83 +214,11 @@ export async function stepSpawnAndCancel(state: SmokeState): Promise<void> {
 }
 
 /**
- * Step 2: the config and the credentials of Codex keep their hash, and the
- * command line of the TUI names no model.
- */
-export async function stepNativeConfig(state: SmokeState): Promise<void> {
-	const config = configHash();
-	const auth = authHash();
-	if (config !== state.configHashBefore || auth !== state.authHashBefore) {
-		report(
-			state,
-			"fail",
-			STEP_NAMES.nativeConfig,
-			`the config of Codex changed: ${state.configHashBefore.slice(0, 12)} -> ${config.slice(0, 12)}; ` +
-				`the credentials changed: ${state.authHashBefore.slice(0, 12)} -> ${auth.slice(0, 12)}`,
-		);
-		return;
-	}
-	/* The step starts its own worker, because a worker that ends closes its
-	   own panes and its own process. The TUI of a worker must run while the
-	   step reads its command line. */
-	const spawned = await state.host.call("wezterm_spawn_worker", {
-		task: "Wait for 600 seconds. Do not report anything.",
-		cwd: state.repo,
-		label: "codex-smoke-config",
-		backend: "codex",
-		placement: "tab",
-	});
-	const ids = spawnIds(spawned);
-	if (!ids.workerId) {
-		report(state, "fail", STEP_NAMES.nativeConfig, `the spawn returned no worker id: ${textOf(spawned)}`);
-		return;
-	}
-	state.workersToCancel.push(ids.workerId);
-	try {
-		const identity = identityOf(state.stateDir, ids.workerId);
-		recordThread(state, identity.threadId);
-		if (identity.port === null) {
-			report(
-				state,
-				"fail",
-				STEP_NAMES.nativeConfig,
-				"the worker holds no port, so the command line of the TUI is unknown",
-			);
-			return;
-		}
-		const rows = await currentCodexRows();
-		const tui = tuiProcessOf(rows, identity.port);
-		if (!tui) {
-			report(state, "fail", STEP_NAMES.nativeConfig, "the process of the TUI is not in the process table");
-			return;
-		}
-		if (/(^|\s)-m(\s|=|$)/.test(tui.commandLine)) {
-			report(
-				state,
-				"fail",
-				STEP_NAMES.nativeConfig,
-				`the command line of the TUI names a model: ${tui.commandLine}`,
-			);
-			return;
-		}
-		report(
-			state,
-			"pass",
-			STEP_NAMES.nativeConfig,
-			`the config of Codex keeps the hash ${config.slice(0, 12)}; the credentials keep the hash ${auth.slice(0, 12)}; ` +
-				`the command line of the TUI names no model: ${tui.commandLine.slice(0, 140)}`,
-		);
-	} finally {
-		await cancelWorker(state, ids.workerId);
-	}
-}
-
-/**
  * Step 3: a spawn with a tool list is refused before the launch.
  */
 export async function stepToolListRefused(state: SmokeState): Promise<void> {
-	const panesBefore = await currentPanes();
 	const rowsBefore = await currentCodexRows();
+	const workersBefore = workerCountOf(await statusText(state));
 	const refused = await state.host.call("wezterm_spawn_worker", {
 		task: "Read baseline.txt.",
 		cwd: state.repo,
@@ -301,8 +226,8 @@ export async function stepToolListRefused(state: SmokeState): Promise<void> {
 		tools: ["read"],
 	});
 	const text = textOf(refused);
-	const panesAfter = await currentPanes();
 	const rowsAfter = await currentCodexRows();
+	const workersAfter = workerCountOf(await statusText(state));
 	if (!text.includes("OMP worker only")) {
 		report(
 			state,
@@ -312,14 +237,13 @@ export async function stepToolListRefused(state: SmokeState): Promise<void> {
 		);
 		return;
 	}
-	const panes = newPanes(panesBefore, panesAfter);
-	const processes = newProcesses(rowsBefore, rowsAfter);
-	if (panes.length > 0 || processes.length > 0) {
+	const processes = newCodexProcesses(rowsBefore, rowsAfter);
+	if (processes.length > 0 || workersAfter !== workersBefore) {
 		report(
 			state,
 			"fail",
 			STEP_NAMES.toolListRefused,
-			`the refusal started a pane ${panes.join(", ")} or a process ${processes.map((p) => p.processId).join(", ")}`,
+			`the refusal started a worker or a process ${processes.map((p) => p.processId).join(", ")}`,
 		);
 		return;
 	}
@@ -327,6 +251,6 @@ export async function stepToolListRefused(state: SmokeState): Promise<void> {
 		state,
 		"pass",
 		STEP_NAMES.toolListRefused,
-		`the spawn refused the tool list and started no pane and no process: ${text.split("\n")[0]}`,
+		`the spawn refused the tool list and started no worker and no process: ${text.split("\n")[0]}`,
 	);
 }

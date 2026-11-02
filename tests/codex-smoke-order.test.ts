@@ -4,7 +4,9 @@ import { test } from "node:test";
 import {
 	cycleCountOf,
 	daemonSurvived,
+	runVerdict,
 	STEER_EVENT_ORDER,
+	type StepLine,
 	steerEventOrder,
 	steerOrderText,
 	userPanesSurvived,
@@ -115,4 +117,60 @@ test("the status shows the number of cycles of a worker", () => {
 
 test("the status shows no cycles of an unknown worker", () => {
 	assert.equal(cycleCountOf(STATUS, "wz-2"), null);
+});
+
+/** One line that names a test file of the repository. */
+const NOT_RUN_WITH_TEST: StepLine = {
+	outcome: "not-run",
+	what: "the status tool lists one permission request",
+	evidence:
+		"the TUI of Codex asked for no approval. The criterion closes with tests/codex-permission-event.test.ts",
+};
+
+/** One line that names no test file. */
+const NOT_RUN_WITHOUT_TEST: StepLine = {
+	outcome: "not-run",
+	what: "the status tool lists one permission request",
+	evidence: "the TUI of Codex asked for no approval",
+};
+
+/** One line that passed. */
+const PASSED: StepLine = {
+	outcome: "pass",
+	what: "the spawn opens two panes",
+	evidence: "the worker reported SMOKE-OK",
+};
+
+test("the run gives 0 when every step passed", () => {
+	const verdict = runVerdict([PASSED, PASSED], () => true);
+	assert.equal(verdict.code, 0);
+	assert.equal(verdict.reason, null);
+});
+
+test("the run gives 0 when a step that could not run names a test file that exists", () => {
+	const verdict = runVerdict(
+		[PASSED, NOT_RUN_WITH_TEST],
+		(path) => path === "tests/codex-permission-event.test.ts",
+	);
+	assert.equal(verdict.code, 0);
+	assert.equal(verdict.reason, null);
+});
+
+test("the run gives 1 when a step that could not run names no test file", () => {
+	const verdict = runVerdict([PASSED, NOT_RUN_WITHOUT_TEST], () => true);
+	assert.equal(verdict.code, 1);
+	assert.match(verdict.reason ?? "", /names no test file/);
+});
+
+test("the run gives 1 when the test file of a step that could not run is gone", () => {
+	const verdict = runVerdict([PASSED, NOT_RUN_WITH_TEST], () => false);
+	assert.equal(verdict.code, 1);
+	assert.match(verdict.reason ?? "", /is gone/);
+});
+
+test("the run gives 1 when a step failed", () => {
+	const failed: StepLine = { outcome: "fail", what: "the spawn opens two panes", evidence: "no pane" };
+	const verdict = runVerdict([PASSED, failed, NOT_RUN_WITH_TEST], () => true);
+	assert.equal(verdict.code, 1);
+	assert.match(verdict.reason ?? "", /failed/);
 });

@@ -6,7 +6,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { type Dirent, existsSync, readdirSync, readFileSync } from "node:fs";
+import { type Dirent, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -34,18 +34,12 @@ export function hashOfFile(file: string): string {
 	}
 }
 
-/** The projects that the config of the user names. */
-export function configuredProjectPaths(): string[] {
+/** The text of the config file of Codex, or an empty text when it is gone. */
+export function configText(): string {
 	try {
-		const text = readFileSync(codexConfigFile(), "utf8");
-		const found: string[] = [];
-		for (const line of text.split(/\r?\n/)) {
-			const match = /^\[projects\.'(.+?)'\]/.exec(line.trim());
-			if (match) found.push(match[1]);
-		}
-		return found;
+		return readFileSync(codexConfigFile(), "utf8");
 	} catch {
-		return [];
+		return "";
 	}
 }
 
@@ -62,44 +56,6 @@ export function configuredMcpServerNames(): string[] {
 	} catch {
 		return [];
 	}
-}
-
-/**
- * The folders that the config of the user trusts and that hold a Git
- * repository.
- *
- * The app server of Codex writes a trust entry into the config of the user
- * for a folder that the config does not know. A smoke test that runs in an
- * unknown folder changes the config of the user, and the change hides the
- * behaviour of the extension. The smoke test therefore runs in a folder of a
- * project that the config already trusts.
- */
-export function trustedGitRoots(): string[] {
-	const found: string[] = [];
-	for (const path of configuredProjectPaths()) {
-		if (!existsSync(join(path, ".git"))) continue;
-		if (found.includes(path)) continue;
-		found.push(path);
-	}
-	return found;
-}
-
-/**
- * The folder that holds the temporary work of the smoke test.
- *
- * The folder is a subfolder of a project that the config of the user
- * trusts. The subfolder holds no Git repository of its own, because the
- * app server of Codex resolves the trust of the repository of the closest
- * parent. A subfolder with a repository of its own would get a trust entry
- * of its own, and the config of the user would change.
- */
-export function trustedFixtureParent(): string | null {
-	const temp = homedir().toLowerCase();
-	const roots = trustedGitRoots();
-	const preferred = roots.filter((path) => path.toLowerCase().startsWith(temp));
-	const chosen = preferred[0] ?? roots[0] ?? null;
-	if (!chosen) return null;
-	return join(chosen, "codex-smoke-work");
 }
 
 /** The files of the session folder of Codex that hold a rollout. */
