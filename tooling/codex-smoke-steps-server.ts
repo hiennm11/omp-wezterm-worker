@@ -10,7 +10,15 @@ import { join } from "node:path";
 import { connectAppServer, itemOf } from "./codex-smoke-client.ts";
 import { configuredMcpServerNames, rolloutEventTimes } from "./codex-smoke-home.ts";
 import { completedReportCount, identityOf, spawnIds, statusText } from "./codex-smoke-ledger.ts";
-import { cancelWorker, delay, recordThread, report, type SmokeState, textOf } from "./codex-smoke-shared.ts";
+import {
+	cancelWorker,
+	delay,
+	recordPanes,
+	recordThread,
+	report,
+	type SmokeState,
+	textOf,
+} from "./codex-smoke-shared.ts";
 import {
 	REPORT_INSTRUCTION,
 	STEP_NAMES,
@@ -45,6 +53,7 @@ export async function stepMcpServers(state: SmokeState): Promise<void> {
 	state.workersToCancel.push(ids.workerId);
 	try {
 		const identity = identityOf(state.stateDir, ids.workerId);
+		recordPanes(state, ids.paneId, identity);
 		recordThread(state, identity.threadId);
 		if (identity.port === null) {
 			report(state, "fail", STEP_NAMES.mcpServers, "the worker holds no port, so no app server answers");
@@ -145,6 +154,7 @@ export async function stepSteerOrder(state: SmokeState): Promise<void> {
 	}
 	state.workersToCancel.push(ids.workerId);
 	const identity = identityOf(state.stateDir, ids.workerId);
+	recordPanes(state, ids.paneId, identity);
 	recordThread(state, identity.threadId);
 	if (identity.port === null || !identity.threadId) {
 		report(state, "fail", STEP_NAMES.steerOrder, "the worker holds no thread, so no observer can watch it");

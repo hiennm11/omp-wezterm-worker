@@ -14,24 +14,27 @@
  *   node tooling/codex-smoke.ts
  */
 
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 /* The module must load before the extension. It removes the variables that
    make the extension a worker. */
 import "./codex-smoke-env.ts";
-import { trustedFixtureParent } from "./codex-smoke-home.ts";
 import { closePane, codexProcessRows, listPaneIds, runProgram } from "./codex-smoke-machine.ts";
 import {
 	authHash,
+	configFileText,
 	configHash,
 	makeHost,
 	makeRepo,
 	type SmokeState,
 	writeSmokeConfig,
 } from "./codex-smoke-shared.ts";
+import { runVerdict } from "./codex-smoke-steps.ts";
 import { stepPermissionRequest } from "./codex-smoke-steps-approval.ts";
-import { stepNativeConfig, stepSpawnAndCancel, stepToolListRefused } from "./codex-smoke-steps-one.ts";
+import { stepNativeConfig } from "./codex-smoke-steps-config.ts";
+import { stepSpawnAndCancel, stepToolListRefused } from "./codex-smoke-steps-one.ts";
 import {
 	stepDaemonAndRollout,
 	stepDirectInput,
@@ -55,28 +58,33 @@ const STEPS = [
 ];
 
 /**
+ * The name that every folder of the smoke test holds.
+ *
+ * The cleanup removes a folder only when its name starts with this text.
+ */
+const FIXTURE_NAME = "codex-smoke-";
+
+/** The root of the repository. The exit rule reads the test files of it. */
+const ROOT = join(import.meta.dirname, "..");
+
+/**
  * Build the state of the smoke test.
  *
  * The function builds the host, the temporary state directory and the
- * temporary Git repository. The repository sits inside a project that the
- * config of Codex already trusts, so the app server of Codex writes no trust
- * entry into the config of the user.
+ * temporary Git repository. The repository sits in a new folder under the
+ * temporary folder of the machine, so the smoke test never writes into a
+ * checkout of the user.
  */
 function makeState(): SmokeState {
-	const stateDir = mkdtempSync(join(process.env.TEMP ?? ".", "codex-smoke-state-"));
-	const parent = trustedFixtureParent();
-	if (!parent) {
-		throw new Error(
-			"The config of Codex names no trusted project. The app server would write a trust entry into the config of the user.",
-		);
-	}
-	mkdirSync(parent, { recursive: true });
+	const stateDir = mkdtempSync(join(tmpdir(), `${FIXTURE_NAME}state-`));
+	const parent = mkdtempSync(join(tmpdir(), `${FIXTURE_NAME}repo-`));
 	const repo = makeRepo(parent);
 	writeSmokeConfig(stateDir);
 	return {
 		host: makeHost(stateDir, repo),
 		stateDir,
 		repo,
+		fixtureParent: parent,
 		ownPanes: new Set(),
 		ownProcesses: new Set(),
 		workersToCancel: [],
@@ -89,6 +97,7 @@ function makeState(): SmokeState {
 		userPanesBefore: [],
 		daemonBefore: [],
 		configHashBefore: "",
+		configTextBefore: "",
 		authHashBefore: "",
 	};
 }
@@ -120,6 +129,14 @@ async function cleanUp(state: SmokeState): Promise<void> {
 	const leftovers = leftoverProcesses(await codexProcessRows(), state.ownThreadIds);
 	for (const pid of leftovers) {
 		await runProgram("taskkill", ["/PID", String(pid), "/T", "/F"]).catch(() => undefined);
+	}
+	/* The fixture folder of the smoke test holds no work of the user, so the
+	   cleanup removes it. The guard keeps the cleanup away from every other
+	   folder of the machine. */
+	const temp = tmpdir().toLowerCase();
+	const parent = state.fixtureParent.toLowerCase();
+	if (parent.startsWith(temp) && parent.includes(FIXTURE_NAME)) {
+		rmSync(state.fixtureParent, { recursive: true, force: true });
 	}
 }
 
@@ -161,6 +178,7 @@ async function runSmoke(): Promise<number> {
 	state.userPanesBefore = await listPaneIds();
 	state.daemonBefore = daemonIds(await codexProcessRows());
 	state.configHashBefore = configHash();
+	state.configTextBefore = configFileText();
 	state.authHashBefore = authHash();
 
 	try {
@@ -185,10 +203,9 @@ async function runSmoke(): Promise<number> {
 		`the panes of the user survive: ${userPanesStay}; the daemon of the user survives: ${daemonStays}`,
 	);
 
-	const failed = state.lines.filter((line) => line.outcome === "fail");
-	const notRun = state.lines.filter((line) => line.outcome === "not-run");
-	if (failed.length > 0 || notRun.length > 0) return 1;
-	return 0;
+	const verdict = runVerdict(state.lines, (path) => existsSync(join(ROOT, path)));
+	if (verdict.reason !== null) console.log(`FAIL: ${verdict.reason}`);
+	return verdict.code;
 }
 
 process.exit(await runSmoke());

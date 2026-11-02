@@ -6,18 +6,18 @@
  */
 
 import { rolloutFiles } from "./codex-smoke-home.ts";
-import { executionRows, newPanes, newProcesses, spawnIds, statusText } from "./codex-smoke-ledger.ts";
+import { executionRows, identityOf, newCodexProcesses, spawnIds, statusText } from "./codex-smoke-ledger.ts";
 import {
 	cancelWorker,
 	currentCodexRows,
-	currentPanes,
 	delay,
+	recordPanes,
 	report,
 	type SmokeState,
 	sendText,
 	textOf,
 } from "./codex-smoke-shared.ts";
-import { cycleCountOf, STEP_NAMES } from "./codex-smoke-steps.ts";
+import { cycleCountOf, STEP_NAMES, workerCountOf } from "./codex-smoke-steps.ts";
 
 /**
  * Step 6: a task typed into the TUI starts a new cycle of the run.
@@ -39,6 +39,7 @@ export async function stepDirectInput(state: SmokeState): Promise<void> {
 		return;
 	}
 	state.workersToCancel.push(ids.workerId);
+	recordPanes(state, ids.paneId, identityOf(state.stateDir, ids.workerId));
 	try {
 		const before = await statusText(state, ids.workerId);
 		const cyclesBefore = cycleCountOf(before, ids.workerId) ?? 0;
@@ -100,6 +101,7 @@ export async function stepExecutionEvidence(state: SmokeState): Promise<void> {
 		return;
 	}
 	state.workersToCancel.push(ids.workerId);
+	recordPanes(state, ids.paneId, identityOf(state.stateDir, ids.workerId));
 	try {
 		const deadline = Date.now() + 120_000;
 		let open = false;
@@ -196,16 +198,16 @@ export async function stepDaemonAndRollout(state: SmokeState): Promise<void> {
  * Step 10: a spawn with an unknown backend is refused before the launch.
  */
 export async function stepUnknownBackend(state: SmokeState): Promise<void> {
-	const panesBefore = await currentPanes();
 	const rowsBefore = await currentCodexRows();
+	const workersBefore = workerCountOf(await statusText(state));
 	const refused = await state.host.call("wezterm_spawn_worker", {
 		task: "Read baseline.txt.",
 		cwd: state.repo,
 		backend: "not-a-backend",
 	});
 	const text = textOf(refused);
-	const panesAfter = await currentPanes();
 	const rowsAfter = await currentCodexRows();
+	const workersAfter = workerCountOf(await statusText(state));
 	if (!text.includes("Unknown backend")) {
 		report(
 			state,
@@ -215,14 +217,13 @@ export async function stepUnknownBackend(state: SmokeState): Promise<void> {
 		);
 		return;
 	}
-	const panes = newPanes(panesBefore, panesAfter);
-	const processes = newProcesses(rowsBefore, rowsAfter);
-	if (panes.length > 0 || processes.length > 0) {
+	const processes = newCodexProcesses(rowsBefore, rowsAfter);
+	if (processes.length > 0 || workersAfter !== workersBefore) {
 		report(
 			state,
 			"fail",
 			STEP_NAMES.unknownBackend,
-			`the refusal started a pane ${panes.join(", ")} or a process ${processes.map((row) => row.processId).join(", ")}`,
+			`the refusal started a worker or a process ${processes.map((row) => row.processId).join(", ")}`,
 		);
 		return;
 	}
@@ -230,6 +231,6 @@ export async function stepUnknownBackend(state: SmokeState): Promise<void> {
 		state,
 		"pass",
 		STEP_NAMES.unknownBackend,
-		`the spawn refused the backend and started no pane and no process: ${text.split("\n")[0]}`,
+		`the spawn refused the backend and started no worker and no process: ${text.split("\n")[0]}`,
 	);
 }

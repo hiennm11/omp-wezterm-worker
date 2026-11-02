@@ -25,6 +25,54 @@ export interface StepLine {
 	evidence: string;
 }
 
+/**
+ * The verdict of the run of the smoke test.
+ *
+ * The script gives 0 when every step passed. The script also gives 0 when
+ * every step that could not run names a test file of the repository and
+ * that file exists. A step that failed always gives 1.
+ */
+export interface RunVerdict {
+	/** The exit code of the script. */
+	code: number;
+	/** The reason of the exit code, when the code is not 0. */
+	reason: string | null;
+}
+
+/**
+ * Decide the exit code of the smoke test.
+ *
+ * The function reads the lines of the report and the files that the tests
+ * cover. A line that could not run must name a test file. The file must
+ * exist, because the criterion closes with that test.
+ *
+ * The function is pure, so a test checks it without a pane.
+ */
+export function runVerdict(lines: StepLine[], testFileExists: (path: string) => boolean): RunVerdict {
+	const failed = lines.filter((line) => line.outcome === "fail");
+	if (failed.length > 0) {
+		const names = failed.map((line) => line.what).join(", ");
+		return { code: 1, reason: `${failed.length} step(s) failed: ${names}` };
+	}
+	const notRun = lines.filter((line) => line.outcome === "not-run");
+	for (const line of notRun) {
+		const named = line.evidence.match(/tests\/[a-z0-9.-]+\.test\.ts/);
+		if (!named) {
+			return {
+				code: 1,
+				reason: `the step "${line.what}" could not run and names no test file`,
+			};
+		}
+		if (!testFileExists(named[0])) {
+			return {
+				code: 1,
+				reason: `the step "${line.what}" could not run and the test file ${named[0]} is gone`,
+			};
+		}
+	}
+	return { code: 0, reason: null };
+}
+
 /** The name of the check that a step proves. */
 export const STEP_NAMES = {
 	spawnAndCancel:
@@ -208,6 +256,20 @@ export function cycleCountOf(statusText: string, workerId: string): number | nul
 		if (cycles) return Number.parseInt(cycles[1], 10);
 	}
 	return null;
+}
+
+/**
+ * The number of workers that the status tool lists.
+ *
+ * The status tool prints one block for every worker. The function counts
+ * the blocks, so a caller can compare the number before and after a call.
+ */
+export function workerCountOf(statusText: string): number {
+	let count = 0;
+	for (const line of statusText.split("\n")) {
+		if (/^wz-[0-9a-z]+-[0-9a-z]+\s{2}\S+/.test(line)) count += 1;
+	}
+	return count;
 }
 
 /**
