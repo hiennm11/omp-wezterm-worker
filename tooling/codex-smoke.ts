@@ -41,6 +41,7 @@ import {
 	stepExecutionEvidence,
 	stepUnknownBackend,
 } from "./codex-smoke-steps-pane.ts";
+import { stepRecovery, stepResume } from "./codex-smoke-steps-recovery.ts";
 import { stepMcpServers, stepSteerOrder } from "./codex-smoke-steps-server.ts";
 
 /** The steps of the smoke test, in the order of the run. */
@@ -55,6 +56,8 @@ const STEPS = [
 	stepPermissionRequest,
 	stepDaemonAndRollout,
 	stepUnknownBackend,
+	stepRecovery,
+	stepResume,
 ];
 
 /**

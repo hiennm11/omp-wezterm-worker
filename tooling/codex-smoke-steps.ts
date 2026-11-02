@@ -88,6 +88,8 @@ export const STEP_NAMES = {
 	daemonAndRollout:
 		"the daemon of the user survives, and the rollout file of a cancelled thread stays on the disk",
 	unknownBackend: "a spawn with an unknown backend is refused before the launch",
+	recovery: "a second session takes a running Codex worker over and receives its report",
+	resume: "a finished Codex worker resumes in its own thread and reports again",
 } as const;
 
 /**
