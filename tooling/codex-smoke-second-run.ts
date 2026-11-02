@@ -18,8 +18,10 @@ export interface SecondFacts {
 	workerId: string | null;
 	/** The state of the worker after the takeover. */
 	status: string | null;
-	/** The number of workers that the second session holds. */
+	/** The number of the active workers that the second session holds. */
 	workerCount: number;
+	/** The number of the workers that the second session holds. */
+	totalWorkerCount: number;
 	/** Whether the takeover of the worker succeeded. */
 	taken: boolean;
 	/** The answer of the takeover. */

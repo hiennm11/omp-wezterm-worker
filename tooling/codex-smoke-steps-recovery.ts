@@ -10,8 +10,10 @@
  * cover the criteria 12 and 13 of issue 5.
  */
 
-import { rolloutEventTimes } from "./codex-smoke-home.ts";
-import { identityOf, spawnIds, statusText } from "./codex-smoke-ledger.ts";
+import { join } from "node:path";
+
+import { rolloutTurnCount } from "./codex-smoke-home.ts";
+import { completedReportCount, identityOf, spawnIds, statusText } from "./codex-smoke-ledger.ts";
 import { runSecond } from "./codex-smoke-second-run.ts";
 import {
 	cancelWorker,
@@ -187,22 +189,24 @@ export async function stepResume(state: SmokeState): Promise<void> {
 	recordPanes(state, ids.paneId, sourceIdentity);
 	recordThread(state, sourceIdentity.threadId);
 
-	const completed = await waitForStatusText(state, sourceId, "COMPLETED");
-	if (!completed.found) {
-		report(
-			state,
-			"fail",
-			STEP_NAMES.resume,
-			`the source worker did not complete: ${completed.text.replace(/\n/g, " | ")}`,
-		);
-		return;
+	/* The step waits for the report of the source run. The report file
+	   holds it, so the step does not depend on the text of the status. */
+	const sourceSessionDir = join(state.stateDir, "sessions", sourceId);
+	const reportDeadline = Date.now() + 300_000;
+	let sourceReported = false;
+	while (Date.now() < reportDeadline) {
+		if (completedReportCount(sourceSessionDir, sourceId) > 0) {
+			sourceReported = true;
+			break;
+		}
+		await delay(2000);
 	}
-	if (!completed.text.includes("SMOKE-OK")) {
+	if (!sourceReported) {
 		report(
 			state,
 			"fail",
 			STEP_NAMES.resume,
-			`the source worker completed without the result SMOKE-OK: ${completed.text.replace(/\n/g, " | ")}`,
+			`the source worker sent no report in ${Math.round(300_000 / 1000)} seconds`,
 		);
 		return;
 	}
@@ -273,11 +277,11 @@ export async function stepResume(state: SmokeState): Promise<void> {
 		.join(" ");
 	const sourceEnded = sourceLines.includes("COMPLETED");
 
-	const turns = rolloutTurnCount(resumedIdentity.threadId);
-	if (turns !== null && turns < 2) {
+	const turns = resumedIdentity.threadId === null ? 0 : rolloutTurnCount(resumedIdentity.threadId);
+	if (turns < 2) {
 		parts.push(`the thread holds ${turns} turn(s), not the turns of both runs`);
 		failed = true;
-	} else if (turns !== null) {
+	} else {
 		parts.push(`the thread holds ${turns} turns`);
 	}
 
@@ -310,12 +314,4 @@ async function waitForStatusText(
 		text = await statusText(state, workerId);
 	}
 	return { text, found: text.includes(needle) };
-}
-
-/** The number of the turns of a thread, read from its rollout file. */
-function rolloutTurnCount(threadId: string | null): number | null {
-	if (!threadId) return null;
-	const times = rolloutEventTimes(threadId, "");
-	if (times.turnStarted === null) return null;
-	return times.turnStarted > 0 ? 2 : 1;
 }
