@@ -56,17 +56,21 @@ export const REPORT_INSTRUCTION =
 /**
  * The order of the events of a steering instruction.
  *
- * The contract of ADR 0010 names four facts. The answer of the steer tool
- * comes first, because the tool answers when the server accepted the
- * instruction. The event `turn/started` of the new turn comes next, because
- * the new turn starts before the instruction reaches the model. The delivery
- * of the instruction comes next, because the model receives it in the turn.
- * The report of the cycle comes last, because the worker sends it when it
- * ends its work.
+ * The request `turn/steer` of Codex joins the instruction to the turn that
+ * already runs, so the instruction opens no new turn. The event
+ * `turn/started` of that turn comes first, because the turn starts before
+ * the owner sends the instruction. The answer of the steer tool comes next,
+ * because the tool answers when the server accepted the instruction. The
+ * delivery of the instruction comes next, because the model receives it in
+ * the running turn. The report of the cycle comes last, because the worker
+ * sends it when it ends its work.
+ *
+ * ADR 0012 states the rule: the server joins the instruction to the running
+ * turn.
  */
 export const STEER_EVENT_ORDER = [
-	"steer answer",
 	"turn/started",
+	"steer answer",
 	"instruction delivered",
 	"first report",
 ] as const;
