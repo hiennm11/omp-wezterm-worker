@@ -90,6 +90,38 @@ export function rolloutFileOf(threadId: string): string | null {
 }
 
 /**
+ * The number of the turns of a thread, read from its rollout file.
+ *
+ * The rollout file holds one line for the start of every turn. The function
+ * counts those lines, so it shows that a thread holds the turns of more
+ * than one run.
+ */
+export function rolloutTurnCount(threadId: string): number {
+	const file = rolloutFileOf(threadId);
+	if (!file) return 0;
+	let text: string;
+	try {
+		text = readFileSync(file, "utf8");
+	} catch {
+		return 0;
+	}
+	let count = 0;
+	for (const line of text.split("\n")) {
+		if (!line.trim()) continue;
+		try {
+			const parsed = JSON.parse(line) as {
+				type?: string;
+				payload?: { type?: string };
+			};
+			if (parsed.type === "event_msg" && parsed.payload?.type === "task_started") count += 1;
+		} catch {
+			/* a partial line is normal while the file is written */
+		}
+	}
+	return count;
+}
+
+/**
  * The policy of the approval of a turn.
  *
  * The config of the user sets the policy of the approval to `never`, so a

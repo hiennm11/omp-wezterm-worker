@@ -30,8 +30,10 @@ interface SecondFacts {
 	workerId: string | null;
 	/** The state of the worker after the takeover. */
 	status: string | null;
-	/** The number of workers that the second session holds. */
+	/** The number of the active workers that the second session holds. */
 	workerCount: number;
+	/** The number of the workers that the second session holds. */
+	totalWorkerCount: number;
 	/** Whether the takeover of the worker succeeded. */
 	taken: boolean;
 	/** The answer of the takeover. */
@@ -74,6 +76,7 @@ async function main(): Promise<number> {
 		workerId: null,
 		status: null,
 		workerCount: 0,
+		totalWorkerCount: 0,
 		taken: false,
 		takeover: "",
 		steer: "",
@@ -98,7 +101,9 @@ async function main(): Promise<number> {
 
 		const status = await host.call("wezterm_worker_status", {});
 		const statusText = textOf(status);
-		facts.workerCount = (status.details as { workers?: unknown[] })?.workers?.length ?? 0;
+		const rows = (status.details as { workers?: Array<{ status?: string }> })?.workers ?? [];
+		facts.totalWorkerCount = rows.length;
+		facts.workerCount = rows.filter((row) => row.status === "running" || row.status === "queued").length;
 		facts.workerId = workerId;
 		facts.status = workerState(statusText, workerId);
 
