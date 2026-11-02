@@ -105,10 +105,13 @@ The report of a Codex worker reaches the owner through the bridge of the run. Th
 
 A released task waits for the takeover tool. The startup of a session does not take the task of a released worker, because the takeover tool is the way that the owner gives a task away.
 
-The first version does not support these items. Each one has its own issue. The owner accepted these gaps on 2026-11-01, so the first version ships with them.
+The first version does not support these items. Each one has its own issue. The owner accepted these gaps on 2026-11-01 and on 2026-11-02, so the first version ships with them.
 
 - A platform other than Windows. Issue #85 covers it.
 - A background task that the supervisor monitors as an execution record. Issue #86 covers it.
+- A real run of the Codex TUI that asks for an approval. Issue #112 covers it.
+
+The third item is a limit of the evidence, and not of the behavior. The extension starts a turn with no `approvalPolicy`, so the turn takes the policy `never` of the config of the user. The smoke cannot make the TUI ask, and the step of the smoke prints NOT RUN. The criterion "Prove the TUI-owned approvals" of issue #5 closes with the proof of 2026-10-31 and with the tests of `tests/codex-permission-event.test.ts`. A test shows that one approval request makes one event, that a second poll makes no second event, and that the completion of the command resolves the event. No run of the extension shows a real TUI that asks.
 
 The spec of the feature says that a known background task blocks the completion. The Codex backend does not meet this sentence in the first version. The owner named this exception on 2026-11-01, and the spec carries the same exception. The exception covers the background task only. No other item of the spec has one.
 
