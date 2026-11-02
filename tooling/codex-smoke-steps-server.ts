@@ -240,7 +240,9 @@ export async function stepSteerOrder(state: SmokeState): Promise<void> {
 		const runningAtDelivery = statusAtDelivery.includes("RUNNING");
 
 		const sessionDir = join(state.stateDir, "sessions", ids.workerId);
-		const reportDeadline = Date.now() + 120_000;
+		/* The command of the worker waits 60 seconds, and the model needs
+		   time after it. The wait must cover both. */
+		const reportDeadline = Date.now() + 240_000;
 		while (Date.now() < reportDeadline) {
 			if (completedReportCount(sessionDir, ids.workerId) > 0) {
 				times["first report"] = Date.now();

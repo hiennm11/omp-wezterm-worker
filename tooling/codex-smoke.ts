@@ -21,6 +21,7 @@ import { join } from "node:path";
 /* The module must load before the extension. It removes the variables that
    make the extension a worker. */
 import "./codex-smoke-env.ts";
+import { sessionContext } from "../tests/harness.ts";
 import { closePane, codexProcessRows, listPaneIds, runProgram } from "./codex-smoke-machine.ts";
 import {
 	authHash,
@@ -70,6 +71,9 @@ const FIXTURE_NAME = "codex-smoke-";
 /** The root of the repository. The exit rule reads the test files of it. */
 const ROOT = join(import.meta.dirname, "..");
 
+/** The session id of the smoke test. The release needs an owner. */
+const SESSION_ID = "codex-smoke-session";
+
 /**
  * Build the state of the smoke test.
  *
@@ -84,7 +88,7 @@ function makeState(): SmokeState {
 	const repo = makeRepo(parent);
 	writeSmokeConfig(stateDir);
 	return {
-		host: makeHost(stateDir, repo),
+		host: makeHost(stateDir, repo, SESSION_ID),
 		stateDir,
 		repo,
 		fixtureParent: parent,
@@ -185,6 +189,7 @@ async function runSmoke(): Promise<number> {
 	state.authHashBefore = authHash();
 
 	try {
+		await state.host.fire("session_start", sessionContext(state.repo, SESSION_ID));
 		for (const step of STEPS) {
 			await step(state);
 		}
