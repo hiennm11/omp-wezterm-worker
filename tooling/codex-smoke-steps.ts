@@ -96,12 +96,15 @@ export const STEP_NAMES = {
  * The instruction that every task of the smoke test gives.
  *
  * A Codex worker that resumes a thread can say that the report tool does not
- * exist. The task tells the worker to find the tool with `ALL_TOOLS` and
- * then to call it. The call works with that wording.
+ * exist. The native host calls the tool under the name
+ * `mcp__wezterm_worker_report__wezterm_worker_report`, so a search for the
+ * plain name finds nothing. The task tells the worker to find the tool whose
+ * name ends with `wezterm_worker_report`, and the call works with that
+ * wording.
  */
 export const REPORT_INSTRUCTION =
-	"Find the tool wezterm_worker_report with ALL_TOOLS. Then call it. " +
-	"Report the state completed and the result SMOKE-OK.";
+	"Find the tool whose name ends with wezterm_worker_report, with ALL_TOOLS. " +
+	"Then call it. Report the state completed and the result SMOKE-OK.";
 
 /**
  * The order of the events of a steering instruction.

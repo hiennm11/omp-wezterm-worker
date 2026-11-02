@@ -101,8 +101,8 @@ export async function stepRecovery(state: SmokeState): Promise<void> {
 	const second = await runSecond(
 		state.stateDir,
 		workerId,
-		"Reply with the word SECOND-OK only. Then find the tool wezterm_worker_report with ALL_TOOLS, " +
-			"call it, and report the state completed with the result RECOVERY-OK.",
+		"Reply with the word SECOND-OK only. Then find the tool whose name ends with wezterm_worker_report, " +
+			"with ALL_TOOLS, call it, and report the state completed with the result RECOVERY-OK.",
 	);
 	if (!second.facts) {
 		report(state, "fail", STEP_NAMES.recovery, `the second program failed: ${second.error}`);
@@ -227,8 +227,8 @@ export async function stepResume(state: SmokeState): Promise<void> {
 	const resumed = await state.host.call("wezterm_worker_resume", {
 		workerId: sourceId,
 		message:
-			"Reply with the word RESUME-OK. Then find the tool wezterm_worker_report with ALL_TOOLS, " +
-			"call it, and report the state completed with the result RESUME-OK.",
+			"Reply with the word RESUME-OK. Then find the tool whose name ends with wezterm_worker_report, " +
+			"with ALL_TOOLS, call it, and report the state completed with the result RESUME-OK.",
 		placement: "tab",
 	});
 	const resumeText = textOf(resumed);
