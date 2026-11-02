@@ -324,30 +324,32 @@ The production mod registers the report tool under two names. The installed CLI 
 
 ## Smoke of the Codex backend
 
-The smoke run `tooling/codex-smoke.ts` runs the real extension through its own tools against the real Codex program and the real WezTerm. It proves what the extension does. The section names the ten steps of the run of 2026-11-02 on Windows native.
+The smoke run `tooling/codex-smoke.ts` runs the real extension through its own tools against the real Codex program and the real WezTerm. It proves what the extension does. The section names the twelve steps of the run of 2026-11-02 on Windows native.
 
-The build of the run was `codex-cli 0.166.0` on node v22.18.0 and WezTerm 20240203-110809-5046fc22. The machine held the panes 0 and 91 and the processes 39880 and 39672 of the shared daemon of Codex before the run. The machine held the same panes and the same processes after the run. The folder of the fixture was gone after the run.
+The build of the run was `codex-cli 0.166.0` on node v22.18.0 and WezTerm 20240203-110809-5046fc22. The machine held the panes 0 and 91 and the processes 39880 and 39672 of the shared daemon of Codex before the run. The machine held the same panes and the same processes after the run. The folder of the fixture was gone after the run. The credentials of Codex kept the hash `fcf1920f3879`.
 
-The table holds the second run of 2026-11-02. The first run of the day built its fixture in a folder of a repository that the config of Codex already trusts. The second run builds the fixture in a new folder under the temporary folder of the machine, and the app server of Codex writes a trust entry into the config of the user for that folder. The second case of the rule of the config step happened, and the run says so.
+The table holds the last run of 2026-11-02. The run builds the fixture in a new folder under the temporary folder of the machine, and the app server of Codex writes a trust entry into the config of the user for that folder. The second case of the rule of the config step happened, and the run says so.
 
 | Step | Verdict | The line that the script printed |
 | :- | :- | :- |
-| The spawn opens two panes, the worker reports, and a cancel ends the worker | pass | `worker wz-mvynpyqd-1 reported SMOKE-OK; the spawn opened panes 240, 239; the cancel of wz-mvynqn8g-3 closed its panes and ended its app server 48524; the panes of the worker wz-mvynqkr5-2 and of the user survived` |
-| The config and the credentials keep their hash, and the TUI names no model | pass | `the config of Codex changed only by the entry [projects.'c:\users\yoga\appdata\local\temp\codex-smoke-repo-hta5np\run']; the hash moved from c4e78dad91c4 to 63e7eabb3fe9; the credentials keep the hash fcf1920f3879; the command line of the TUI names no model` |
+| The spawn opens two panes, the worker reports, and a cancel ends the worker | pass | `worker wz-mvyq5shx-1 reported SMOKE-OK; the spawn opened panes 326, 325; the cancel of wz-mvyq6chq-3 closed its panes and ended its app server 49412; the panes of the worker wz-mvyq69x3-2 and of the user survived` |
+| The config and the credentials keep their hash, and the TUI names no model | pass | `the config of Codex changed only by the entry [projects.'c:\users\yoga\appdata\local\temp\codex-smoke-repo-ev01hp\run']; the hash moved from 037d69b7ea97 to 3b3f934056be; the credentials keep the hash fcf1920f3879; the command line of the TUI names no model` |
 | A spawn with a tool list is refused | pass | `the spawn refused the tool list and started no worker and no process: The tools parameter applies to an OMP worker only. A Codex worker uses the tools of its own CLI.` |
 | The app server lists the report server and the servers of the user | pass | `the app server lists agentmemory, figma-mcp-go, gitnexus, wezterm_worker_report, work-mcp; the config of the user names gitnexus, work-mcp, agentmemory, figma-mcp-go` |
-| The events of a steering instruction arrive in the order of the contract | pass | `turn/started: 1793587620518, steer answer: 1793587621193, instruction delivered: 1793587625167, first report: 1793587636418; order: turn/started -> steer answer -> instruction delivered -> first report` |
-| A task typed into the TUI starts a new cycle | pass | `the task typed into the pane 252 opened a new cycle: 0 -> 1` |
-| The ledger holds a row for a shell command | pass | `the run wz-mvynrxgh-8 holds 1 row(s): commandExecution=settled` |
+| The events of a steering instruction arrive in the order of the contract | pass | `turn/started: 1793591710715, steer answer: 1793591711716, instruction delivered: 1793591715780, first report: 1793591798815; order: turn/started -> steer answer -> instruction delivered -> first report` |
+| A task typed into the TUI starts a new cycle | pass | `the task typed into the pane 338 opened a new cycle: 0 -> 1` |
+| The ledger holds a row for a shell command | pass | `the run wz-mvyq9441-8 holds 1 row(s): commandExecution=settled` |
 | The status lists one permission request, and a second poll creates no second event | not run | `the TUI of Codex asked for no approval. The turn with the policy untrusted raised no native request. The criterion closes with the test tests/codex-permission-event.test.ts` |
-| The daemon of the user survives, and the rollout file stays | pass | `the daemon of the user keeps the process ids 39880, 39672; the rollout file C:\Users\yoga\.codex\sessions\2026\11\02\rollout-2026-11-02T09-46-29-01a19a26-af6f-70f0-9720-2a299dae081f.jsonl stays on the disk` |
+| The daemon of the user survives, and the rollout file stays | pass | `the daemon of the user keeps the process ids 39880, 39672; the rollout file C:\Users\yoga\.codex\sessions\2026\11\02\rollout-2026-11-02T10-54-41-01a19a65-1fce-7b30-9c54-a9d32a1ab4a0.jsonl stays on the disk` |
 | A spawn with an unknown backend is refused | pass | `the spawn refused the backend and started no worker and no process: Unknown backend 'not-a-backend'. Use one of: omp, claude, codex.` |
+| A second session takes a running Codex worker over and receives its report | pass | `the second session took the worker over; no second worker exists; the number of app servers stayed 1; the worker reached COMPLETED through the second host; the report RECOVERY-OK reached the second host; the first host holds no run state and its steer failed` |
+| A finished Codex worker resumes in its own thread and reports again | pass | `the resumed worker keeps the thread 01a19a6b-9970-7e92-82b8-422b473501bc; a new report reached the owner; the thread holds 2 turns; the report of the source run ended the source run and not the new run` |
 
-Nine steps passed. The script gave 0. The step of the permission request did not run, and its line names the test that covers the criterion. The extension starts the turn of a worker without the field `approvalPolicy`, so the turn inherits the policy `never` of the config of the user and no command asks. A probe that starts a turn with the field `approvalPolicy` and the value `untrusted` on the thread of an app server raised one request of the kind `item/commandExecution/requestApproval`. The smoke test cannot make the TUI of a worker ask, because the extension starts no turn with that field.
+Eleven steps passed. The script gave 0. The step of the permission request did not run, and its line names the test that covers the criterion. The extension starts the turn of a worker without the field `approvalPolicy`, so the turn inherits the policy `never` of the config of the user and no command asks. A probe that starts a turn with the field `approvalPolicy` and the value `untrusted` on the thread of an app server raised one request of the kind `item/commandExecution/requestApproval`. The smoke test cannot make the TUI of a worker ask, because the extension starts no turn with that field.
 
 The test `tests/codex-permission-event.test.ts` covers the criterion. It sends the real message `approvalRequest` of the proof of 2026-10-31 through the translator and the ledger of a run. The poll of the monitor then calls `recordNativeEvents`, and the database holds exactly one event with the condition `permission_request`. A second poll creates no second event. The message `commandItemCompleted` closes the request of the run, and the decision of the person resolves the event. The test passes on the code of `master` at 58fdb8d.
 
-The run of the smoke test found seven facts that the proof of the protocol did not show.
+The run of the smoke test found ten facts that the proof of the protocol did not show.
 
 The app server sends the events of a thread only to the connections that subscribed to it. A second client that only sent the request `initialize` received no event of the thread. The observer of the smoke test sends the request `thread/resume` before it reads the events.
 
@@ -362,3 +364,9 @@ The TUI of Codex wraps its text to the width of the pane. The question of the di
 The app server of Codex writes a trust entry into the config of the user for the folder of the fixture of a smoke test. The smoke test runs in a new folder under the temporary folder of the machine, so that write always happens. The smoke test accepts the write and it checks that the rest of the config did not change. The check parses the file and it never writes into it.
 
 The event of a permission request resolves only when the host reports the decision of the person. The observation `tool.call.settled` closes the request of the run, and it does not resolve the event. The observation `tool.check` with the decision `allow` or `deny` resolves the event.
+
+The native host calls the report tool under the name `mcp__wezterm_worker_report__wezterm_worker_report`. A task that tells the worker to find the tool by its plain name finds nothing, and the worker answers without reporting. A task that tells the worker to find the tool whose name ends with `wezterm_worker_report` finds it.
+
+A second session takes a running Codex worker over through the tool `wezterm_worker_takeover`. The worker keeps its id, no second app server starts, the steer of the new owner reaches the thread, and the report of the worker reaches the new owner. The session that released the worker holds no run state, and a steer of that session fails.
+
+A resume of a finished Codex worker continues the thread of the source worker. The thread holds the turns of both runs, and the report of the source run ends the source run and not the new run. The resume waits until the panes of the source run are gone.

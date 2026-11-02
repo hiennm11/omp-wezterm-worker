@@ -900,6 +900,9 @@ omp-wezterm-worker/
 │   ├── codex-smoke-steps-config.ts the config of the user and the model of the TUI
 │   ├── codex-smoke-steps-server.ts the app server and the steering instruction
 │   ├── codex-smoke-steps-pane.ts the direct input, the ledger and the daemon
+│   ├── codex-smoke-steps-recovery.ts the recovery and the resume of a Codex worker
+│   ├── codex-smoke-second.ts    the second session of the recovery step
+│   ├── codex-smoke-second-run.ts the helpers that start the second session
 │   └── codex-smoke-steps-approval.ts the permission request of a command
 ├── tests/
 │   ├── harness.ts               a test host for the extension
