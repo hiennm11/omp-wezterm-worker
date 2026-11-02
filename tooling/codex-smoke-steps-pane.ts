@@ -17,7 +17,7 @@ import {
 	sendText,
 	textOf,
 } from "./codex-smoke-shared.ts";
-import { cycleCountOf, STEP_NAMES, workerCountOf } from "./codex-smoke-steps.ts";
+import { cycleCountOf, daemonVerdict, STEP_NAMES, workerCountOf } from "./codex-smoke-steps.ts";
 
 /**
  * Step 6: a task typed into the TUI starts a new cycle of the run.
@@ -156,8 +156,8 @@ export async function stepDaemonAndRollout(state: SmokeState): Promise<void> {
 			(row) => row.commandLine.includes("--managed-daemon") || row.commandLine.includes("app-server daemon"),
 		)
 		.map((row) => row.processId);
-	const survived = state.daemonBefore.every((pid) => daemonsAfter.includes(pid));
-	if (!survived) {
+	const daemon = daemonVerdict(state.daemonBefore, daemonsAfter);
+	if (daemon === "fail") {
 		report(
 			state,
 			"fail",
@@ -183,6 +183,15 @@ export async function stepDaemonAndRollout(state: SmokeState): Promise<void> {
 			"fail",
 			STEP_NAMES.daemonAndRollout,
 			`the rollout file of the cancelled thread ${cancelledThreadId} is gone`,
+		);
+		return;
+	}
+	if (daemon === "not-run") {
+		report(
+			state,
+			"not-run",
+			STEP_NAMES.daemonAndRollout,
+			`the machine held no daemon of the user before the run, so the survival of the daemon was not checked. The rollout file ${rollout} stays on the disk.`,
 		);
 		return;
 	}

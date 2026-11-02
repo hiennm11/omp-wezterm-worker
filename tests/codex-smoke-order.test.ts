@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
 	cycleCountOf,
 	daemonSurvived,
+	daemonVerdict,
 	runVerdict,
 	STEER_EVENT_ORDER,
 	type StepLine,
@@ -90,6 +91,16 @@ test("the daemon of the user fails when a process id is gone", () => {
 
 test("the daemon of the user fails when the machine held no daemon", () => {
 	assert.equal(daemonSurvived([], [10]), false);
+});
+
+test("a machine with no daemon before the run is neither a pass nor a failure of the daemon", () => {
+	assert.equal(daemonVerdict([], []), "not-run");
+	assert.equal(daemonVerdict([], [10]), "not-run");
+});
+
+test("a daemon that stays is a pass and a daemon that is gone is a failure", () => {
+	assert.equal(daemonVerdict([10, 20], [10, 20, 30]), "pass");
+	assert.equal(daemonVerdict([10, 20], [10]), "fail");
 });
 
 test("the panes of the user survive when every pane id stays", () => {

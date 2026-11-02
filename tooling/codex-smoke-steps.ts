@@ -193,6 +193,18 @@ export function daemonSurvived(before: number[], after: number[]): boolean {
 }
 
 /**
+ * The verdict of the daemon check of the smoke test.
+ *
+ * A machine that held no daemon before the run gives nothing to check, so
+ * the check did not run. The smoke test never prints a pass for a check that
+ * had nothing to observe.
+ */
+export function daemonVerdict(before: number[], after: number[]): "pass" | "fail" | "not-run" {
+	if (before.length === 0) return "not-run";
+	return daemonSurvived(before, after) ? "pass" : "fail";
+}
+
+/**
  * The panes of the user that survived the smoke test.
  *
  * Every pane of the user before the run must still exist after the run.
