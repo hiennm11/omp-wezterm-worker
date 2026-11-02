@@ -237,7 +237,10 @@ export function recordPanes(
  *
  * The host loads the real extension. The state directory is temporary, so
  * the smoke test never touches the state of the user.
+ *
+ * The host holds the session id of the smoke test. The release and the
+ * takeover need an owner, so the session must have an identity.
  */
-export function makeHost(stateDir: string, repo: string): TestHost {
-	return createHost({ stateDir, cwd: repo });
+export function makeHost(stateDir: string, repo: string, sessionId: string): TestHost {
+	return createHost({ stateDir, cwd: repo, sessionId });
 }

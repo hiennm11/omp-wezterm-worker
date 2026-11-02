@@ -16,6 +16,7 @@ import { runSecond } from "./codex-smoke-second-run.ts";
 import {
 	cancelWorker,
 	currentCodexRows,
+	currentPanes,
 	delay,
 	recordPanes,
 	recordThread,
@@ -204,6 +205,19 @@ export async function stepResume(state: SmokeState): Promise<void> {
 			`the source worker completed without the result SMOKE-OK: ${completed.text.replace(/\n/g, " | ")}`,
 		);
 		return;
+	}
+
+	/* The resume starts a second writer for the thread of the source run.
+	   The panes of the source run must be gone first. The extension closes
+	   them when the worker ends, so the step waits for them. */
+	const sourcePanes = [sourceIdentity.tuiPaneId, sourceIdentity.serverPaneId].filter(
+		(id): id is number => id !== null,
+	);
+	const paneDeadline = Date.now() + 60_000;
+	while (Date.now() < paneDeadline) {
+		const open = await currentPanes();
+		if (sourcePanes.every((pane) => !open.includes(pane))) break;
+		await delay(1000);
 	}
 
 	const resumed = await state.host.call("wezterm_worker_resume", {
