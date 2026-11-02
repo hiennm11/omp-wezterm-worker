@@ -87,3 +87,24 @@ test("no script sits in a directory that OMP scans as a tool", () => {
 		"OMP imports every module of these directories as a custom tool. Move the scripts to tooling/ or scripts/.",
 	);
 });
+
+/** The test scripts that run test files. A file that no script names never runs in `npm run check`. */
+const TEST_SCRIPTS = ["test:unit", "test:integration:panes", "test:integration:free"];
+
+/** The helper files of the tests. They hold no test, so no script names them. */
+function holdsTests(file: string): boolean {
+	return /^\s*test\(/m.test(read(`tests/${file}`));
+}
+
+test("every test file runs in a script of npm run check", () => {
+	const scripts = JSON.parse(read("package.json")).scripts as Record<string, string>;
+	const listed = TEST_SCRIPTS.map((name) => scripts[name]).join(" ");
+	const unlisted = readdirSync(join(ROOT, "tests"))
+		.filter((file) => file.endsWith(".test.ts") && holdsTests(file))
+		.filter((file) => !listed.includes(`tests/${file}`));
+	assert.deepEqual(
+		unlisted,
+		[],
+		"Add each file to test:unit, test:integration:panes or test:integration:free in package.json. A file that no script names never runs.",
+	);
+});
