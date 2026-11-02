@@ -12,66 +12,16 @@
 
 import type { ProcessRow } from "./codex-smoke-machine.ts";
 
-/** The result of one step. */
-export type StepOutcome = "pass" | "fail" | "not-run";
-
-/** One line of the report of the smoke test. */
-export interface StepLine {
-	/** The verdict of the step. */
-	outcome: StepOutcome;
-	/** The name of the check of the step. */
-	what: string;
-	/** The evidence of the step, or the reason that it could not run. */
-	evidence: string;
-}
-
-/**
- * The verdict of the run of the smoke test.
- *
- * The script gives 0 when every step passed. The script also gives 0 when
- * every step that could not run names a test file of the repository and
- * that file exists. A step that failed always gives 1.
- */
-export interface RunVerdict {
-	/** The exit code of the script. */
-	code: number;
-	/** The reason of the exit code, when the code is not 0. */
-	reason: string | null;
-}
-
-/**
- * Decide the exit code of the smoke test.
- *
- * The function reads the lines of the report and the files that the tests
- * cover. A line that could not run must name a test file. The file must
- * exist, because the criterion closes with that test.
- *
- * The function is pure, so a test checks it without a pane.
- */
-export function runVerdict(lines: StepLine[], testFileExists: (path: string) => boolean): RunVerdict {
-	const failed = lines.filter((line) => line.outcome === "fail");
-	if (failed.length > 0) {
-		const names = failed.map((line) => line.what).join(", ");
-		return { code: 1, reason: `${failed.length} step(s) failed: ${names}` };
-	}
-	const notRun = lines.filter((line) => line.outcome === "not-run");
-	for (const line of notRun) {
-		const named = line.evidence.match(/tests\/[a-z0-9.-]+\.test\.ts/);
-		if (!named) {
-			return {
-				code: 1,
-				reason: `the step "${line.what}" could not run and names no test file`,
-			};
-		}
-		if (!testFileExists(named[0])) {
-			return {
-				code: 1,
-				reason: `the step "${line.what}" could not run and the test file ${named[0]} is gone`,
-			};
-		}
-	}
-	return { code: 0, reason: null };
-}
+export {
+	daemonSurvived,
+	daemonVerdict,
+	type RunVerdict,
+	runVerdict,
+	type StepLine,
+	type StepOutcome,
+	unobservedOf,
+	userPanesSurvived,
+} from "./codex-smoke-verdict.ts";
 
 /** The name of the check that a step proves. */
 export const STEP_NAMES = {
@@ -179,39 +129,6 @@ export function steerOrderText(times: Partial<Record<SteerEventKind, number>>): 
 	}
 	const sequence = order.join(" -> ");
 	return `${parts.join(", ")}; order: ${sequence}${missing.length > 0 ? `; missing: ${missing.join(", ")}` : ""}`;
-}
-
-/**
- * The ids of the shared daemon of the user before and after the smoke test.
- *
- * The daemon must survive the run. The function compares the two lists.
- */
-export function daemonSurvived(before: number[], after: number[]): boolean {
-	if (before.length === 0) return false;
-	for (const pid of before) if (!after.includes(pid)) return false;
-	return true;
-}
-
-/**
- * The verdict of the daemon check of the smoke test.
- *
- * A machine that held no daemon before the run gives nothing to check, so
- * the check did not run. The smoke test never prints a pass for a check that
- * had nothing to observe.
- */
-export function daemonVerdict(before: number[], after: number[]): "pass" | "fail" | "not-run" {
-	if (before.length === 0) return "not-run";
-	return daemonSurvived(before, after) ? "pass" : "fail";
-}
-
-/**
- * The panes of the user that survived the smoke test.
- *
- * Every pane of the user before the run must still exist after the run.
- */
-export function userPanesSurvived(before: number[], after: number[]): boolean {
-	for (const pane of before) if (!after.includes(pane)) return false;
-	return true;
 }
 
 /**
