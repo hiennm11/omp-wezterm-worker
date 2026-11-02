@@ -12,8 +12,8 @@ import {
 
 /** The events of a steering instruction in the order of the contract. */
 const ORDERED = {
-	"steer answer": 1000,
-	"turn/started": 2000,
+	"turn/started": 1000,
+	"steer answer": 2000,
 	"instruction delivered": 3000,
 	"first report": 4000,
 } as const;
@@ -21,7 +21,7 @@ const ORDERED = {
 test("the order of the events of a steering instruction names the four facts", () => {
 	assert.deepEqual(
 		[...STEER_EVENT_ORDER],
-		["steer answer", "turn/started", "instruction delivered", "first report"],
+		["turn/started", "steer answer", "instruction delivered", "first report"],
 	);
 });
 
@@ -34,8 +34,8 @@ test("the order of the events of a steering instruction keeps the contract", () 
 
 test("a delivery before the turn start breaks the order", () => {
 	const verdict = steerEventOrder({
-		"steer answer": 1000,
 		"turn/started": 3000,
+		"steer answer": 1000,
 		"instruction delivered": 2000,
 		"first report": 4000,
 	});
@@ -45,8 +45,8 @@ test("a delivery before the turn start breaks the order", () => {
 
 test("a report before the delivery breaks the order", () => {
 	const verdict = steerEventOrder({
-		"steer answer": 1000,
-		"turn/started": 2000,
+		"turn/started": 1000,
+		"steer answer": 2000,
 		"instruction delivered": 4000,
 		"first report": 3000,
 	});
@@ -55,8 +55,8 @@ test("a report before the delivery breaks the order", () => {
 
 test("an event that never arrived is missing", () => {
 	const verdict = steerEventOrder({
-		"steer answer": 1000,
-		"turn/started": 2000,
+		"turn/started": 1000,
+		"steer answer": 2000,
 		"instruction delivered": 3000,
 	});
 	assert.deepEqual(verdict.missing, ["first report"]);
@@ -65,17 +65,17 @@ test("an event that never arrived is missing", () => {
 
 test("the text of the order names every event and its time", () => {
 	const text = steerOrderText(ORDERED);
-	assert.ok(text.includes("steer answer: 1000"), text);
-	assert.ok(text.includes("turn/started: 2000"), text);
+	assert.ok(text.includes("turn/started: 1000"), text);
+	assert.ok(text.includes("steer answer: 2000"), text);
 	assert.ok(text.includes("instruction delivered: 3000"), text);
 	assert.ok(text.includes("first report: 4000"), text);
-	assert.ok(text.includes("steer answer -> turn/started -> instruction delivered -> first report"), text);
+	assert.ok(text.includes("turn/started -> steer answer -> instruction delivered -> first report"), text);
 });
 
 test("the text of the order names a missing event", () => {
-	const text = steerOrderText({ "steer answer": 1000 });
+	const text = steerOrderText({ "turn/started": 1000 });
 	assert.ok(text.includes("first report: missing"), text);
-	assert.ok(text.includes("missing: turn/started"), text);
+	assert.ok(text.includes("missing: steer answer"), text);
 });
 
 test("the daemon of the user survives when every process id stays", () => {
