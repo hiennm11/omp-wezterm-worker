@@ -195,8 +195,8 @@ export async function stepSteerOrder(state: SmokeState): Promise<void> {
 		const steered = await state.host.call("wezterm_worker_steer", {
 			workerId: ids.workerId,
 			message:
-				"Reply with the word STEER-OK. Then find the tool wezterm_worker_report with ALL_TOOLS, " +
-				"call it, and report the state completed with the result STEER-OK.",
+				"Reply with the word STEER-OK. Then find the tool whose name ends with wezterm_worker_report, " +
+				"with ALL_TOOLS, call it, and report the state completed with the result STEER-OK.",
 		});
 		times["steer answer"] = Date.now();
 		const steerText = textOf(steered);
