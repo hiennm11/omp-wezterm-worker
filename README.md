@@ -889,13 +889,15 @@ omp-wezterm-worker/
 │   │   └── codex-tui.ts         the pane evidence and the approval of the Codex TUI
 │   ├── codex-smoke.ts           the smoke test of the Codex backend
 │   ├── codex-smoke-client.ts    the client of one app server of Codex
+│   ├── codex-smoke-config.ts    the comparison of the config file of Codex
 │   ├── codex-smoke-env.ts       the environment of the smoke test of Codex
 │   ├── codex-smoke-home.ts      the home folder of Codex and the rollout files
 │   ├── codex-smoke-ledger.ts    the state of a worker of the smoke test
 │   ├── codex-smoke-machine.ts   the panes and the processes of the machine
 │   ├── codex-smoke-shared.ts    the state that the steps of the smoke test share
 │   ├── codex-smoke-steps.ts     the decisions of the smoke test of Codex
-│   ├── codex-smoke-steps-one.ts the spawn, the config and the refusal of the tool list
+│   ├── codex-smoke-steps-one.ts the spawn and the refusal of the tool list
+│   ├── codex-smoke-steps-config.ts the config of the user and the model of the TUI
 │   ├── codex-smoke-steps-server.ts the app server and the steering instruction
 │   ├── codex-smoke-steps-pane.ts the direct input, the ledger and the daemon
 │   └── codex-smoke-steps-approval.ts the permission request of a command
@@ -960,6 +962,8 @@ omp-wezterm-worker/
 │   ├── codex-takeover.test.ts   the takeover of a running Codex worker
 │   ├── codex-release.test.ts    the release of a running Codex worker
 │   ├── codex-smoke-order.test.ts the order of the events of a steering instruction
+│   ├── codex-smoke-config.test.ts the comparison of the config file of Codex
+│   ├── codex-permission-event.test.ts the event of a permission request of a Codex worker
 │   ├── codex-takeover-helpers.ts the helpers of the tests of the takeover
 │   ├── codex-websocket-server.ts the WebSocket server of the tests of the Codex client
 │   ├── reattach-native.test.ts  the re-attachment of a native worker after a restart
@@ -1093,7 +1097,9 @@ breaks a test.
 | `takeover-process.test.ts` | A takeover of a session without a start time stores the start time of its process. A takeover refuses when the session cannot read the start time of its process. A task taken over with a start time is not a lock. |
 | `codex-takeover.test.ts` | A second session takes over a released Codex worker. It gets a client, a run state and a handover file. It starts no second app server and no second worker. A second session takes over a Codex worker of a dead first session. A takeover of a Codex worker that fails the identity check stops it as failed, and it ends no program of the user. A second session reads the report that arrived while no owner held the task. A closed client of the app server delivers no message to its handler. |
 | `codex-release.test.ts` | A release of a Codex worker leaves no client and no run state behind. The worker keeps running, and no pane closes and no program ends. The release of an OMP worker closes no bridge and ends no program. The release of a Claude worker closes its bridge and keeps the worker. The release of a worker of another session is refused. |
-| `codex-smoke-order.test.ts` | The order of the events of a steering instruction names the four facts of the contract. The order keeps the contract. A delivery before the turn start breaks the order. A report before the delivery breaks the order. An event that never arrived is missing. The text of the order names every event and its time. The text of the order names a missing event. The daemon of the user survives when every process id stays. The daemon of the user fails when a process id is gone. The daemon of the user fails when the machine held no daemon. The panes of the user survive when every pane id stays. The panes of the user fail when a pane id is gone. The status shows the number of cycles of a worker. The status shows no cycles of an unknown worker. |
+| `codex-permission-event.test.ts` | A Codex approval request raises one event of a permission request. A second poll of a Codex approval request creates no second event. The completion of the command closes the request of a permission request. The decision of the person resolves the event of a permission request. |
+| `codex-smoke-config.test.ts` | The lines of a project hold the header and the trust level. The lines of a project that the config does not name are empty. The lines without a project drop the section of that project. The config holds the same text when nothing changed. The config holds the entry of the fixture when the app server added it. The config holds a change when a line outside the entry changed. The config holds a change when the entry of the fixture is gone. |
+| `codex-smoke-order.test.ts` | The order of the events of a steering instruction names the four facts of the contract. The order keeps the contract. A delivery before the turn start breaks the order. A report before the delivery breaks the order. An event that never arrived is missing. The text of the order names every event and its time. The text of the order names a missing event. The daemon of the user survives when every process id stays. The daemon of the user fails when a process id is gone. The daemon of the user fails when the machine held no daemon. The panes of the user survive when every pane id stays. The panes of the user fail when a pane id is gone. The status shows the number of cycles of a worker. The status shows no cycles of an unknown worker. The run gives 0 when every step passed. The run gives 0 when a step that could not run names a test file that exists. The run gives 1 when a step that could not run names no test file. The run gives 1 when the test file of a step that could not run is gone. The run gives 1 when a step failed. |
 | `reattach-native.test.ts` | A native worker gets a new bridge and a new handover. The worker follows the new bridge and the old token is refused. The run state keeps the native session id of the worker. Only the open rows of the run become the open calls of the state. The new owner receives the report of the worker and ends the run. An open row blocks the completion until a settlement arrives. attachWorker gives a native worker a bridge and a monitor. attachWorker ends a native worker whose pane is gone. attachWorker keeps the old behaviour for an OMP worker. A handover that cannot be written leaves no bridge and no state. attachWorker fails the worker when the re-attachment fails. |
 | `reattach-native-stop.test.ts` | A failed re-attachment closes the pane of the native worker, and the open rows of the run become unknown. A failed re-attachment frees the execution of the group. A stop that the pane list does not confirm leaves the worker running with a pending stop and a monitor, and the next poll ends the worker as failed. |
 | `reattach-codex.test.ts` | The identity of a running app server passes the three checks. A process that is gone fails the check of the process. A process of another name fails the check of the name. An app server of another port fails the check of the command line. A restored Codex worker gets a client, a run state and a handover file. A restored worker that fails the identity check is stopped as failed. A stop of a restored worker interrupts the open turn. A stop of a running worker ends no app server of another port. |
