@@ -68,7 +68,7 @@ A second probe (2026-10-23, Claude Code 2.1.309, model haiku, one real worker in
 - The raw `session.append` event of the notification has the fields `message`, `door`, `origin` and `uuid`. The field `origin.kind` is `task-notification`.
 - The text of the notification (`message.content[0].text`) holds the elements `<task-id>`, `<tool-use-id>`, `<output-file>`, `<status>` and `<summary>`. The element `<tool-use-id>` equals the `tool_use_id` of the call that started the task. The probe shows this for one task.
 - The notification arrived 20.1 seconds after the start of the session. The call `tool.call` arrived at 4.4 seconds. The command slept 12 seconds.
-- The production mod forwards neither fact. It sends `command` but not `run_in_background` in `tool.call.opened`. It sends `uuid`, `door` and `originKind` but not the text of the notification in `background.settled`. So the supervisor cannot link the notification to its call (issue 30).
+- The production mod forwards both facts now. It sends the flag `run_in_background` in `tool.call.opened` (`extensions/claude-mod/hooks/register.js` line 468), and it sends the `callId` and the `status` of the notification in `background.settled` (`extensions/claude-mod/hooks/register.js` lines 528 and 530). The supervisor links the notification to its call, and it settles the row of the task (`extensions/lib/native-ledger.ts` lines 108 to 115). The issue 30 gap is closed.
 - The probe covers one background task. It does not show a task that fails, a task that the user cancels, or two tasks that run at the same time.
 
 A third probe (2026-10-28, Claude Code 2.1.309, one real worker in a WezTerm pane) read the raw events of a background task and of a stop of a background task. The probe mod posted every raw event and changed none. These are the facts.
@@ -290,15 +290,41 @@ The scenario `settings-usage` passes without the usage of the account. The endpo
 
 The proof established the contracts. The production code uses them. This section records what the production run observed, apart from the proof.
 
-The smoke run `tooling/claude-smoke.ts` starts a real Claude Code session through the spawn tool and checks the whole path. Its result on Windows native:
+The smoke run `tooling/claude-smoke.ts` starts a real Claude Code session through the spawn tool and checks the whole path.
+
+The run of 2026-11-02 used Claude Code 2.1.316 on Windows native. It held the panes 0, 43 and 42 before the run, and it held the same panes after the run. It held no process of Claude Code before the run, and it held none after the run. The lines of the run:
 
 | Check | Result |
 | :- | :- |
-| The worker reports its task | The report file holds `{"runId":"wz-...","cycleId":"...","state":"completed","result":"SMOKE-OK"}`. The status shows the result and the backend. |
-| An explicit tool list | The spawn refuses it: "The tools parameter applies to an OMP worker only." |
-| An unknown backend | The spawn refuses it: "Unknown backend 'not-a-backend'." The extension never falls back to OMP. |
+| The worker reports its task | The report file of the run holds `{"runId":"wz-...","cycleId":"...","state":"completed","result":"SMOKE-OK"}`. The status shows the result and the backend. |
+| The report binds to the cycle | The report of the run names the cycle that the run delivered last, and the worker ended with `COMPLETED`. The change of issue 87 did not break the Claude path. |
+| The measured usage | The status of the finished native worker shows a measured usage and never an unknown usage. |
+| An explicit tool list | The spawn refuses it: "The tools parameter applies to an OMP worker only." The refusal starts no process. |
+| An unknown backend | The spawn refuses it: "Unknown backend 'not-a-backend'." The extension never falls back to OMP. The refusal starts no process. |
+| The default model | A spawn with no model names no model in the command line of the process of the worker. The command line holds the flags of the session and of the plugin, and no `--model`. |
 | A resume | The resumed run reuses the native session id, gets a new run id, and reports `RESUME-OK`. |
 | A steering instruction | The instruction goes through the bridge, the native session queues it, and the worker reports `STEER-OK`. |
+| A cancel | The cancel of one worker closed its pane and ended its process. The other worker kept running, and the panes of the user survived. |
+| The external history | The folder of the session of the cancelled worker stays under `C:\Users\yoga\.claude\projects`. The settings of Claude Code keep their hash `1e0290789e616bb81f76a069ddf34229af60db08a0a4108b956eb6b0515c81c6`. The folder of the sessions gained one entry, the folder of the fixture of the run. |
+
+The script printed these lines of the run of 2026-11-02:
+
+```
+PASS: a Claude spawn starts a worker, and the worker reports SMOKE-OK
+PASS: the report of the run binds to the cycle that produced it
+PASS: the finished native worker keeps its measured usage
+PASS: a spawn with a tool list is refused before the launch
+PASS: a spawn with an unknown backend is refused before the launch
+PASS: a spawn with no model names no model in the command line of the process
+PASS: a finished Claude worker resumes in its native session and reports RESUME-OK
+PASS: a steering instruction reaches the worker, and the worker reports STEER-OK
+PASS: a cancel ends the worker, its pane, and its process, and spares the other workers
+PASS: the session folder of the cancelled worker stays, and the settings of Claude Code keep their hash
+machine after the run: panes 0, 43, 42; processes of Claude Code none
+the panes of the user survive: true; the processes of the user survive: true
+```
+
+The script gave the exit code 0. The script prints one line for every step, and it gives 0 only when every line is a pass.
 
 The production run found four facts that the proof did not show, because the proof never ran the production path.
 
@@ -309,6 +335,8 @@ A resumed session continues with `--resume <id>`. The flag `--session-id` create
 A resumed session takes no new prompt as an argument. The follow-up instruction goes into the composer of the pane, the way the user types it. The text and the Enter go in two steps, and the composer settles before the Enter arrives.
 
 A native session keeps its id while it runs. A resume that starts before the old process ended is refused by the CLI, so the resume waits for the process of the source run to go.
+
+A cancelled worker of Claude Code leaves the shell of its last command behind. The shell holds the working directory of the worker, and the folder of the repository cannot be removed while the shell runs. The shell loses its parent when the cancel ends the helper of the worker. The cleanup of the smoke test reads the descendants of every worker of the smoke test while the workers run, and it ends those shells by their id. A shell that starts after the last read of the recorder stays on the machine. The run of 2026-11-02 left one such shell behind. The smoke test does not touch the panes and the processes of the user, and the shell holds no work of the user.
 
 ## The capability gaps
 

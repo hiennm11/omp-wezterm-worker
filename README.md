@@ -904,7 +904,20 @@ omp-wezterm-worker/
 │   ├── codex-smoke-steps-recovery.ts the recovery and the resume of a Codex worker
 │   ├── codex-smoke-second.ts    the second session of the recovery step
 │   ├── codex-smoke-second-run.ts the helpers that start the second session
-│   └── codex-smoke-steps-approval.ts the permission request of a command
+│   ├── codex-smoke-steps-approval.ts the permission request of a command
+│   ├── claude-smoke.ts          the smoke test of the Claude Code backend
+│   ├── claude-smoke-env.ts      the environment of the smoke test of Claude Code
+│   ├── claude-smoke-home.ts     the home folder of Claude Code and its sessions
+│   ├── claude-smoke-ledger.ts   the state of a worker of the smoke test
+│   ├── claude-smoke-machine.ts  the panes and the processes of the machine
+│   ├── claude-smoke-pane.ts     the startup questions of a session of Claude Code
+│   ├── claude-smoke-processes.ts the processes of the smoke test of Claude Code
+│   ├── claude-smoke-shared.ts   the state that the steps of the smoke test share
+│   ├── claude-smoke-steps.ts    the decisions of the smoke test of Claude Code
+│   ├── claude-smoke-steps-one.ts the spawn, the report and the usage
+│   ├── claude-smoke-steps-refusal.ts the refusals and the default model
+│   ├── claude-smoke-steps-two.ts the resume and the steering instruction
+│   └── claude-smoke-steps-three.ts the cancel and the history of Claude Code
 ├── tests/
 │   ├── harness.ts               a test host for the extension
 │   ├── fixtures/                the real texts that the tests read
@@ -1044,7 +1057,7 @@ so the suite needs no build step and no test framework.
 | `npm run trial` | Run the Windows trial with real workers. It writes `docs/trials/windows-trial.md`. |
 | `npm run proof:claude` | Run the compatibility probe against a real Claude Code session. It needs an evidence directory. |
 | `npm run proof:codex` | Run the compatibility probe against a real Codex session. It starts an app server and a TUI. It needs an evidence directory. |
-| `npm run smoke:claude` | Run the smoke test of the Claude Code backend. It starts a real session, reports, resumes and steers. |
+| `npm run smoke:claude` | Run the smoke test of the Claude Code backend. It starts a real session, reports, resumes, steers and cancels. It closes only the panes and the processes that it created. |
 | `npm run smoke:codex` | Run the smoke test of the Codex backend. It starts a real app server and a real TUI, reports, steers and cancels. |
 | `npm run typecheck` | Type check the extension, the tools and the tests. |
 | `npm run check` | Run the lint, the type check, the scores and the tests. |
@@ -1123,6 +1136,7 @@ breaks a test.
 | `codex-smoke-config.test.ts` | The lines of a project hold the header and the trust level. The lines of a project that the config does not name are empty. The lines without a project drop the section of that project. The config holds the same text when nothing changed. The config holds the entry of the fixture when the app server added it. The config holds a change when a line outside the entry changed. The config holds a change when the entry of the fixture is gone. |
 | `codex-smoke-order.test.ts` | The order of the events of a steering instruction names the four facts of the contract. The order keeps the contract. A delivery before the turn start breaks the order. A report before the delivery breaks the order. An event that never arrived is missing. The text of the order names every event and its time. The text of the order names a missing event. The daemon of the user survives when every process id stays. The daemon of the user fails when a process id is gone. The daemon of the user fails when the machine held no daemon. The panes of the user survive when every pane id stays. The panes of the user fail when a pane id is gone. The status shows the number of cycles of a worker. The status shows no cycles of an unknown worker. The run gives 0 when every step passed. The run gives 0 when a step that could not run names a test file that exists. The run gives 1 when a step that could not run names no test file. The run gives 1 when the test file of a step that could not run is gone. The run gives 1 when a step failed. |
 | `reattach-native.test.ts` | A native worker gets a new bridge and a new handover. The worker follows the new bridge and the old token is refused. The run state keeps the native session id of the worker. Only the open rows of the run become the open calls of the state. The new owner receives the report of the worker and ends the run. An open row blocks the completion until a settlement arrives. attachWorker gives a native worker a bridge and a monitor. attachWorker ends a native worker whose pane is gone. attachWorker keeps the old behaviour for an OMP worker. A handover that cannot be written leaves no bridge and no state. attachWorker fails the worker when the re-attachment fails. |
+| `claude-smoke-decisions.test.ts` | The report of a run is read from the lines of its report file. A report binds to the cycle only when the names are equal. A report with no cycle binds to no cycle. The last turn of a bridge log is the cycle that the run delivered last. A command line that names no model passes the check of the default model. The difference of the home folder names a change of the settings. The difference of the home folder names a missing entry. The verdict of the run fails when a step failed. The verdict of the run fails when a step could not run. The verdict of the run gives zero when every step passed. The descendants of a process include every depth below it. The descendants of a process leave the process itself out. |
 | `reattach-native-stop.test.ts` | A failed re-attachment closes the pane of the native worker, and the open rows of the run become unknown. A failed re-attachment frees the execution of the group. A stop that the pane list does not confirm leaves the worker running with a pending stop and a monitor, and the next poll ends the worker as failed. |
 | `reattach-codex.test.ts` | The identity of a running app server passes the three checks. A process that is gone fails the check of the process. A process of another name fails the check of the name. An app server of another port fails the check of the command line. A restored Codex worker gets a client, a run state and a handover file. A restored worker that fails the identity check is stopped as failed. A stop of a restored worker interrupts the open turn. A stop of a running worker ends no app server of another port. |
 | `codex-report-handover.test.ts` | The report server posts to the address of the handover file. The report server writes the report to the report file of the run. The report server writes the report when the bridge of the run is gone. The report server follows the handover file when it changes. The report server falls back to the environment without a handover file. The report server falls back to the environment with a malformed handover file. |
