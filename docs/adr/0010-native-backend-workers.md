@@ -78,6 +78,16 @@ An omitted model uses the default of the selected CLI. The extension passes an e
 
 The `tools` parameter is OMP-only. The extension refuses a spawn that names a native worker and gives a tool list before the launch.
 
+## The smoke of a native backend
+
+A smoke of a native backend runs the real extension against the real program of the user. It therefore runs beside the sessions of the user, and it must not touch them.
+
+The smoke closes only what it created. It closes a pane only when a tool of the smoke returned the id of that pane. It never closes a pane through a difference of two pane lists, because a pane that another program opens during the run is not a pane of the smoke. It ends a process only when the smoke recorded the id of that process, and it never ends a process through a name alone. An unreadable pane list is not an excuse to close a pane.
+
+The smoke builds its fixture in a new folder under the temporary folder of the machine. The name of the folder starts with the name of the smoke, and the cleanup removes the folder only when the name matches and the folder sits under the temporary folder.
+
+The smoke reads the home folder of the native program and never writes into it. It records the hash of the settings and the entries of the folder of the sessions before the run and after the run. A new entry of the folder of the sessions is a fact and not a failure, because the native program writes its own session folder there. A change of the settings or a missing entry is a failure.
+
 ## Usage and history
 
 The native usage fields of a worker are the measured fields that the native turn reports. A field that the native program does not report stays missing. The extension never manufactures a zero and never sums a cumulative usage twice.
