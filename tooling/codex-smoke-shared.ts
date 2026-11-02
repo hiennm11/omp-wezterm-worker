@@ -53,10 +53,6 @@ export interface SmokeState {
 	firstTuiPane: number | null;
 	/** The port of the app server of the first worker. */
 	firstPort: number | null;
-	/** The worker that stays alive through the run. */
-	liveWorkerId: string | null;
-	/** The port of the app server of the live worker. */
-	livePort: number | null;
 	/** The thread of the cancelled worker. */
 	cancelledThreadId: string | null;
 	/** The threads of the workers that the smoke test started. */

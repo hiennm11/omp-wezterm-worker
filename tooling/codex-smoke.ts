@@ -83,8 +83,6 @@ function makeState(): SmokeState {
 		firstWorkerId: null,
 		firstTuiPane: null,
 		firstPort: null,
-		liveWorkerId: null,
-		livePort: null,
 		cancelledThreadId: null,
 		ownThreadIds: [],
 		lines: [],

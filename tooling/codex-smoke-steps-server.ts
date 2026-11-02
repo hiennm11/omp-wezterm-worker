@@ -27,71 +27,92 @@ const REPORT_SERVER = "wezterm_worker_report";
  * servers of the user.
  */
 export async function stepMcpServers(state: SmokeState): Promise<void> {
-	if (!state.liveWorkerId || state.livePort === null) {
-		report(state, "fail", STEP_NAMES.mcpServers, "no worker ran, so no app server answers");
+	/* The step starts its own worker, because a worker that ends closes its
+	   own app server and its own panes. The app server of a worker must run
+	   while the step reads the list of the MCP servers. */
+	const spawned = await state.host.call("wezterm_spawn_worker", {
+		task: "Wait for 600 seconds. Do not report anything.",
+		cwd: state.repo,
+		label: "codex-smoke-servers",
+		backend: "codex",
+		placement: "tab",
+	});
+	const ids = spawnIds(spawned);
+	if (!ids.workerId) {
+		report(state, "fail", STEP_NAMES.mcpServers, `the spawn returned no worker id: ${textOf(spawned)}`);
 		return;
 	}
-	const identity = identityOf(state.stateDir, state.liveWorkerId);
-	const client = await connectAppServer(`ws://127.0.0.1:${state.livePort}`).catch(() => null);
-	if (!client) {
-		report(
-			state,
-			"fail",
-			STEP_NAMES.mcpServers,
-			`the app server of the port ${state.livePort} does not answer`,
-		);
-		return;
-	}
+	state.workersToCancel.push(ids.workerId);
 	try {
-		const list = await client.request("mcpServerStatus/list", { threadId: identity.threadId ?? "" });
-		if (list.error) {
+		const identity = identityOf(state.stateDir, ids.workerId);
+		recordThread(state, identity.threadId);
+		if (identity.port === null) {
+			report(state, "fail", STEP_NAMES.mcpServers, "the worker holds no port, so no app server answers");
+			return;
+		}
+		const client = await connectAppServer(`ws://127.0.0.1:${identity.port}`).catch(() => null);
+		if (!client) {
 			report(
 				state,
 				"fail",
 				STEP_NAMES.mcpServers,
-				`the list of the MCP servers failed: ${list.error.message}`,
+				`the app server of the port ${identity.port} does not answer`,
 			);
 			return;
 		}
-		const data = (list.result as { data?: Array<{ name?: string }> })?.data ?? [];
-		const names = data.map((server) => server.name ?? "");
-		if (!names.includes(REPORT_SERVER)) {
-			report(
-				state,
-				"fail",
-				STEP_NAMES.mcpServers,
-				`the report server is not in the list: ${names.join(", ")}`,
-			);
-			return;
-		}
-		const configured = configuredMcpServerNames();
-		const missing = configured.filter((name) => !names.includes(name));
-		if (missing.length > 0) {
-			report(
-				state,
-				"fail",
-				STEP_NAMES.mcpServers,
-				`the servers of the user are missing: ${missing.join(", ")}`,
-			);
-			return;
-		}
-		if (configured.length === 0) {
+		try {
+			const list = await client.request("mcpServerStatus/list", { threadId: identity.threadId ?? "" });
+			if (list.error) {
+				report(
+					state,
+					"fail",
+					STEP_NAMES.mcpServers,
+					`the list of the MCP servers failed: ${list.error.message}`,
+				);
+				return;
+			}
+			const data = (list.result as { data?: Array<{ name?: string }> })?.data ?? [];
+			const names = data.map((server) => server.name ?? "");
+			if (!names.includes(REPORT_SERVER)) {
+				report(
+					state,
+					"fail",
+					STEP_NAMES.mcpServers,
+					`the report server is not in the list: ${names.join(", ")}`,
+				);
+				return;
+			}
+			const configured = configuredMcpServerNames();
+			const missing = configured.filter((name) => !names.includes(name));
+			if (missing.length > 0) {
+				report(
+					state,
+					"fail",
+					STEP_NAMES.mcpServers,
+					`the servers of the user are missing: ${missing.join(", ")}`,
+				);
+				return;
+			}
+			if (configured.length === 0) {
+				report(
+					state,
+					"pass",
+					STEP_NAMES.mcpServers,
+					`the app server lists ${REPORT_SERVER}; the config of the user names no other MCP server`,
+				);
+				return;
+			}
 			report(
 				state,
 				"pass",
 				STEP_NAMES.mcpServers,
-				`the app server lists ${REPORT_SERVER}; the config of the user names no other MCP server`,
+				`the app server lists ${names.join(", ")}; the config of the user names ${configured.join(", ")}`,
 			);
-			return;
+		} finally {
+			client.close();
 		}
-		report(
-			state,
-			"pass",
-			STEP_NAMES.mcpServers,
-			`the app server lists ${names.join(", ")}; the config of the user names ${configured.join(", ")}`,
-		);
 	} finally {
-		client.close();
+		await cancelWorker(state, ids.workerId);
 	}
 }
 
