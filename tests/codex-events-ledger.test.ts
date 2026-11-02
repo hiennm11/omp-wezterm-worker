@@ -28,8 +28,8 @@ import {
 	codexRun,
 	eventsWithCondition,
 	messageOf,
-	openRow,
 	OWN,
+	openRow,
 } from "./codex-events-helpers.ts";
 
 test("a Codex worker that stops with an open row raises one event of an execution loss", async () => {
