@@ -9,6 +9,7 @@ import { identityOf, newPanes, newProcesses, spawnIds, waitForStatus } from "./c
 import { appServerProcessOf, tuiProcessOf } from "./codex-smoke-machine.ts";
 import {
 	authHash,
+	cancelWorker,
 	configHash,
 	currentCodexRows,
 	currentPanes,
@@ -115,8 +116,6 @@ export async function stepSpawnAndCancel(state: SmokeState): Promise<void> {
 	state.workersToCancel.push(keeperIds.workerId);
 	const keeperIdentity = identityOf(state.stateDir, keeperIds.workerId);
 	recordThread(state, keeperIdentity.threadId);
-	state.liveWorkerId = keeperIds.workerId;
-	state.livePort = keeperIdentity.port;
 
 	const second = await state.host.call("wezterm_spawn_worker", {
 		task: "Wait for 600 seconds. Do not report anything.",
@@ -133,6 +132,7 @@ export async function stepSpawnAndCancel(state: SmokeState): Promise<void> {
 			STEP_NAMES.spawnAndCancel,
 			`the second spawn returned no worker id: ${textOf(second)}`,
 		);
+		await cancelWorker(state, keeperIds.workerId);
 		return;
 	}
 	state.workersToCancel.push(secondIds.workerId);
@@ -170,6 +170,7 @@ export async function stepSpawnAndCancel(state: SmokeState): Promise<void> {
 			STEP_NAMES.spawnAndCancel,
 			`the cancel did not confirm the stop: ${cancelText.replace(/\n/g, " | ")}`,
 		);
+		await cancelWorker(state, keeperIds.workerId);
 		return;
 	}
 	if (!secondPanesGone) {
@@ -179,6 +180,7 @@ export async function stepSpawnAndCancel(state: SmokeState): Promise<void> {
 			STEP_NAMES.spawnAndCancel,
 			`the panes of the cancelled worker are still there: ${panesAfterCancel.join(", ")}`,
 		);
+		await cancelWorker(state, keeperIds.workerId);
 		return;
 	}
 	if (!processGone) {
@@ -188,6 +190,7 @@ export async function stepSpawnAndCancel(state: SmokeState): Promise<void> {
 			STEP_NAMES.spawnAndCancel,
 			`the app server ${secondServerPid} of the cancelled worker still runs`,
 		);
+		await cancelWorker(state, keeperIds.workerId);
 		return;
 	}
 	if (!keeperPanesStay || !userPanesStay) {
@@ -197,6 +200,7 @@ export async function stepSpawnAndCancel(state: SmokeState): Promise<void> {
 			STEP_NAMES.spawnAndCancel,
 			`the cancel took a pane of another worker or of the user: the panes after the cancel are ${panesAfterCancel.join(", ")}`,
 		);
+		await cancelWorker(state, keeperIds.workerId);
 		return;
 	}
 	report(
@@ -207,6 +211,9 @@ export async function stepSpawnAndCancel(state: SmokeState): Promise<void> {
 			`the cancel of ${secondIds.workerId} closed its panes and ended its app server ${secondServerPid}; ` +
 			`the panes of the worker ${keeperIds.workerId} and of the user survived`,
 	);
+	/* The step ends the worker that stays alive, so the machine holds no
+	   worker of the smoke test when the next step starts. */
+	await cancelWorker(state, keeperIds.workerId);
 }
 
 /**
@@ -226,37 +233,59 @@ export async function stepNativeConfig(state: SmokeState): Promise<void> {
 		);
 		return;
 	}
-	if (state.livePort === null) {
+	/* The step starts its own worker, because a worker that ends closes its
+	   own panes and its own process. The TUI of a worker must run while the
+	   step reads its command line. */
+	const spawned = await state.host.call("wezterm_spawn_worker", {
+		task: "Wait for 600 seconds. Do not report anything.",
+		cwd: state.repo,
+		label: "codex-smoke-config",
+		backend: "codex",
+		placement: "tab",
+	});
+	const ids = spawnIds(spawned);
+	if (!ids.workerId) {
+		report(state, "fail", STEP_NAMES.nativeConfig, `the spawn returned no worker id: ${textOf(spawned)}`);
+		return;
+	}
+	state.workersToCancel.push(ids.workerId);
+	try {
+		const identity = identityOf(state.stateDir, ids.workerId);
+		recordThread(state, identity.threadId);
+		if (identity.port === null) {
+			report(
+				state,
+				"fail",
+				STEP_NAMES.nativeConfig,
+				"the worker holds no port, so the command line of the TUI is unknown",
+			);
+			return;
+		}
+		const rows = await currentCodexRows();
+		const tui = tuiProcessOf(rows, identity.port);
+		if (!tui) {
+			report(state, "fail", STEP_NAMES.nativeConfig, "the process of the TUI is not in the process table");
+			return;
+		}
+		if (/(^|\s)-m(\s|=|$)/.test(tui.commandLine)) {
+			report(
+				state,
+				"fail",
+				STEP_NAMES.nativeConfig,
+				`the command line of the TUI names a model: ${tui.commandLine}`,
+			);
+			return;
+		}
 		report(
 			state,
-			"fail",
+			"pass",
 			STEP_NAMES.nativeConfig,
-			"the live worker holds no port, so the command line of the TUI is unknown",
+			`the config of Codex keeps the hash ${config.slice(0, 12)}; the credentials keep the hash ${auth.slice(0, 12)}; ` +
+				`the command line of the TUI names no model: ${tui.commandLine.slice(0, 140)}`,
 		);
-		return;
+	} finally {
+		await cancelWorker(state, ids.workerId);
 	}
-	const rows = await currentCodexRows();
-	const tui = tuiProcessOf(rows, state.livePort);
-	if (!tui) {
-		report(state, "fail", STEP_NAMES.nativeConfig, "the process of the TUI is not in the process table");
-		return;
-	}
-	if (/(^|\s)-m(\s|=|$)/.test(tui.commandLine)) {
-		report(
-			state,
-			"fail",
-			STEP_NAMES.nativeConfig,
-			`the command line of the TUI names a model: ${tui.commandLine}`,
-		);
-		return;
-	}
-	report(
-		state,
-		"pass",
-		STEP_NAMES.nativeConfig,
-		`the config of Codex keeps the hash ${config.slice(0, 12)}; the credentials keep the hash ${auth.slice(0, 12)}; ` +
-			`the command line of the TUI names no model: ${tui.commandLine.slice(0, 140)}`,
-	);
 }
 
 /**
