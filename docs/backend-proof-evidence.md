@@ -326,24 +326,28 @@ The production mod registers the report tool under two names. The installed CLI 
 
 The smoke run `tooling/codex-smoke.ts` runs the real extension through its own tools against the real Codex program and the real WezTerm. It proves what the extension does. The section names the ten steps of the run of 2026-11-02 on Windows native.
 
-The build of the run was `codex-cli 0.166.0` on node v22.18.0 and WezTerm 20240203-110809-5046fc22. The machine held the panes 0 and 91 and the processes 39880 and 39672 of the shared daemon of Codex. The machine held the same panes and the same processes after the run.
+The build of the run was `codex-cli 0.166.0` on node v22.18.0 and WezTerm 20240203-110809-5046fc22. The machine held the panes 0 and 91 and the processes 39880 and 39672 of the shared daemon of Codex before the run. The machine held the same panes and the same processes after the run. The folder of the fixture was gone after the run.
+
+The table holds the second run of 2026-11-02. The first run of the day built its fixture in a folder of a repository that the config of Codex already trusts. The second run builds the fixture in a new folder under the temporary folder of the machine, and the app server of Codex writes a trust entry into the config of the user for that folder. The second case of the rule of the config step happened, and the run says so.
 
 | Step | Verdict | The line that the script printed |
 | :- | :- | :- |
-| The spawn opens two panes, the worker reports, and a cancel ends the worker | pass | `worker wz-mvylecsb-1 reported SMOKE-OK; the spawn opened panes 208, 207; the cancel of wz-myleu0u-3 closed its panes and ended its app server 34984; the panes of the worker wz-myles12-2 and of the user survived` |
-| The config and the credentials keep their hash, and the TUI names no model | pass | `the config of Codex keeps the hash c4e78dad91c4; the credentials keep the hash fcf1920f3879; the command line of the TUI names no model` |
-| A spawn with a tool list is refused | pass | `The tools parameter applies to an OMP worker only. A Codex worker uses the tools of its own CLI.` |
+| The spawn opens two panes, the worker reports, and a cancel ends the worker | pass | `worker wz-mvynpyqd-1 reported SMOKE-OK; the spawn opened panes 240, 239; the cancel of wz-mvynqn8g-3 closed its panes and ended its app server 48524; the panes of the worker wz-mvynqkr5-2 and of the user survived` |
+| The config and the credentials keep their hash, and the TUI names no model | pass | `the config of Codex changed only by the entry [projects.'c:\users\yoga\appdata\local\temp\codex-smoke-repo-hta5np\run']; the hash moved from c4e78dad91c4 to 63e7eabb3fe9; the credentials keep the hash fcf1920f3879; the command line of the TUI names no model` |
+| A spawn with a tool list is refused | pass | `the spawn refused the tool list and started no worker and no process: The tools parameter applies to an OMP worker only. A Codex worker uses the tools of its own CLI.` |
 | The app server lists the report server and the servers of the user | pass | `the app server lists agentmemory, figma-mcp-go, gitnexus, wezterm_worker_report, work-mcp; the config of the user names gitnexus, work-mcp, agentmemory, figma-mcp-go` |
-| The events of a steering instruction arrive in the order of the contract | pass | `turn/started: 1793583704123, steer answer: 1793583704634, instruction delivered: 1793583707792, first report: 1793583715246; order: turn/started -> steer answer -> instruction delivered -> first report` |
-| A task typed into the TUI starts a new cycle | pass | `the task typed into the pane 220 opened a new cycle: 0 -> 1` |
-| The ledger holds a row for a shell command | pass | `the run wz-mvylfu14-8 holds 1 row(s): commandExecution=settled` |
-| The status lists one permission request, and a second poll creates no second event | not run | `the TUI of Codex asked for no approval. The turn with the policy untrusted raised no native request` |
-| The daemon of the user survives, and the rollout file stays | pass | `the daemon of the user keeps the process ids 39880, 39672; the rollout file C:\Users\yoga\.codex\sessions\2026\11\02\rollout-2026-11-02T08-41-18-01a199eb-0239-7eb3-86d0-a388176b1ecd.jsonl stays on the disk` |
-| A spawn with an unknown backend is refused | pass | `Unknown backend 'not-a-backend'. Use one of: omp, claude, codex.` |
+| The events of a steering instruction arrive in the order of the contract | pass | `turn/started: 1793587620518, steer answer: 1793587621193, instruction delivered: 1793587625167, first report: 1793587636418; order: turn/started -> steer answer -> instruction delivered -> first report` |
+| A task typed into the TUI starts a new cycle | pass | `the task typed into the pane 252 opened a new cycle: 0 -> 1` |
+| The ledger holds a row for a shell command | pass | `the run wz-mvynrxgh-8 holds 1 row(s): commandExecution=settled` |
+| The status lists one permission request, and a second poll creates no second event | not run | `the TUI of Codex asked for no approval. The turn with the policy untrusted raised no native request. The criterion closes with the test tests/codex-permission-event.test.ts` |
+| The daemon of the user survives, and the rollout file stays | pass | `the daemon of the user keeps the process ids 39880, 39672; the rollout file C:\Users\yoga\.codex\sessions\2026\11\02\rollout-2026-11-02T09-46-29-01a19a26-af6f-70f0-9720-2a299dae081f.jsonl stays on the disk` |
+| A spawn with an unknown backend is refused | pass | `the spawn refused the backend and started no worker and no process: Unknown backend 'not-a-backend'. Use one of: omp, claude, codex.` |
 
-Nine steps passed. The step of the permission request did not run. The extension starts the turn of a worker without the field `approvalPolicy`, so the turn inherits the policy `never` of the config of the user and no command asks. A probe that starts a turn with the field `approvalPolicy` and the value `untrusted` on the thread of an app server raised one request of the kind `item/commandExecution/requestApproval`. The smoke test cannot make the TUI of a worker ask, because the extension starts no turn with that field.
+Nine steps passed. The script gave 0. The step of the permission request did not run, and its line names the test that covers the criterion. The extension starts the turn of a worker without the field `approvalPolicy`, so the turn inherits the policy `never` of the config of the user and no command asks. A probe that starts a turn with the field `approvalPolicy` and the value `untrusted` on the thread of an app server raised one request of the kind `item/commandExecution/requestApproval`. The smoke test cannot make the TUI of a worker ask, because the extension starts no turn with that field.
 
-The run of the smoke test found five facts that the proof of the protocol did not show.
+The test `tests/codex-permission-event.test.ts` covers the criterion. It sends the real message `approvalRequest` of the proof of 2026-10-31 through the translator and the ledger of a run. The poll of the monitor then calls `recordNativeEvents`, and the database holds exactly one event with the condition `permission_request`. A second poll creates no second event. The message `commandItemCompleted` closes the request of the run, and the decision of the person resolves the event. The test passes on the code of `master` at 58fdb8d.
+
+The run of the smoke test found seven facts that the proof of the protocol did not show.
 
 The app server sends the events of a thread only to the connections that subscribed to it. A second client that only sent the request `initialize` received no event of the thread. The observer of the smoke test sends the request `thread/resume` before it reads the events.
 
@@ -354,3 +358,7 @@ A worker that ends on its own closes its own panes and its own app server. Every
 The request `turn/steer` of Codex joins the instruction to the turn that already runs. The instruction opens no new turn, so the event `turn/started` comes before the answer of the steer tool. The first run of the smoke test expected the order of a new turn and failed on the real program.
 
 The TUI of Codex wraps its text to the width of the pane. The question of the dialog of a command can be split over two lines, so a reader must look for the first option of the dialog.
+
+The app server of Codex writes a trust entry into the config of the user for the folder of the fixture of a smoke test. The smoke test runs in a new folder under the temporary folder of the machine, so that write always happens. The smoke test accepts the write and it checks that the rest of the config did not change. The check parses the file and it never writes into it.
+
+The event of a permission request resolves only when the host reports the decision of the person. The observation `tool.call.settled` closes the request of the run, and it does not resolve the event. The observation `tool.check` with the decision `allow` or `deny` resolves the event.
