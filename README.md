@@ -865,7 +865,8 @@ omp-wezterm-worker/
 │   ├── install.sh               link the plugin + write the config + install the skill
 │   ├── uninstall.sh             unlink + remove the config, state and skill
 │   ├── move-session.sh          relocate an OMP session into a project
-│   └── move-session.ts          the move helper extension it loads
+│   ├── move-session.ts          the move helper extension it loads
+│   └── mixed-mutation.ts         the mutation check of the tests of the mixed backends
 ├── skills/
 │   └── wezterm-omp-pane-ops/
 │       └── SKILL.md             operating knowledge for the model
@@ -994,6 +995,19 @@ omp-wezterm-worker/
 │   ├── authority-tools.test.ts the authority check of the four control tools
 │   ├── authority-record.test.ts the authority check of the record tools and of the delivery
 │   ├── ack-native.test.ts       the acknowledgement of an event of a native run
+│   ├── mixed-capacity.test.ts  the shared pool of the active workers of three backends
+│   ├── mixed-request.test.ts   the count of the launches of one request
+│   ├── mixed-queue.test.ts     the instruction queue of each native worker
+│   ├── mixed-approval.test.ts  the approval of each native worker
+│   ├── mixed-events.test.ts    the events of three backends and their acknowledgement
+│   ├── mixed-recovery.test.ts  the recovery of three backends after a restart
+│   ├── mixed-stop-intent.test.ts the stop intent of a native worker
+│   ├── mixed-resume.test.ts    the resume of a Claude Code worker
+│   ├── mixed-resource.test.ts  the resource exclusion of workers of three backends
+│   ├── mixed-cancel.test.ts    the cancel of a worker of one backend
+│   ├── mixed-cleanup.test.ts   the cleanup of a Codex run with a pending event
+│   ├── mixed-helpers.ts        the helpers of the tests of the mixed backends
+│   ├── mixed-machine.ts        the fake machine of the tests of the mixed backends
 │   ├── worker.integration.test.ts    a real worker in a real pane
 │   ├── nested.integration.test.ts    the launch limits with a real worker
 │   ├── worktree.integration.test.ts  the worktree of a real worker
