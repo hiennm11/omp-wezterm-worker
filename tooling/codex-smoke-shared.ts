@@ -81,7 +81,14 @@ export interface SmokeState {
  */
 export function report(state: SmokeState, outcome: StepOutcome, what: string, evidence: string): void {
 	state.lines.push({ outcome, what, evidence });
-	const prefix = outcome === "pass" ? "PASS" : outcome === "fail" ? "FAIL" : "NOT RUN";
+	const prefix =
+		outcome === "pass"
+			? "PASS"
+			: outcome === "fail"
+				? "FAIL"
+				: outcome === "not-observable"
+					? "NOT OBSERVABLE"
+					: "NOT RUN";
 	console.log(`${prefix}: ${what} (${evidence})`);
 }
 

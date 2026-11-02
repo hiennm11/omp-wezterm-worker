@@ -186,12 +186,12 @@ export async function stepDaemonAndRollout(state: SmokeState): Promise<void> {
 		);
 		return;
 	}
-	if (daemon === "not-run") {
+	if (daemon === "not-observable") {
 		report(
 			state,
-			"not-run",
+			"not-observable",
 			STEP_NAMES.daemonAndRollout,
-			`the machine held no daemon of the user before the run, so the survival of the daemon was not checked. The rollout file ${rollout} stays on the disk.`,
+			`ENVIRONMENT: the machine held no daemon of the user before the run, so the survival of the daemon was not checked. The rollout file ${rollout} stays on the disk.`,
 		);
 		return;
 	}

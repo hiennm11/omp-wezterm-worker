@@ -10,6 +10,7 @@ import {
 	type StepLine,
 	steerEventOrder,
 	steerOrderText,
+	unobservedOf,
 	userPanesSurvived,
 } from "../tooling/codex-smoke-steps.ts";
 
@@ -93,9 +94,9 @@ test("the daemon of the user fails when the machine held no daemon", () => {
 	assert.equal(daemonSurvived([], [10]), false);
 });
 
-test("a machine with no daemon before the run is neither a pass nor a failure of the daemon", () => {
-	assert.equal(daemonVerdict([], []), "not-run");
-	assert.equal(daemonVerdict([], [10]), "not-run");
+test("a machine with no daemon before the run is not observable", () => {
+	assert.equal(daemonVerdict([], []), "not-observable");
+	assert.equal(daemonVerdict([], [10]), "not-observable");
 });
 
 test("a daemon that stays is a pass and a daemon that is gone is a failure", () => {
@@ -184,4 +185,29 @@ test("the run gives 1 when a step failed", () => {
 	const verdict = runVerdict([PASSED, failed, NOT_RUN_WITH_TEST], () => true);
 	assert.equal(verdict.code, 1);
 	assert.match(verdict.reason ?? "", /failed/);
+});
+
+/** One line that the machine could not let the smoke observe. */
+const NOT_OBSERVABLE: StepLine = {
+	outcome: "not-observable",
+	what: "the daemon of the user survives",
+	evidence: "ENVIRONMENT: the machine held no daemon of the user before the run",
+};
+
+test("the run gives 0 when a step could not observe the machine, and the report names it", () => {
+	const verdict = runVerdict([PASSED, NOT_OBSERVABLE], () => false);
+	assert.equal(verdict.code, 0);
+	assert.equal(verdict.reason, null);
+	assert.deepEqual(unobservedOf([PASSED, NOT_OBSERVABLE]), ["the daemon of the user survives"]);
+});
+
+test("a step that could not observe the machine never hides a failed step", () => {
+	const failed: StepLine = { outcome: "fail", what: "the spawn opens two panes", evidence: "no pane" };
+	const verdict = runVerdict([failed, NOT_OBSERVABLE], () => true);
+	assert.equal(verdict.code, 1);
+});
+
+test("a missing daemon is not observable and a missing proof is still a not run", () => {
+	assert.equal(daemonVerdict([], []), "not-observable");
+	assert.equal(runVerdict([PASSED, NOT_RUN_WITHOUT_TEST], () => true).code, 1);
 });

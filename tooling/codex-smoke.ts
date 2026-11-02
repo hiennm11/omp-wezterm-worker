@@ -32,7 +32,7 @@ import {
 	type SmokeState,
 	writeSmokeConfig,
 } from "./codex-smoke-shared.ts";
-import { runVerdict } from "./codex-smoke-steps.ts";
+import { runVerdict, unobservedOf } from "./codex-smoke-steps.ts";
 import { stepPermissionRequest } from "./codex-smoke-steps-approval.ts";
 import { stepNativeConfig } from "./codex-smoke-steps-config.ts";
 import { stepSpawnAndCancel, stepToolListRefused } from "./codex-smoke-steps-one.ts";
@@ -207,9 +207,13 @@ async function runSmoke(): Promise<number> {
 	const userPanesStay = state.userPanesBefore.every((pane) => panesAfter.includes(pane));
 	const daemonStays = state.daemonBefore.every((pid) => daemonsAfter.includes(pid));
 	console.log(`machine after the run: panes ${panesAfter.join(", ")}; daemon ${daemonsAfter.join(", ")}`);
+	const daemonText =
+		state.daemonBefore.length === 0 ? "not observed, the machine held no daemon" : String(daemonStays);
 	console.log(
-		`the panes of the user survive: ${userPanesStay}; the daemon of the user survives: ${daemonStays}`,
+		`the panes of the user survive: ${userPanesStay}; the daemon of the user survives: ${daemonText}`,
 	);
+	const unobserved = unobservedOf(state.lines);
+	if (unobserved.length > 0) console.log(`not observed on this machine: ${unobserved.join("; ")}`);
 
 	const verdict = runVerdict(state.lines, (path) => existsSync(join(ROOT, path)));
 	if (verdict.reason !== null) console.log(`FAIL: ${verdict.reason}`);
