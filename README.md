@@ -738,6 +738,11 @@ The extension reports every failure back into the main session. It reports a
 success in the same way. So the main agent never waits on a worker that will
 not finish.
 
+**A failed poll writes its error to the logger of the host.** The extension
+writes the error after the next tool result. The last errors of a session
+reach the logger when the session shuts down. OMP emits no other event for
+the end of a session.
+
 ## Cancellation safety
 
 `wezterm_worker_cancel` closes **only** the pane id recorded for that worker.
@@ -969,6 +974,7 @@ omp-wezterm-worker/
 │   ├── trial-report.test.ts     the text of the Windows trial report
 │   ├── trial-paths.test.ts      the paths that the report hides
 │   ├── registration.test.ts     the tools that the extension registers
+│   ├── error-drain.test.ts      the report of the errors at the end of a session
 │   ├── backend.test.ts          the backend of a run and the report binding
 │   ├── claude-run-state.test.ts the native state of a Claude Code run
 │   ├── spawn-backend.test.ts    the refusals of a spawn with a native backend
@@ -1137,6 +1143,7 @@ breaks a test.
 | `trial-report.test.ts` | The report names a failing check. A check detail stays on one line. The report holds no path of the machine. |
 | `trial-paths.test.ts` | A path under the project becomes a relative path. A path outside it becomes a placeholder. The name of the user never appears. |
 | `registration.test.ts` | The extension registers the eight tools that the agent needs. It registers the roster command. |
+| `error-drain.test.ts` | The errors of a session reach the logger when the session shuts down. The extension registers no handler for `session_end`, because OMP emits no such event. |
 | `backend.test.ts` | A run without a backend field is an OMP run. The Codex backend is implemented, so no backend of the list is refused. A report of an earlier cycle cannot finish newer work. |
 | `claude-run-state.test.ts` | A native turn starts the cycle. A call settles only when the same call settles. A failed call leaves the open calls and the completion blocker. A failed call closes its permission request. A permission request holds the completion. An accepted instruction blocks the completion until its cycle carries it. |
 | `spawn-backend.test.ts` | A spawn with an unknown backend is refused. A spawn with a tool list and a native backend is refused before the launch. A spawn with a tool list and the Codex backend is refused before the launch. A spawn with the Codex backend starts a Codex worker and no OMP worker. |

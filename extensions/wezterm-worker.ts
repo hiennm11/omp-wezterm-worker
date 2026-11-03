@@ -167,7 +167,18 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		recoverTask(rt, [...rt.jobs.values()], deps.deliver, Date.now());
 	});
 
+	// Report a failed poll through the host logger, so a broken worker poll
+	// is visible instead of silently swallowed.
+	const drainErrors = () => {
+		for (const message of rt.errors.splice(0)) {
+			pi.logger?.error?.(`[wezterm-worker] ${message}`);
+		}
+	};
+
 	pi.on("session_shutdown", () => {
+		// The last errors of the session must reach the logger before the
+		// database closes. OMP emits no other event for the end of a session.
+		drainErrors();
 		for (const timer of rt.monitors.values()) clearInterval(timer);
 		rt.monitors.clear();
 		// The database holds a file lock. The handle must close, or the state
@@ -178,15 +189,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	// A user prompt starts a new request. A worker result does not fire `input`.
 	pi.on("input", () => startRequest(rt));
 
-	// Report a failed poll through the host logger, so a broken worker poll
-	// is visible instead of silently swallowed.
-	const drainErrors = () => {
-		for (const message of rt.errors.splice(0)) {
-			pi.logger?.error?.(`[wezterm-worker] ${message}`);
-		}
-	};
 	pi.on("tool_result", drainErrors);
-	pi.on("session_end", drainErrors);
 
 	registerSpawnTool(deps);
 	registerStatusTool(deps);
