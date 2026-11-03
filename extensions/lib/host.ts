@@ -46,9 +46,24 @@ export interface ToolCtx {
 	sessionManager?: SessionView;
 }
 
+/**
+ * The session lease of the host.
+ *
+ * The key of the lease is the session id. A process holds the lease of a
+ * session only after the first write of that session. The host releases the
+ * lease when the session closes, and the kernel releases it when the process
+ * exits. The function returns true, false, or null when the host cannot
+ * probe.
+ */
+export interface SessionLeaseApi {
+	isSessionLeaseHeld?: (sessionId: string) => boolean | null | Promise<boolean | null>;
+}
+
 export interface ExtensionAPI {
 	registerTool: (def: unknown) => void;
 	registerCommand: (name: string, def: unknown) => void;
+	/** The lease API of the host. The host exports it at run time. */
+	pi?: SessionLeaseApi;
 	/** Register an event handler. */
 	on: (event: string, handler: (event: unknown, ctx: EventCtx) => void | Promise<void>) => void;
 	/** Label shown by the host for this extension. */

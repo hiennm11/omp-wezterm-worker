@@ -37,6 +37,7 @@ import { recoverTask } from "./lib/recover-task.ts";
 import { reconcileAttempts } from "./lib/recovery.ts";
 import { detectRole, ownSessionDir } from "./lib/role.ts";
 import { createRuntime } from "./lib/runtime.ts";
+import { createLeaseProbe } from "./lib/session-lease.ts";
 import { reconcileStopIntents } from "./lib/stop-reconcile.ts";
 import { registerWorkerBootstrap } from "./lib/worker-bootstrap.ts";
 import { registerAckTool } from "./worker-tools/ack.ts";
@@ -63,6 +64,7 @@ const RUNTIME = createRuntime();
 export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	const rt = RUNTIME;
 	rt.config = loadConfig();
+	rt.sessionLeaseHeld = createLeaseProbe(pi);
 	mkdirSync(rt.config.stateDir, { recursive: true });
 	pi.setLabel?.("WezTerm Workers");
 	// A setting that the new release refuses must not pass without a word.
