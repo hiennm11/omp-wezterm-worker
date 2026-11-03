@@ -12,7 +12,9 @@ import { join } from "node:path";
 
 export { answerAfterLastUser, readTranscript, type TranscriptMessage } from "./transcript-helpers.ts";
 
-import extension from "../extensions/wezterm-worker.ts";
+import extension, { RUNTIME } from "../extensions/wezterm-worker.ts";
+
+export { RUNTIME };
 
 export interface ToolResult {
 	content: Array<{ type: string; text: string }>;
@@ -41,6 +43,8 @@ export interface TestHost {
 	handlers: EventHandler[];
 	delivered: string[];
 	labels: string[];
+	/** The error messages that the extension sent to the host logger. */
+	loggedErrors: string[];
 	/** The names of the slash commands that the extension registered. */
 	commands: string[];
 	stateDir: string;
@@ -175,6 +179,7 @@ export function createHost(options: { stateDir?: string; cwd: string; sessionId?
 		handlers: [],
 		delivered: [],
 		labels: [],
+		loggedErrors: [],
 		commands: [],
 		stateDir,
 		panes: new Set(),
@@ -249,6 +254,7 @@ export function createHost(options: { stateDir?: string; cwd: string; sessionId?
 			info() {},
 			warn() {},
 			error(message: string) {
+				host.loggedErrors.push(message);
 				console.error("[extension]", message);
 			},
 		},
