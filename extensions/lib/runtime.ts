@@ -139,6 +139,13 @@ export interface WorkerRuntime {
 	/** The role of this process. A worker never supervises another worker. */
 	role: "main" | "worker";
 	/**
+	 * Read the lease of a session.
+	 *
+	 * The answer is true when a process holds the lease, false when the
+	 * lease is free, and null when the host cannot answer.
+	 */
+	sessionLeaseHeld: (sessionId: string) => Promise<boolean | null>;
+	/**
 	 * The external actions that started and did not settle yet.
 	 *
 	 * The release reads this list. It waits for every action before it moves
@@ -202,6 +209,7 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 		processId: process.pid,
 		processStartedAt: null,
 		role: "main",
+		sessionLeaseHeld: async () => null,
 		pendingActions: new Set(),
 		bridges: new Map(),
 		claudeStates: new Map(),

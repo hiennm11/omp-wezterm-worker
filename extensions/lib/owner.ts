@@ -162,7 +162,15 @@ export async function acquireTask(rt: WorkerRuntime, jobId: string): Promise<Acq
 					return { acquired: false, kind: "unknown", reason: previous.reason };
 				}
 				if (previous.state === "alive") {
-					return { acquired: false, kind: "owned", reason: previous.reason };
+					/* A live process does not prove that its session is open.
+					   The lease of the session does. A free lease means that no
+					   process holds the session, so this process takes the
+					   task back. A held lease and an unanswered probe keep
+					   the task with the first owner. */
+					const lease = await rt.sessionLeaseHeld(sessionId);
+					if (lease !== false) {
+						return { acquired: false, kind: "owned", reason: previous.reason };
+					}
 				}
 			}
 		}
