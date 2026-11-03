@@ -9,12 +9,15 @@ import { pendingEvents, type WorkerEvent } from "../lib/events.ts";
 import { isActive, type Job, type JobStatus } from "../lib/job.ts";
 import { completionBlockerOf } from "../lib/ledger-sync.ts";
 import { nativeJobUsageReport, requestUsageOf } from "../lib/native-usage-report.ts";
+import { taskKey } from "../lib/owner.ts";
+import { readOwnership } from "../lib/ownership.ts";
 import { reportState } from "../lib/report-decision.ts";
 import { readReports } from "../lib/report-store.ts";
 import { snapshotNotice, turnsLabel } from "../lib/restored-run.ts";
 import type { WorkerRuntime } from "../lib/runtime.ts";
 import { selectStatusJobs } from "../lib/status-list.ts";
 import { pendingStopIntentOf } from "../lib/stop-reconcile.ts";
+import { supervisionLine } from "../lib/supervision.ts";
 import { listSessionFiles, summarizeSession } from "../lib/transcript.ts";
 import { formatUsage, jobUsage, requestWorkerIds, type UsageReport } from "../lib/usage.ts";
 import { reply, type ToolDeps } from "./kit.ts";
@@ -79,6 +82,7 @@ interface StatusRow {
 	native: string | null;
 	/** The reason that the completion of the run cannot be accepted. */
 	blocked: string | null;
+	supervision: string | null;
 }
 
 function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime): StatusRow {
@@ -91,6 +95,15 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime): Status
 	const restored = isRestored(rt, j);
 	const turns =
 		backend === "omp" ? j.turns : (rt.claudeStates.get(j.id)?.cycles.length ?? j.nativeCycles ?? 0);
+	const owner = readOwnership(rt.openDb(), taskKey(j.id)).owner;
+	const supervision = supervisionLine(
+		j,
+		owner,
+		rt.sessionId,
+		rt.processId,
+		rt.processStartedAt,
+		rt.monitors.has(j.id),
+	);
 	return {
 		workerId: j.id,
 		label: j.label,
@@ -123,6 +136,7 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime): Status
 		result: j.result,
 		native: nativeSummary(rt, j),
 		blocked: completionBlocker(rt, j),
+		supervision,
 	};
 }
 
@@ -214,6 +228,7 @@ function formatRow(r: StatusRow): string {
 		r.stopIntent ? `  Stop intent: ${r.stopIntent}` : null,
 		r.error ? `  error     : ${r.error}` : null,
 		r.blocked ? `  Completion blocked: ${r.blocked}` : null,
+		r.supervision ? `  supervision: ${r.supervision}` : null,
 	]
 		.filter((line): line is string => line !== null)
 		.join("\n");
