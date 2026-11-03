@@ -17,6 +17,7 @@ import { completionBlockerOf, syncExecutions } from "./ledger-sync.ts";
 import { finalizeJob, stopJob } from "./lifecycle.ts";
 import { runMonitorAction } from "./monitor-actions.ts";
 import { monitorVerdict } from "./monitor-authority.ts";
+import { createPaneWatch } from "./monitor-pane.ts";
 import { recordNativeEvents } from "./native-events.ts";
 import { persistNativeReport } from "./native-report.ts";
 import { taskKey } from "./owner.ts";
@@ -96,6 +97,7 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 	// The cycle state of each watched worker. It holds the time when the
 	// cycle closed, so the settling time can be measured.
 	const cycleStates = new Map<string, CycleState>();
+	const watchPane = createPaneWatch(rt, job, notify);
 
 	const end = (status: JobStatus, error: string | null, result: string | null) => {
 		void runMonitorAction(rt, job.id, async () => {
@@ -154,6 +156,10 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 			});
 			return;
 		}
+
+		// The transcript exists, so the startup check above does not apply.
+		// A gone pane ends the worker instead of holding its slot.
+		watchPane();
 
 		// A text-only turn does not end the worker. The report decides. The
 		// report tick runs beside this one and reads the reports.
@@ -257,6 +263,7 @@ export function monitorNativeJob(rt: WorkerRuntime, job: Job, notify: (job: Job)
 	/* True while the startup check reads the pane. One read runs at a
 	   time, so a slow pane does not start a second read. */
 	let startupRead = false;
+	const watchPane = createPaneWatch(rt, job, notify);
 
 	const end = (status: JobStatus, error: string | null, result: string | null) => {
 		void runMonitorAction(rt, job.id, async () => {
@@ -293,6 +300,10 @@ export function monitorNativeJob(rt: WorkerRuntime, job: Job, notify: (job: Job)
 
 		const state = rt.claudeStates.get(job.id);
 		if (!state) return;
+
+		/* The pane list proves a killed pane. Without this check the worker
+		   holds its capacity slot until the total deadline. */
+		watchPane();
 
 		/* A native worker writes no OMP transcript, so its activity comes
 		   from the native observations. Without this the idle deadline
