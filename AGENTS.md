@@ -1,6 +1,6 @@
 # Rules for this repository
 
-These rules add to the global rules in `~/.omp/agent/AGENTS.md`. The tests in
+These rules add to the global rules in `~/.agents/AGENTS.md`. The tests in
 `tests/architecture.test.ts` enforce the rules that a test can check.
 
 ## Structure
