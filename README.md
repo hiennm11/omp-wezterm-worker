@@ -297,6 +297,11 @@ the worker is old.
 is a debug aid for a worker that looks stuck. The transcript remains the only
 source of truth for the result.
 
+The monitor reads the pane list for every active worker that has a pane id.
+The pane list must confirm that the pane is gone. Then the monitor settles the
+worker and frees its capacity slot. An unreadable pane list does not settle the
+worker.
+
 ## How it works
 
 1. `wezterm cli split-pane` (or `wezterm cli spawn`) creates the pane and runs
@@ -814,6 +819,7 @@ omp-wezterm-worker/
 │   │   ├── monitor.ts           watching a worker and the deadline rules
 │   │   ├── monitor-authority.ts the authority of a monitor to end a worker
 │   │   ├── monitor-actions.ts   the counted actions of a monitor
+│   │   ├── monitor-pane.ts      the pane check of a monitor
 │   │   ├── startup-block.ts     the startup block of a native run
 │   │   ├── lifecycle.ts         finishing and cancelling a worker
 │   │   ├── steer.ts             steering a running worker
@@ -933,6 +939,7 @@ omp-wezterm-worker/
 │   ├── monitor.test.ts          the timeout, the idle limit and the result rule
 │   ├── monitor-authority.test.ts the authority of a monitor to end a worker
 │   ├── monitor-actions.test.ts  the counted actions of a monitor
+│   ├── monitor-pane-gone.test.ts the pane check of a monitor
 │   ├── architecture.test.ts     the size, import and runtime rules
 │   ├── ste100-docs.test.ts      the document check of the skill
 │   ├── comms-check.test.ts      the communication check of the skill
@@ -1088,6 +1095,7 @@ breaks a test.
 | `monitor.test.ts` | A worker with no deadline never times out. An active worker still times out at the total deadline. A worker that keeps writing is not stopped as idle. A resumed worker does not report its old answer. |
 | `monitor-authority.test.ts` | The verdict follows the owner, the session and the phase. The monitor of the owner ends an overdue worker. A released task stops its monitor and leaves the worker alone. A task that another session took stops the monitor of the old session. The releasing phase makes the monitor wait and does not stop it. A native monitor stops when the task is released. |
 | `monitor-actions.test.ts` | The release of the owner waits for the action of the monitor. An action that starts after the owner changed writes nothing. |
+| `monitor-pane-gone.test.ts` | A worker with a transcript and a gone pane leaves the active set on a tick. An unreadable pane list does not settle the worker. A finished worker is not read and not changed by the pane check. |
 | `architecture.test.ts` | No source file exceeds 350 lines. The `lib/` folder never imports the entry or `worker-tools/`. Only `lib/process.ts` starts a child process. Only the entry creates the runtime. |
 | `limits.test.ts` | One active worker blocks a launch at the default limit. A worker with an unconfirmed stop still counts. A launch that failed before its pane existed does not count. A worker session cannot launch a worker. A user prompt resets the request count. |
 | `usage.test.ts` | A number comes only from a transcript. A model call without usage makes the count partial. A transcript without usage shows unknown. A resumed worker counts only what came after the resume. The request total adds the workers of the request. |
