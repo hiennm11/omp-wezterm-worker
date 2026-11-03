@@ -58,8 +58,11 @@ import { registerTakeoverTool } from "./worker-tools/takeover.ts";
 /**
  * The runtime lives at module scope. Child sessions rebind the factory but
  * must observe the same job registry.
+ *
+ * The export gives a test the runtime of the loaded extension, so the test
+ * can put an error in it.
  */
-const RUNTIME = createRuntime();
+export const RUNTIME = createRuntime();
 
 export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	const rt = RUNTIME;
