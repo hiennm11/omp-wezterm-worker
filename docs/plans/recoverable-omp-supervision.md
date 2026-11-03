@@ -143,6 +143,8 @@ Treat an unreadable process probe as unknown. Refuse takeover while ownership re
 Let the recovery of the original session only after the previous owner exits. A takeover across sessions needs an explicit action.
 A second live program for the same session remains read-only for already-owned tasks.
 
+The lease of the session is the evidence that the previous owner is gone. The first owner keeps the authority while a process holds the lease. It also keeps the authority while the probe gives no answer. The second process takes the task when the lease is free. A process takes the lease of a session at the first write of that session.
+
 Replace factory rebinding of mutable global routing with owner-scoped host links in WorkerRuntime.
 Keep the runtime creation in the entry. Keep the entry wiring-only.
 

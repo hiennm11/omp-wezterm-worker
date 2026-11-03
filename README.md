@@ -306,8 +306,9 @@ The status tool adds a supervision line to the row of an active worker. The
 line `NOT SUPERVISED` means that this process owns the task and no monitor
 watches it. The line `read-only here` means that another session or another
 process holds the ownership row. That owner can be alive or gone, because the
-code cannot ask the host about a live session. A closed session can leave a
-live process behind. Close that process, or restart OMP, to free the task.
+process table cannot see the sessions of the other processes. A closed
+session can leave a live process behind. Close that process, or restart OMP,
+to free the task.
 
 ## How it works
 
@@ -493,6 +494,18 @@ A new OMP process reads the database on startup. So `wezterm_worker_status`
 lists the workers that ran when the previous process ended. The extension also
 adds a monitor to each worker whose pane is still alive. The extension marks a
 worker `failed` when the user closed its pane while OMP was down.
+
+**A session takes its task back when the lease of the session is free.** A
+live process does not prove that its session is open. A process can close its
+session and stay alive. The lease of the session is the evidence. OMP holds a
+lease for every session, and the key of the lease is the session id. A
+process holds the lease of a session at the first write of that session. The
+host releases the lease when the session closes, and the kernel releases it
+when the process exits. So a second process that opens the same session takes
+the task back when the lease is free. The first owner keeps the authority
+while a process holds the lease. It also keeps the authority while the host
+cannot answer about the lease. The generation of the owner moves on, so the
+old owner cannot write after the takeover.
 
 **A native worker gets a new bridge after a restart.** The new owner starts a
 new bridge for the run. The new owner writes the handover file again. The
@@ -836,6 +849,7 @@ omp-wezterm-worker/
 │   │   ├── migrate.ts           the one-time migration of the old registry
 │   │   ├── ownership.ts         the ownership of a task, its release and its takeover
 │   │   ├── owner.ts             the acquisition of a task by this session
+│   │   ├── session-lease.ts     the probe of the lease of a session
 │   │   ├── authority.ts         the authority rules of the control and cleanup tools
 │   │   ├── write-authority.ts   the authority check of a write for a task
 │   │   ├── attach.ts            the supervision of a worker that this session owns
@@ -1117,7 +1131,8 @@ breaks a test.
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
 | `result.integration.test.ts` | The result tool returns the answer of a finished worker. |
 | `live-worker.integration.test.ts` | A running worker can be steered, peeked at and cancelled. A steering message reaches the worker. A cancel closes only the pane that the extension created. A worker past its deadline is stopped and its pane is confirmed closed. A session releases the worker that it started, and the worker keeps running. |
-| `owner.test.ts` | A session that starts a worker owns it. A session without an identity acquires nothing. The same session acquires its task again after a restart only when the old process is gone. A second live process of the same session does not take the task. A reused process id does not count as the old owner. An unreadable process table refuses the acquisition. Another session never takes a task. A released task of another session waits for an explicit takeover. |
+| `owner.test.ts` | A session that starts a worker owns it. A session without an identity acquires nothing. The same session acquires its task again after a restart only when the old process is gone. A second live process of the same session does not take the task. A reused process id does not count as the old owner. An unreadable process table refuses the acquisition. Another session never takes a task. A released task of another session waits for an explicit takeover. A session takes its task back when the lease of the session is free. A session keeps its task while a process holds the lease. A session keeps its task while the host cannot answer about the lease. Another session takes no task even when the lease is free. A stale owner of the same session cannot write after the second process took the task. |
+| `session-lease.test.ts` | The probe reports that a process holds the lease. The probe reports that the lease is free. The probe awaits a promise of the host. The probe gives no answer when the host has no lease API. The probe gives no answer when the lease function is missing. The probe gives no answer when the call throws. The probe gives no answer when the call rejects. The probe gives no answer for a value that is not a boolean. |
 | `process-probe.test.ts` | The probe reads the start time of a live process. Two reads of one process give the same start time. The probe reports a gone process as gone. |
 | `trial-report.test.ts` | The report names a failing check. A check detail stays on one line. The report holds no path of the machine. |
 | `trial-paths.test.ts` | A path under the project becomes a relative path. A path outside it becomes a placeholder. The name of the user never appears. |

@@ -133,8 +133,16 @@ _Avoid_: Observer, guest
 
 **Acquisition**:
 The first claim of a task by the main session that started its worker. The
-same session claims the task again after a restart.
+same session claims the task again after a restart. It claims the task back
+when the lease of its session is free.
 _Avoid_: Claim, lock, registration
+
+**Session lease**:
+The hold that OMP keeps for a session. The key of the hold is the session id.
+A process holds the lease of a session at the first write of that session.
+The host releases the lease when the session closes. The kernel releases it
+when the process exits. The lease proves that no process holds the session.
+_Avoid_: Session lock, session file, process table
 
 **Takeover**:
 The explicit handover of supervision to a main session. The previous owner
