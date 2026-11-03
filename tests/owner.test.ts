@@ -5,7 +5,13 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { acquireTask, bindSession, generationOf } from "../extensions/lib/owner.ts";
-import { acquireOwnership, beginRelease, commitRelease, readOwnership } from "../extensions/lib/ownership.ts";
+import {
+	acquireOwnership,
+	beginRelease,
+	checkAuthority,
+	commitRelease,
+	readOwnership,
+} from "../extensions/lib/ownership.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 
@@ -39,6 +45,17 @@ function seedOwner(rt: WorkerRuntime, sessionId: string, pid: number, startedAt:
 
 function ownerOf(rt: WorkerRuntime) {
 	return readOwnership(rt.openDb(), "task-wz-1").owner;
+}
+
+/**
+ * Give the runtime a lease probe.
+ *
+ * The probe answers for the session that calls it. A null answer means that
+ * the host cannot probe the lease.
+ */
+function withLease(rt: WorkerRuntime, held: boolean | null): WorkerRuntime {
+	rt.sessionLeaseHeld = async () => held;
+	return rt;
 }
 
 test("a session that starts a worker owns the task with generation 1", async () => {
@@ -165,5 +182,104 @@ test("a released task of another session waits for an explicit takeover", async 
 		assert.equal(ownerOf(rt)?.phase, "released");
 	} finally {
 		finish(rt, dir);
+	}
+});
+
+test("a session takes its task back when the lease of the session is free", async () => {
+	const { rt, dir } = fakeRuntime({ code: 0, stdout: `${OLD_START}\n` });
+	try {
+		seedOwner(rt, "session-a", 900, OLD_START);
+		bindSession(rt, viewOf("session-a"));
+		withLease(rt, false);
+		const result = await acquireTask(rt, "wz-1");
+		assert.equal(result.acquired, true);
+		assert.equal(generationOf(rt, "wz-1"), 2);
+		assert.equal(ownerOf(rt)?.processId, 500);
+	} finally {
+		finish(rt, dir);
+	}
+});
+
+test("a session keeps its task while a process holds the lease of the session", async () => {
+	const { rt, dir } = fakeRuntime({ code: 0, stdout: `${OLD_START}\n` });
+	try {
+		seedOwner(rt, "session-a", 900, OLD_START);
+		bindSession(rt, viewOf("session-a"));
+		withLease(rt, true);
+		const result = await acquireTask(rt, "wz-1");
+		assert.equal(result.acquired, false);
+		assert.equal(result.acquired ? "" : result.kind, "owned");
+		assert.equal(ownerOf(rt)?.processId, 900);
+		assert.equal(generationOf(rt, "wz-1"), 1);
+	} finally {
+		finish(rt, dir);
+	}
+});
+
+test("a session keeps its task while the host cannot answer about the lease", async () => {
+	const { rt, dir } = fakeRuntime({ code: 0, stdout: `${OLD_START}\n` });
+	try {
+		seedOwner(rt, "session-a", 900, OLD_START);
+		bindSession(rt, viewOf("session-a"));
+		withLease(rt, null);
+		const result = await acquireTask(rt, "wz-1");
+		assert.equal(result.acquired, false);
+		assert.equal(result.acquired ? "" : result.kind, "owned");
+		assert.equal(ownerOf(rt)?.processId, 900);
+		assert.equal(generationOf(rt, "wz-1"), 1);
+	} finally {
+		finish(rt, dir);
+	}
+});
+
+test("another session takes no task even when the lease is free", async () => {
+	const { rt, dir } = fakeRuntime({ code: 0, stdout: `${OLD_START}\n` });
+	try {
+		seedOwner(rt, "session-old", 900, OLD_START);
+		bindSession(rt, viewOf("session-new"));
+		withLease(rt, false);
+		const result = await acquireTask(rt, "wz-1");
+		assert.equal(result.acquired, false);
+		assert.equal(result.acquired ? "" : result.kind, "owned");
+		assert.match(result.acquired ? "" : result.reason, /session-old.*Take over explicitly/);
+		assert.equal(ownerOf(rt)?.sessionId, "session-old");
+	} finally {
+		finish(rt, dir);
+	}
+});
+
+test("a stale owner of the same session cannot write after the second process took the task", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "wt-owner-two-"));
+	const exec: RunFn = async () => ({ code: 0, stdout: `${OWN_START}\n`, stderr: "" });
+	const first = createRuntime(exec);
+	first.config.stateDir = dir;
+	first.processId = 500;
+	first.processStartedAt = OWN_START;
+	const second = createRuntime(exec);
+	second.config.stateDir = dir;
+	second.processId = 600;
+	second.processStartedAt = OWN_START;
+	try {
+		bindSession(first, viewOf("session-a"));
+		withLease(first, false);
+		const firstTake = await acquireTask(first, "wz-1");
+		assert.equal(firstTake.acquired, true);
+		const firstGeneration = generationOf(first, "wz-1");
+		assert.equal(firstGeneration, 1);
+
+		bindSession(second, viewOf("session-a"));
+		withLease(second, false);
+		const secondTake = await acquireTask(second, "wz-1");
+		assert.equal(secondTake.acquired, true);
+		assert.equal(generationOf(second, "wz-1"), 2);
+		assert.equal(readOwnership(second.openDb(), "task-wz-1").owner?.processId, 600);
+
+		const authority = checkAuthority(first.openDb(), "task-wz-1", "session-a", firstGeneration ?? 0);
+		assert.equal(authority.ok, false);
+		assert.match(authority.reason, /new generation/);
+	} finally {
+		first.closeDb();
+		second.closeDb();
+		rmSync(dir, { recursive: true, force: true });
 	}
 });
