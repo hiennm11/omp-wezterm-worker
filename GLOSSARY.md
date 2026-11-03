@@ -300,6 +300,10 @@ _Avoid_: Stop retry, pane check, intent repair
 The authority that a session needs to end a worker with its monitor. A session that released its task, or that lost it to another session, has no monitor authority and its monitor stops without a write.
 _Avoid_: Ownership, monitor, session identity
 
+**Supervision line**:
+The line of the status tool that tells if a monitor of this process watches an active worker. The line `NOT SUPERVISED` names a task that this process owns without a monitor. The line `read-only here` names a task that another session or process owns, and it does not claim that the owner is gone.
+_Avoid_: Orphan, unsupervised, ghost
+
 **Counted action**:
 An external action that the runtime counts until it settles. The release waits for the counted actions that started before it. The end and the stop of a monitor run as counted actions.
 _Avoid_: Operation, call, write
