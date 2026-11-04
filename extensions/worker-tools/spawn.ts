@@ -21,6 +21,7 @@ import { acquireTask, bindSession, maySupervise } from "../lib/owner.ts";
 import { spawnWorker } from "../lib/spawn.ts";
 import { spawnClaudeWorker } from "../lib/spawn-claude.ts";
 import { spawnCodexWorker } from "../lib/spawn-codex.ts";
+import { isThinkingLevel, THINKING_LEVELS, thinkingRefusal, type ThinkingLevel } from "../lib/thinking.ts";
 import {
 	commsDetails,
 	commsNoticeLine,
@@ -47,6 +48,7 @@ interface Params {
 	label?: string;
 	model?: string;
 	tools?: string[];
+	thinking?: string;
 	backend?: string;
 	placement?: string;
 	isolated?: boolean;
@@ -92,6 +94,14 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				.optional()
 				.describe(
 					"Tool list for the worker, e.g. ['read','grep','glob']. Omit for the default tool set. " +
+						"Only an OMP worker accepts it. A Claude Code or Codex worker refuses it.",
+				),
+			thinking: z
+				.string()
+				.optional()
+				.describe(
+					`The thinking level that OMP runs the worker at: ${THINKING_LEVELS.join(", ")}. ` +
+						"Omit for the default level of OMP. " +
 						"Only an OMP worker accepts it. A Claude Code or Codex worker refuses it.",
 				),
 			backend: z
@@ -141,12 +151,28 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 			   program than the user asked for. */
 			const refusal = backendRefusal(backend);
 			if (refusal) return reply(refusal, { backend }, true);
+			/* A value that names no thinking level is refused before the
+			   launch. The extension never maps a level to another level. */
+			const requested = params.thinking ?? null;
+			if (requested !== null && !isThinkingLevel(requested)) {
+				return reply(thinkingRefusal(requested), { backend, thinking: requested }, true);
+			}
+			const thinking: ThinkingLevel | null = requested;
 			/* The tool list of an OMP worker has no meaning for a native
 			   backend. The refusal happens before the launch. */
 			if (backend !== "omp" && params.tools?.length) {
 				return reply(
 					`The tools parameter applies to an OMP worker only. A ${backendLabel(backend)} worker uses the tools of its own CLI.`,
 					{ backend },
+					true,
+				);
+			}
+			/* The thinking level of an OMP worker has no meaning for a
+			   native backend. The refusal happens before the launch. */
+			if (backend !== "omp" && thinking !== null) {
+				return reply(
+					`The thinking parameter applies to an OMP worker only. A ${backendLabel(backend)} worker uses the thinking level of its own CLI.`,
+					{ backend, thinking },
 					true,
 				);
 			}
@@ -211,6 +237,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 								label: params.label,
 								model: params.model,
 								tools: params.tools,
+								thinking: thinking,
 								placement,
 								isolated: params.isolated,
 								timeoutMs: params.timeoutMs,
@@ -235,6 +262,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				`backend: ${backendLabel(readBackend(job))}`,
 				`cwd: ${job.cwd}`,
 				job.model ? `model: ${job.model}` : null,
+				job.thinking ? `requested thinking level: ${job.thinking}` : null,
 				job.worktreePath ? `isolated worktree: ${job.worktreePath} (branch ${job.worktreeBranch})` : null,
 				`transcript: ${job.sessionDir}`,
 				"",

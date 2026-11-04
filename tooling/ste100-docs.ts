@@ -37,6 +37,8 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0012-codex-backend-workers.md",
 	"docs/adr/0013-a-worker-that-loses-its-pane-delivers-its-result.md",
 	"docs/adr/0014-a-subagent-does-not-take-the-authority-of-the-main-session.md",
+	"docs/adr/0015-spawn-thinking-level.md",
+	"docs/adr/0016-wake-the-main-session-for-an-event.md",
 	"docs/plans/recoverable-omp-supervision.md",
 ];
 

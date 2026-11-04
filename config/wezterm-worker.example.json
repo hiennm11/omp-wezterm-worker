@@ -6,6 +6,7 @@
 	"defaultCwd": "C:\\Users\\<you>",
 	"model": null,
 	"tools": null,
+	"thinking": null,
 	"pollMs": 2000,
 	"timeoutMs": 1800000,
 	"idleTimeoutMs": 0,

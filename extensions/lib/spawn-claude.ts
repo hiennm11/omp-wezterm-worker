@@ -59,6 +59,7 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 		cwd: params.cwd,
 		model: params.model ?? null,
 		tools: null,
+		thinking: null,
 		placement: config.placement,
 		sessionDir: `${config.stateDir}/sessions/${jobId}`,
 		sessionFile: null,

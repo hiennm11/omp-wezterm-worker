@@ -101,6 +101,28 @@ test("the tools list is a list of strings", () => {
 	assert.deepEqual(cfg.tools, ["read", "7", "true"]);
 });
 
+test("the config file holds the thinking level", () => {
+	const file = configFile({ thinking: "low" });
+	const cfg = loadConfig(file, {});
+	assert.equal(cfg.thinking, "low");
+});
+
+test("the default thinking level is null", () => {
+	assert.equal(DEFAULT_CONFIG.thinking, null);
+});
+
+test("an unknown thinking level leaves the default", () => {
+	const file = configFile({ thinking: "loud" });
+	const cfg = loadConfig(file, {});
+	assert.equal(cfg.thinking, null);
+});
+
+test("a thinking level of the wrong type leaves the default", () => {
+	const file = configFile({ thinking: 7 });
+	const cfg = loadConfig(file, {});
+	assert.equal(cfg.thinking, null);
+});
+
 test("a nonzero idle deadline is refused with guidance", () => {
 	const file = configFile({ idleTimeoutMs: 2000 });
 	const cfg = loadConfig(file, {});

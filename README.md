@@ -132,6 +132,7 @@ Then keep working; the result arrives on its own.
 | `backend` | `"omp"` \| `"claude"` \| `"codex"` | The CLI that runs the worker. Defaults to `omp`. The extension never falls back to another backend. |
 | `model` | string | Optional model selector, e.g. `omniroute/minimax/MiniMax-M3.1-Flash`. Omit for omp's default. The role aliases `smol`, `task` and `slow` select a model. These aliases apply to an OMP worker only. A Claude Code worker receives the value unchanged. |
 | `tools` | string[] | Optional tool list, e.g. `["read","grep","glob"]`. Omit for the default set. An OMP worker only. |
+| `thinking` | string | Optional thinking level of OMP: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` or `auto`. Omit for the default level of OMP. An OMP worker only. A spawn parameter wins over the config file. |
 | `placement` | `"split"` \| `"tab"` | `split` splits the current pane; `tab` opens a new tab. |
 | `isolated` | boolean | Run in a dedicated `git worktree` so parallel workers never edit the same checkout. |
 | `timeoutMs` | number | Deadline for this worker. `0` means **no deadline**. Defaults to the configured `timeoutMs` (30 min). |
@@ -148,6 +149,7 @@ report tool and the command bridge.
 | The configuration of the user | The session keeps the settings, the credentials, the MCP servers and the permission rules of the user. The extension never changes a global setting. |
 | The model | An omitted model uses the default of Claude Code. A named model is passed through unchanged. |
 | The tool list | A spawn with `tools` and a native backend is refused before the launch. |
+| The thinking level | A spawn with `thinking` and a native backend is refused before the launch. A native worker uses the thinking level of its own CLI. |
 | The deadline | A native worker takes the `timeoutMs` and the `closePaneOnFinish` of its spawn, the same way an OMP worker does. |
 | The report | The mod binds the report to the run id and to the native turn id. A report of an earlier turn cannot finish newer work. |
 | The steering | A steering instruction goes through the bridge. The native session queues it, and a running tool is not interrupted. |
@@ -171,6 +173,7 @@ of that thread.
 | The configuration of the user | The worker keeps the settings, the credentials and the projects of the user. The extension never writes into `~/.codex`. |
 | The model | An omitted model uses the default of Codex. A named model is passed through unchanged. |
 | The tool list | A spawn with `tools` and the Codex backend is refused before the launch. A Codex worker uses the tools of Codex. |
+| The thinking level | A spawn with `thinking` and the Codex backend is refused before the launch. A Codex worker uses the thinking level of Codex. |
 | The deadline | A Codex worker takes the `timeoutMs` of its spawn, the same way an OMP worker does. The pane policy of the spawn does not apply, because the TUI needs the app server of its pane. |
 | The report | The report channel loads a stdio MCP server into the app server. The report reaches the run state of the owner. The report names the turn that produced it. |
 | The steering | A steering instruction goes to the model of the running turn through the request `turn/steer`. A running tool is not interrupted. |
@@ -313,7 +316,7 @@ to free the task.
 ## How it works
 
 1. `wezterm cli split-pane` (or `wezterm cli spawn`) creates the pane and runs
-   `omp --no-title --cwd <cwd> --session-dir <job dir> [--model M] [--tools T] "<task>"`.
+   `omp --no-title --cwd <cwd> --session-dir <job dir> [--model M] [--tools T] [--thinking L] "<task>"`.
    Every value is a **separate argv element**. The extension never mixes the
    task into a shell command. So a quote cannot break the command, and nobody
    can put extra text into it.
@@ -343,6 +346,7 @@ extension never reads the pane screen text to get a result.
 	"defaultCwd": "C:/Users/<you>",
 	"model": null,
 	"tools": null,
+	"thinking": null,
 	"pollMs": 2000,
 	"timeoutMs": 1800000,
 	"idleTimeoutMs": 0,
@@ -371,6 +375,13 @@ Environment overrides:
 
 The keys of the config file:
 
+- `model` — the model that every worker uses. `null` uses the default of OMP.
+- `tools` — the tool list that every worker gets. `null` uses the default of
+  OMP.
+- `thinking` — the thinking level that OMP runs every worker at. `null` uses
+  the default level of OMP. The values are `off`, `minimal`, `low`, `medium`,
+  `high`, `xhigh`, `max` and `auto`. The parameter of a spawn wins over this
+  value.
 - `timeoutMs` — total deadline for a worker, in ms. `0` disables it.
 - `codexBin` — the Codex program that a Codex worker runs. The default is
   `codex`. An absolute path to a file names the program directly. Any other
@@ -830,6 +841,7 @@ omp-wezterm-worker/
 │   ├── lib/                     the worker lifecycle, with no tool schema
 │   │   ├── config.ts            the config file and the defaults
 │   │   ├── backend.ts           the CLI that runs a worker
+│   │   ├── thinking.ts          the thinking level that OMP runs a worker at
 │   │   ├── job.ts               the worker record and its run state
 │   │   ├── runs.ts              the worker runs in the database
 │   │   ├── transcript.ts        reading a worker's transcript
@@ -1183,6 +1195,8 @@ breaks a test.
 | `backend.test.ts` | A run without a backend field is an OMP run. The Codex backend is implemented, so no backend of the list is refused. A report of an earlier cycle cannot finish newer work. |
 | `claude-run-state.test.ts` | A native turn starts the cycle. A call settles only when the same call settles. A failed call leaves the open calls and the completion blocker. A failed call closes its permission request. A permission request holds the completion. An accepted instruction blocks the completion until its cycle carries it. |
 | `spawn-backend.test.ts` | A spawn with an unknown backend is refused. A spawn with a tool list and a native backend is refused before the launch. A spawn with a tool list and the Codex backend is refused before the launch. A spawn with the Codex backend starts a Codex worker and no OMP worker. |
+| `thinking-argv.test.ts` | A job with a thinking level asks OMP for that level. A job without a level asks for none. A resumed job keeps the level of the source run. |
+| `thinking-spawn.test.ts` | A spawn with an unknown thinking level is refused before the launch. The Claude backend and the Codex backend refuse every level. A spawn asks OMP for the level. The reply names the requested level. A spawn parameter wins over the config file. A spawn without a parameter takes the level of the config file. A resume keeps the level of the source run. |
 | `ledger-sync.test.ts` | A call without a result leaves one outstanding row, and the result settles it. A call at or before the baseline turn opens no row. A call to the report tool opens no row. A background call stays outstanding until the async result names its job. A second sync of the same transcript writes nothing. The close of a run turns an open row into unknown and creates one execution loss event. A sync never reopens a row that is unknown. |
 | `native-ledger.test.ts` | An opened native call opens one row. A settled native call settles its row. A failed native call settles its row. A native call without a call id opens no row. A native call to the report tool opens no row. A native settlement without a row creates no row. Another native observation changes no row. Observing a native call updates the state and writes the row. A database error of a native observation does not reach the bridge. |
 | `monitor-native.test.ts` | The native monitor keeps a worker that has an open execution row. The native monitor ends a worker when its execution row settles. |

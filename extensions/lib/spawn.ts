@@ -26,6 +26,7 @@ import { describeFailure } from "./process.ts";
 import { checkSourcePane } from "./resume-guard.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { listSessionFiles, summarizeSession } from "./transcript.ts";
+import type { ThinkingLevel } from "./thinking.ts";
 import { readUsageTotals } from "./usage.ts";
 import { writeRunContext } from "./worker-context.ts";
 import { createWorktree } from "./worktree.ts";
@@ -38,6 +39,8 @@ export interface SpawnParams {
 	label?: string;
 	model?: string;
 	tools?: string[];
+	/** The thinking level that OMP runs the worker at. Null keeps the default of OMP. */
+	thinking?: ThinkingLevel | null;
 	placement?: Placement;
 	isolated?: boolean;
 	/** Overrides the configured timeout for this worker. 0 means no timeout. */
@@ -52,7 +55,7 @@ export interface SpawnParams {
  * `trailing` is the task or the follow-up message. It is a single element:
  * no shell parses it, so there are no quoting hazards.
  */
-function ompArgv(job: Job, resumeFile: string | null, trailing: string | undefined): string[] {
+export function ompArgv(job: Job, resumeFile: string | null, trailing: string | undefined): string[] {
 	const args = ["--no-title", "--cwd", job.cwd, "--session-dir", job.sessionDir];
 	// The worker reports its task state. The prompt tells it how. Without the
 	// prompt the worker never reports, and the supervisor cannot tell a
@@ -62,6 +65,9 @@ function ompArgv(job: Job, resumeFile: string | null, trailing: string | undefin
 	if (resumeFile) args.push("--resume", resumeFile);
 	if (job.model) args.push("--model", job.model);
 	if (job.tools?.length) args.push("--tools", job.tools.join(","));
+	// A job without a level asks for no level. OMP then runs the worker at
+	// the default level of OMP.
+	if (job.thinking) args.push("--thinking", job.thinking);
 	if (trailing) args.push(trailing);
 	return args;
 }
@@ -76,6 +82,7 @@ export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promi
 		cwd: resolve(params.cwd || config.defaultCwd),
 		model: params.model ?? config.model,
 		tools: params.tools ?? config.tools,
+		thinking: params.thinking ?? config.thinking,
 		placement: params.placement || config.placement,
 		sessionDir: join(config.stateDir, "sessions", jobId),
 		sessionFile: null,
