@@ -13,8 +13,8 @@
  * that ended at or after that time.
  */
 
-import { eventKey, findEventByKey } from "./events.ts";
 import { deliveriesOfEvent } from "./delivery.ts";
+import { eventKey, findEventByKey } from "./events.ts";
 import type { Job } from "./job.ts";
 import { generationOf } from "./owner.ts";
 import type { WorkerRuntime } from "./runtime.ts";

@@ -10,8 +10,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { beginDelivery, deliveriesOfEvent, markSent } from "../extensions/lib/delivery.ts";
-import { createEvent, eventKey } from "../extensions/lib/events.ts";
+import { beginDelivery, markSent } from "../extensions/lib/delivery.ts";
 import type { Job } from "../extensions/lib/job.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
 import { acquireOwnership } from "../extensions/lib/ownership.ts";
@@ -90,7 +89,12 @@ test("replay does not resend a result delivered under its legacy job id", (t) =>
 	const { rt } = runtimeFor(t, fakeWezterm().exec);
 	const job = ended("wz-legacy", "completed", 2000);
 	own(rt, job, "s1");
-	markSent(rt.openDb(), beginDelivery(rt.openDb(), "del-legacy", job.id, 1, 1500).id, "sendUserMessage", 1501);
+	markSent(
+		rt.openDb(),
+		beginDelivery(rt.openDb(), "del-legacy", job.id, 1, 1500).id,
+		"sendUserMessage",
+		1501,
+	);
 	const notified: string[] = [];
 	replayUndelivered(rt, [job], (run) => notified.push(run.id), null);
 	assert.deepEqual(notified, []);

@@ -13,6 +13,7 @@ import { clearHandover } from "./bridge-handover.ts";
 import type { BridgeState } from "./claude-bridge.ts";
 import { endCodexProcesses } from "./codex-process.ts";
 import { closeCodexClient, codexStopFailure, stopCodexWorker } from "./codex-stop.ts";
+import { createEvent, eventKey } from "./events.ts";
 import { releaseExecutionByHolder } from "./groups.ts";
 import { failJob, type Job, type JobStatus, type PendingStop } from "./job.ts";
 import { closeLedger, completionBlockerOf } from "./ledger-sync.ts";
@@ -21,7 +22,6 @@ import { reportState } from "./report-decision.ts";
 import { readReports } from "./report-store.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { confirmStopIntent, failStopIntent, recordStopIntent } from "./stop-intent.ts";
-import { createEvent, eventKey } from "./events.ts";
 import { inspectWorktree } from "./worktree.ts";
 
 /**
