@@ -324,7 +324,7 @@ test("the delivery of the owner of the task sends the message", () => {
 	const { rt, dir } = fakeRuntime();
 	try {
 		rt.sessionId = OWN;
-		const job = makeJob(dir, "wz-1");
+		const job = { ...makeJob(dir, "wz-1"), status: "completed" as const, finishedAt: Date.now() };
 		seedOwner(rt, job.id, OWN);
 		const host = fakeHost();
 

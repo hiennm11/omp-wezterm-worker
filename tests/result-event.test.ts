@@ -42,17 +42,66 @@ test("cancelling a run creates no result event", async (t) => {
 	assert.deepEqual(eventsOfRun(rt.openDb(), job.id), []);
 });
 
-test("failed run persistence rolls back the result event", async (t) => {
+test("a result event that cannot be written rolls back the final status of the run", async (t) => {
 	const { rt } = runtimeFor(t, fakeWezterm().exec);
 	const job = jobOf("result-rollback", { status: "running", paneId: null });
 	rt.jobs.set(job.id, job);
-	const persist = rt.persist;
-	rt.persist = () => {
-		throw new Error("run write refused");
+	rt.persist();
+	/* A row with the id of the result event and another key makes the insert of
+	   the event fail. The write of the run runs first in the same transaction. */
+	createEvent(
+		rt.openDb(),
+		`ev-${job.id}-result`,
+		"taken-by-another-key",
+		job.id,
+		"result",
+		"result",
+		null,
+		true,
+		1,
+	);
+	await assert.rejects(finalizeJob(rt, job, "completed", null, "done"));
+	const row = rt.openDb().handle.prepare("SELECT status FROM runs WHERE id = ?").get(job.id) as
+		| { status: string }
+		| undefined;
+	assert.equal(row?.status, "running", "the final status of the run was written without its result event");
+});
+
+test("a run that finished through finalizeJob blocks cleanup until its result event is acknowledged", async (t) => {
+	const { rt, dir } = runtimeFor(t, fakeWezterm().exec);
+	const job = jobOf("result-finalize-cleanup", {
+		status: "running",
+		paneId: null,
+		sessionDir: sessionDirOf(dir, "result-finalize-cleanup"),
+	});
+	rt.jobs.set(job.id, job);
+	acquireOwnership(rt.openDb(), taskKey(job.id), "session-1", 1, "t", 1000);
+	rt.sessionId = "session-1";
+	await finalizeJob(rt, job, "completed", null, "done");
+	const refused = await cleanupTool(rt).execute("call-1", { workerId: job.id });
+	assert.equal(refused.isError, true, "cleanup removed a worker whose result nobody acknowledged");
+	assert.ok(refused.content[0]?.text.includes(`ev-${job.id}-result`));
+});
+
+test("the delivery of a run with an unconfirmed stop creates no result event", (t) => {
+	const { rt } = runtimeFor(t, fakeWezterm().exec);
+	const job = jobOf("result-pending-stop", {
+		status: "running",
+		paneId: null,
+		pendingStop: { status: "cancelled", error: "stop", failure: "pane still open" },
+	});
+	rt.jobs.set(job.id, job);
+	acquireOwnership(rt.openDb(), taskKey(job.id), "session-1", 1, "t", 1000);
+	rt.sessionId = "session-1";
+	const messages: string[] = [];
+	rt.sendToMainSession = (text) => {
+		messages.push(text);
+		return "sendUserMessage";
 	};
-	await assert.rejects(finalizeJob(rt, job, "completed", null, "done"), /run write refused/);
-	rt.persist = persist;
+	createDeliver(rt)(job);
 	assert.deepEqual(eventsOfRun(rt.openDb(), job.id), []);
+	assert.equal(messages.length, 1);
+	assert.doesNotMatch(messages[0] ?? "", /Event id:/);
 });
 
 test("a result delivery uses the event id and format", (t) => {
