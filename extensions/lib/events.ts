@@ -13,6 +13,7 @@ export type EventCondition =
 	| "result"
 	| "needs_input"
 	| "missing_report"
+	| "thinking_stall"
 	| "idle_after_working"
 	| "execution_loss"
 	| "unresolved_launch"

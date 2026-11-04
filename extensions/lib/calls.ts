@@ -58,6 +58,10 @@ export interface CallLedger {
 	lastAssistantEndedTurn: boolean;
 	/** True when a tool result follows the last assistant message. */
 	toolResultAfterLastAssistant: boolean;
+	/** The id of the last transcript entry. */
+	lastEntryId: string | null;
+	/** The timestamp of the last transcript entry, when available. */
+	lastEntryAt: number | null;
 }
 
 /** The fields of a transcript entry that the parser reads. */
@@ -65,6 +69,7 @@ interface Entry {
 	type?: string;
 	id?: string;
 	parentId?: string | null;
+	timestamp?: string | number;
 	customType?: string;
 	details?: unknown;
 	message?: {
@@ -99,6 +104,8 @@ export function readCallLedger(file: string): CallLedger {
 		sessionId: null,
 		lastAssistantEndedTurn: false,
 		toolResultAfterLastAssistant: false,
+		lastEntryId: null,
+		lastEntryAt: null,
 	};
 	let raw: string;
 	try {
@@ -114,6 +121,12 @@ export function readCallLedger(file: string): CallLedger {
 			entry = JSON.parse(line) as Entry;
 		} catch {
 			continue;
+		}
+		ledger.lastEntryId = typeof entry.id === "string" ? entry.id : ledger.lastEntryId;
+		if (typeof entry.timestamp === "number") ledger.lastEntryAt = entry.timestamp;
+		else if (typeof entry.timestamp === "string") {
+			const timestamp = Date.parse(entry.timestamp);
+			ledger.lastEntryAt = Number.isNaN(timestamp) ? null : timestamp;
 		}
 		if (entry.type === "session" && typeof entry.id === "string") {
 			ledger.sessionId = entry.id;
