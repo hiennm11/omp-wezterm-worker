@@ -10,9 +10,8 @@ import { statSync } from "node:fs";
 
 import { readCallLedger } from "./calls.ts";
 import { claudeBoundReport, claudeCompletionBlocker } from "./claude-run-state.ts";
+import { settleCycleEvents } from "./cycle-event.ts";
 import { type CycleState, cycleInterventionCondition, readCycleState } from "./cycle-state.ts";
-import { raiseEvent } from "./event-wake.ts";
-import { eventKey, resolveObsoleteEvent } from "./events.ts";
 import { isActive, type Job, type JobStatus, type PendingStop } from "./job.ts";
 import { completionBlockerOf, syncExecutions } from "./ledger-sync.ts";
 import { finalizeJob, stopJob } from "./lifecycle.ts";
@@ -208,42 +207,7 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 			now,
 			decision.condition,
 		);
-		if (condition) {
-			const key = eventKey(job.id, cycle.evidenceId, condition);
-			raiseEvent(
-				rt,
-				{
-					id: `ev-${job.id}-${cycle.evidenceId}-${condition}`,
-					key,
-					runId: job.id,
-					kind: condition,
-					condition,
-					payload: null,
-					actionable: true,
-				},
-				now,
-			);
-		}
-		if (condition !== "thinking_stall") {
-			resolveObsoleteEvent(
-				db,
-				job.id,
-				cycle.evidenceId,
-				"thinking_stall",
-				"The transcript changed after the stall.",
-				now,
-			);
-		}
-		if (condition !== "missing_report" && condition !== "idle_after_working") {
-			resolveObsoleteEvent(
-				db,
-				job.id,
-				cycle.evidenceId,
-				"missing_report",
-				"The worker reported its task state.",
-				now,
-			);
-		}
+		settleCycleEvents(rt, job, cycle, condition, now);
 
 		// A completion report ends the worker. The outstanding execution rows
 		// of the run can block it.
