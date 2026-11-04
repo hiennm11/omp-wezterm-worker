@@ -18,20 +18,14 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { openDatabase } from "../extensions/lib/db.ts";
-import type { AgentDescriptor } from "../extensions/lib/subagent.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { monitorVerdict } from "../extensions/lib/monitor-authority.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
 import { acquireOwnership, type Ownership, readOwnership } from "../extensions/lib/ownership.ts";
 import type { RunResult } from "../extensions/lib/process.ts";
 import { persistRuns } from "../extensions/lib/runs.ts";
-import {
-	createHost,
-	RUNTIME,
-	removeDir,
-	sessionContext,
-	type TestHost,
-} from "./harness.ts";
+import type { AgentDescriptor } from "../extensions/lib/subagent.ts";
+import { createHost, RUNTIME, removeDir, sessionContext, type TestHost } from "./harness.ts";
 
 /** The session of the main session. */
 const MAIN = "session-main-spawn";

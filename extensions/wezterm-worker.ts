@@ -192,7 +192,9 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		// and that never reached the main session.
 		const woken = replayEvents(rt, Date.now());
 		if (woken.length > 0) {
-			pi.logger?.info?.(`[wezterm-worker] The startup recovery woke the session for ${woken.length} event(s).`);
+			pi.logger?.info?.(
+				`[wezterm-worker] The startup recovery woke the session for ${woken.length} event(s).`,
+			);
 		}
 	});
 

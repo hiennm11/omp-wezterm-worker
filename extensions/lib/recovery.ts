@@ -7,8 +7,8 @@
 
 import { type AttemptState, markUnresolved, openAttempts, readAttempt } from "./attempts.ts";
 import type { LifecycleDb } from "./db.ts";
-import { eventKey, type WorkerEvent } from "./events.ts";
 import { recordEvent, wakeCreated } from "./event-wake.ts";
+import { eventKey, type WorkerEvent } from "./events.ts";
 import { taskKey } from "./owner.ts";
 import { type Ownership, readOwnership } from "./ownership.ts";
 import type { WorkerRuntime } from "./runtime.ts";

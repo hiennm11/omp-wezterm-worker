@@ -15,8 +15,7 @@ export { answerAfterLastUser, readTranscript, type TranscriptMessage } from "./t
 import extension, { RUNTIME } from "../extensions/wezterm-worker.ts";
 import { sessionContext } from "./session-context.ts";
 
-export { RUNTIME };
-export { sessionContext };
+export { RUNTIME, sessionContext };
 
 export interface ToolResult {
 	content: Array<{ type: string; text: string }>;

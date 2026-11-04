@@ -14,11 +14,7 @@ import type { AgentDescriptor } from "../extensions/lib/subagent.ts";
  * A host without an agent runs a previous version of OMP. The context then
  * holds no agent at all.
  */
-export function sessionContext(
-	cwd: string,
-	sessionId?: string,
-	agent?: AgentDescriptor,
-): unknown {
+export function sessionContext(cwd: string, sessionId?: string, agent?: AgentDescriptor): unknown {
 	return {
 		cwd,
 		sessionManager: sessionId ? { getSessionId: () => sessionId } : undefined,
