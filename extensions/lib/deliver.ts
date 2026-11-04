@@ -91,12 +91,27 @@ export function createDeliver(rt: WorkerRuntime): (job: Job) => void {
 		const db = rt.openDb();
 		const attemptId = `del-${job.id}-${Date.now()}`;
 		const resultKey = eventKey(job.id, "result", "result");
-		/* The authority check and both writes share one transaction. */
+		/* The authority check and both writes share one transaction. Only a
+		   run that ended on its own has a result event. A cancelled run and a
+		   run whose stop is not confirmed have none, and their delivery keeps
+		   the id of the job. */
 		const delivery = writeUnderAuthority(db, rt.sessionId, job.id, () => {
+			const ended = job.status === "completed" || job.status === "failed";
 			const event =
 				findEventByKey(db, resultKey) ??
-				createEvent(db, `ev-${job.id}-result`, resultKey, job.id, "result", "result", null, true, Date.now())
-					.event;
+				(ended
+					? createEvent(
+							db,
+							`ev-${job.id}-result`,
+							resultKey,
+							job.id,
+							"result",
+							"result",
+							null,
+							true,
+							Date.now(),
+						).event
+					: null);
 			const text = formatDelivery(
 				job,
 				{
@@ -105,9 +120,15 @@ export function createDeliver(rt: WorkerRuntime): (job: Job) => void {
 				},
 				nativeCycles,
 				restored,
-				job.pendingStop === null ? event.id : undefined,
+				event && job.pendingStop === null ? event.id : undefined,
 			);
-			const attempt = beginDelivery(db, attemptId, event.id, generationOf(rt, job.id) ?? 0, Date.now());
+			const attempt = beginDelivery(
+				db,
+				attemptId,
+				event?.id ?? job.id,
+				generationOf(rt, job.id) ?? 0,
+				Date.now(),
+			);
 			return { text, attempt };
 		});
 		if (delivery.refused) {
