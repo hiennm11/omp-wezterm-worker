@@ -154,6 +154,58 @@ test("the monitor wakes the main session once for a cycle without a report", () 
 	}
 });
 
+test("a second stall in the same cycle wakes the main session again", () => {
+	const stateDir = mkdtempSync(join(tmpdir(), "wz-wake-"));
+	const clock = fakeClock(1_000_000);
+	const { rt, tick } = fakeRuntime(stateDir);
+	try {
+		const sessionDir = join(stateDir, "sessions", "wz-1");
+		const call = (id: string, at: number) => ({
+			type: "message",
+			id: `a${id}`,
+			timestamp: at,
+			message: { role: "assistant", content: [{ type: "toolCall", id: `c${id}`, name: "read" }] },
+		});
+		const result = (id: string, at: number) => ({
+			type: "message",
+			id: `r${id}`,
+			timestamp: at,
+			message: { role: "toolResult", toolCallId: `c${id}`, content: [{ type: "text", text: "ok" }] },
+		});
+		const first = [{ ...USER, timestamp: 1_000_000 }, call("1", 1_000_000), result("1", 1_000_000)];
+		const file = writeTranscript(sessionDir, "a.jsonl", first);
+		rt.sessionId = OWN;
+		const sent: string[] = [];
+		rt.sendToMainSession = (text: string) => {
+			sent.push(text);
+			return "sendUserMessage";
+		};
+		const job = runningJob(sessionDir);
+		job.sessionFile = file;
+		rt.jobs.set(job.id, job);
+		seedOwner(rt, job.id, OWN);
+
+		monitorJob(rt, job, () => undefined);
+		clock.advance(601_000);
+		tick();
+		assert.equal(sent.length, 1, "the first stall wakes the main session");
+
+		const later = 1_000_000 + 700_000;
+		writeTranscript(sessionDir, "a.jsonl", [...first, call("2", later), result("2", later)]);
+		clock.advance(100_000);
+		tick();
+		assert.equal(sent.length, 1, "a worker that moved again is not stalled");
+
+		clock.advance(601_000);
+		tick();
+		assert.equal(sent.length, 2, "the second stall of the same cycle wakes the main session again");
+	} finally {
+		clock.restore();
+		rt.closeDb();
+		rmSync(stateDir, { recursive: true, force: true });
+	}
+});
+
 test("the wake of an event does not mark the result of its run as sent", () => {
 	const stateDir = mkdtempSync(join(tmpdir(), "wz-wake-"));
 	const clock = fakeClock(1_000_000);
