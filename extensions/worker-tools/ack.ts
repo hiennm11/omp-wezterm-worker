@@ -9,9 +9,9 @@
 import { type Disposition, readEvent, recordHandling } from "../lib/events.ts";
 import type { ToolCtx } from "../lib/host.ts";
 import { generationOf } from "../lib/owner.ts";
+import { subagentControlRefusal } from "../lib/subagent.ts";
 import { writeUnderAuthority } from "../lib/write-authority.ts";
 import { reply, type ToolDeps } from "./kit.ts";
-import { subagentControlRefusal } from "../lib/subagent.ts";
 
 /** The dispositions that the tool accepts. */
 const DISPOSITIONS: Disposition[] = ["accepted", "follow_up", "discarded"];
@@ -35,7 +35,13 @@ export function registerAckTool({ pi, rt }: ToolDeps): void {
 			note: z.string().optional().describe("What you did with the event."),
 		}),
 		loadMode: "essential",
-		async execute(_toolCallId: string, params: Record<string, unknown>, _signal: unknown, _onUpdate: unknown, ctx?: ToolCtx) {
+		async execute(
+			_toolCallId: string,
+			params: Record<string, unknown>,
+			_signal: unknown,
+			_onUpdate: unknown,
+			ctx?: ToolCtx,
+		) {
 			const refusal = subagentControlRefusal(ctx);
 			if (refusal) return reply(refusal, { refused: "subagent" }, true);
 			const workerId = String(params.workerId ?? "");

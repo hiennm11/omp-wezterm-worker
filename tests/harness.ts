@@ -31,7 +31,11 @@ export interface ToolDef {
 		args: unknown,
 		signal: unknown,
 		onUpdate: unknown,
-		ctx: { cwd: string; sessionManager?: { getSessionId: () => string | undefined }; agent?: AgentDescriptor },
+		ctx: {
+			cwd: string;
+			sessionManager?: { getSessionId: () => string | undefined };
+			agent?: AgentDescriptor;
+		},
 	) => Promise<ToolResult>;
 }
 
@@ -173,7 +177,12 @@ export async function closePanesAndWait(paneIds: Iterable<number>, timeoutMs = 3
  * main session, so the host starts a new request. Without this, the fourth
  * launch of one test file meets the default limit of three launches.
  */
-export function createHost(options: { stateDir?: string; cwd: string; sessionId?: string; agent?: AgentDescriptor }): TestHost {
+export function createHost(options: {
+	stateDir?: string;
+	cwd: string;
+	sessionId?: string;
+	agent?: AgentDescriptor;
+}): TestHost {
 	const stateDir = options.stateDir ?? mkdtempSync(join(tmpdir(), "wt-host-"));
 	process.env.OMP_WORKER_STATE_DIR = stateDir;
 	process.env.OMP_WORKER_CONFIG_FILE = join(stateDir, "wezterm-worker.json");

@@ -15,7 +15,8 @@ import type { AgentDescriptor } from "./host.ts";
 export type { AgentDescriptor } from "./host.ts";
 
 /** The refusal for a control tool called by a subagent. */
-export const SUBAGENT_CONTROL_REFUSAL = "A subagent cannot control a worker. Call this tool from the main session.";
+export const SUBAGENT_CONTROL_REFUSAL =
+	"A subagent cannot control a worker. Call this tool from the main session.";
 
 /** Return a refusal when the caller is a subagent. */
 export function subagentControlRefusal(ctx: { agent?: AgentDescriptor } | undefined): string | null {
