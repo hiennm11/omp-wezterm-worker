@@ -203,32 +203,3 @@ export function openAttempts(db: LifecycleDb): LaunchAttempt[] {
 		updatedAt: Number(row.updated_at),
 	}));
 }
-
-/**
- * The attempts that the owner has not settled.
- *
- * A reserved attempt waits for the command. An issued attempt waits for the
- * worker, because the worker may exist. An unresolved attempt waits for the
- * owner, because the recovery found no worker. An attached attempt holds the
- * capacity of a live worker.
- *
- * No code calls this function. The launch limits count the live workers, so
- * no row of this list refuses a launch.
- */
-export function capacityHolders(db: LifecycleDb): LaunchAttempt[] {
-	const rows = db.handle
-		.prepare(
-			"SELECT id, job_id, state, session_file, session_id, pane_id, created_at, updated_at FROM launch_attempts WHERE state IN ('reserved', 'issued', 'unresolved', 'attached') ORDER BY created_at",
-		)
-		.all() as Record<string, unknown>[];
-	return rows.map((row) => ({
-		id: String(row.id),
-		jobId: String(row.job_id),
-		state: String(row.state) as AttemptState,
-		sessionFile: row.session_file === null ? null : String(row.session_file),
-		sessionId: row.session_id === null ? null : String(row.session_id),
-		paneId: row.pane_id === null ? null : Number(row.pane_id),
-		createdAt: Number(row.created_at),
-		updatedAt: Number(row.updated_at),
-	}));
-}

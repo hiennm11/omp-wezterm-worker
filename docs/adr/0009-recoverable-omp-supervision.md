@@ -501,6 +501,8 @@ A resource group costs a shared identifier on each run. It removes a race betwee
 
 An unresolved launch holds no counted capacity. The limits count the live workers. A lost worker holds no slot until the owner resolves it.
 
+A worker that stays unresolved can run without a counted slot. The owner can then start more workers than `maxActiveWorkers` allows, by the number of unresolved workers. The owner accepts this limit. The event `unresolved_launch` tells the owner about each such worker, and the resolve tool frees the row.
+
 The release drain waits for the actions that already started. A stuck action keeps the authority with the current owner.
 
 This decision replaces the text-only completion rule that ADR 0001 gives.
