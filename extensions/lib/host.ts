@@ -46,8 +46,17 @@ export interface ToolCtx {
 	cwd: string;
 	/** Read-only view of the calling session. */
 	sessionManager?: SessionView;
+	/** The agent that this session runs. A host without the field is older. */
+	agent?: AgentDescriptor;
 }
 
+/** The agent that this session runs. */
+export interface AgentDescriptor {
+	kind: "main" | "sub";
+	id?: string;
+	name?: string;
+	depth?: number;
+}
 /**
  * The session lease of the host.
  *

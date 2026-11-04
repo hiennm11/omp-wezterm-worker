@@ -1,14 +1,5 @@
 /**
- * The session of a worker that a subagent launches.
- *
- * OMP loads the extension again for a subagent in the same process. The
- * runtime lives at module scope, so the second load shares it. A tool of the
- * subagent calls `bindSession` with the session of the subagent. The worker
- * then belongs to the subagent, and the main session loses it.
- *
- * The test loads the extension twice in one process. The first load starts
- * the main session. The second load starts a subagent. The subagent launches
- * a worker. The test shows which session owns the new worker.
+ * A subagent launch remains under the authority of the main session.
  */
 
 import assert from "node:assert/strict";
@@ -143,8 +134,8 @@ function loadTwice(stateDir: string): { main: TestHost; subagent: TestHost } {
 	RUNTIME.exec = exec;
 	RUNTIME.wezterm = wezterm;
 
-	const main = createHost({ stateDir, cwd: stateDir, sessionId: MAIN });
-	const subagent = createHost({ stateDir, cwd: stateDir, sessionId: SUBAGENT });
+	const main = createHost({ stateDir, cwd: stateDir, sessionId: MAIN, agent: MAIN_AGENT });
+	const subagent = createHost({ stateDir, cwd: stateDir, sessionId: SUBAGENT, agent: SUB_AGENT });
 	return { main, subagent };
 }
 
@@ -161,7 +152,7 @@ async function endOfTest(hosts: TestHost[], stateDir: string): Promise<void> {
 	removeDir(stateDir);
 }
 
-test("a subagent that launches a worker takes the session of the runtime", async () => {
+test("a subagent that launches a worker keeps the main session", async () => {
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-subagent-spawn-"));
 	const { main, subagent } = loadTwice(stateDir);
 	try {
@@ -172,33 +163,9 @@ test("a subagent that launches a worker takes the session of the runtime", async
 		const result = await subagent.call("wezterm_spawn_worker", { task: "Do the work of the task." });
 		const workerId = (result.details as { workerId?: string } | undefined)?.workerId;
 		assert.ok(workerId, `the subagent started no worker: ${JSON.stringify(result.details)}`);
-
-		assert.equal(
-			ownerRowOf(stateDir, workerId)?.sessionId,
-			SUBAGENT,
-			"the worker of the subagent belongs to the main session",
-		);
-		assert.equal(
-			RUNTIME.sessionId,
-			SUBAGENT,
-			"the runtime did not take the session of the subagent that launched the worker",
-		);
-
-		/* The runtime now holds the session of the subagent. The monitor of
-		   the main session reads that session, so it no longer holds the
-		   authority of its own worker. The monitor of the subagent holds the
-		   authority of the new worker. */
-		const owner = ownerRowOf(stateDir, workerId);
-		assert.equal(
-			monitorVerdict(owner, RUNTIME.sessionId),
-			"act",
-			"the monitor of the subagent lost the authority of its worker",
-		);
-		assert.equal(
-			monitorVerdict(mainOwner, RUNTIME.sessionId),
-			"stop",
-			"the monitor of the main session kept the authority of its worker",
-		);
+		assert.equal(RUNTIME.sessionId, MAIN, "the runtime stopped naming the main session");
+		assert.equal(ownerRowOf(stateDir, workerId)?.sessionId, MAIN, "the new worker does not belong to the main session");
+		assert.equal(monitorVerdict(mainOwner, RUNTIME.sessionId), "act", "the main monitor lost authority of its worker");
 	} finally {
 		await endOfTest([main, subagent], stateDir);
 		rmSync(stateDir, { recursive: true, force: true });

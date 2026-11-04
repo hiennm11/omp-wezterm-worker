@@ -10,16 +10,16 @@
  * field as the main agent.
  */
 
-/** The agent of a session, as the host describes it. */
-export interface AgentDescriptor {
-	/** The kind of the agent. The main agent owns the workers of the session. */
-	kind: "main" | "sub";
-	/** The id of the agent. */
-	id?: string;
-	/** The name of the agent. */
-	name?: string;
-	/** How deep the agent sits in the tree of the agents. */
-	depth?: number;
+import type { AgentDescriptor } from "./host.ts";
+
+export type { AgentDescriptor } from "./host.ts";
+
+/** The refusal for a control tool called by a subagent. */
+export const SUBAGENT_CONTROL_REFUSAL = "A subagent cannot control a worker. Call this tool from the main session.";
+
+/** Return a refusal when the caller is a subagent. */
+export function subagentControlRefusal(ctx: { agent?: AgentDescriptor } | undefined): string | null {
+	return isSubagent(ctx) ? SUBAGENT_CONTROL_REFUSAL : null;
 }
 
 /** The part of the context that names the agent and the session. */

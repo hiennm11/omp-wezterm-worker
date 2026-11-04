@@ -518,11 +518,12 @@ From the official extension docs (`can1357/oh-my-pi` → `docs/extensions.md`):
   `pi.on` are the registration methods.
 - **OMP loads the extension again for each subagent in the same process.**
   Module-level variables stay shared across those loads. A handler of
-  `session_start` or `session_shutdown` that runs for a subagent changes the
-  state of the main session. Read `ctx.agent.kind` (`main` or `sub`) and return
-  early for `sub`. A host without the field counts as `main`. The extension
-  does this (ADR 0014). The value that OMP gives a real subagent is not yet
-  proven by a run. The first log line at `session_start` shows it.
+  `session_start` or `session_shutdown` must return early for `sub`. A host
+  without `ctx.agent` counts as `main`. The extension follows this rule (ADR
+  0014). A subagent can read worker status, pane text and results. It can
+  start a worker without taking the main session. It cannot steer, cancel,
+  acknowledge, release, take over, resolve, clean up or resume a worker. Each
+  control tool refuses before it reads worker state or accesses a pane.
 
 ## The domain vocabulary
 

@@ -16,6 +16,7 @@ import { resumeCodexWorker } from "../lib/resume-codex.ts";
 import { resumeWorker } from "../lib/spawn.ts";
 import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
 import { commsDetails, commsRefusalLine, findJob, refusalReply, reply, type ToolDeps } from "./kit.ts";
+import { isSubagent, subagentControlRefusal } from "../lib/subagent.ts";
 
 export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 	const z = pi.zod;
@@ -42,6 +43,8 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 			_onUpdate: unknown,
 			ctx: ToolCtx,
 		) {
+			const refusal = subagentControlRefusal(ctx);
+			if (refusal) return reply(refusal, { refused: "subagent" }, true);
 			/* A follow-up instruction is a text that reaches a worker, so the
 			   resume scores it before the worker comes back. The enforce mode
 			   refuses a message that scores below the minimum. */
@@ -88,7 +91,7 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 				}
 				const admitted = admitLaunch(rt, ctx.sessionManager?.getSessionFile?.());
 				if ("refusal" in admitted) return refusalReply(admitted.refusal);
-				bindSession(rt, ctx.sessionManager);
+				if (!isSubagent(ctx)) bindSession(rt, ctx.sessionManager);
 				const acquisition = await acquireTask(rt, admitted.jobId);
 				if (!maySupervise(acquisition)) {
 					return reply(

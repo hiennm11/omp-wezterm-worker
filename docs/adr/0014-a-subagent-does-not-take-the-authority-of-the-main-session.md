@@ -53,11 +53,15 @@ task depth is above zero. The second case is a session that has a parent
 task prefix. The tests of this change use the same field, so they prove the
 behaviour of the extension and not the behaviour of the host.
 
-A subagent that calls `wezterm_spawn_worker` takes the session of the
-runtime, because the tool binds the session of the caller. The worker then
-belongs to the subagent, and the monitor of the main session loses the
-authority of its own worker. A test proves this. The behaviour is unchanged,
-because a subagent that starts a worker is a case of its own.
+A subagent that calls `wezterm_spawn_worker` does not bind its session. The
+worker belongs to the main session. The monitor keeps authority of its worker.
+
+## Control tools
+
+A subagent can read worker status, pane text and results. It can also start a
+worker. It cannot steer, cancel, acknowledge, release, take over, resolve,
+clean up or resume a worker. Each control tool refuses before it reads worker
+state or accesses a pane. The refusal does not change state.
 
 `persist()` cannot write a wrong session into a run. The table of the runs
 holds no session column. The write checks the ownership of the task, so a

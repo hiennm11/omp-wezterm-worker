@@ -18,6 +18,8 @@ import type { WorkerRuntime } from "../lib/runtime.ts";
 import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
 import { inspectWorktree, removeWorktree } from "../lib/worktree.ts";
 import { findJob, reply, type ToolDeps } from "./kit.ts";
+import { subagentControlRefusal } from "../lib/subagent.ts";
+import type { ToolCtx } from "../lib/host.ts";
 
 interface WorktreeOutcome {
 	notes: string[];
@@ -107,7 +109,9 @@ export function registerCleanupTool({ pi, rt }: ToolDeps): void {
 				),
 		}),
 		loadMode: "essential",
-		async execute(_id: string, params: { workerId: string; force?: boolean }) {
+		async execute(_id: string, params: { workerId: string; force?: boolean }, _signal: unknown, _onUpdate: unknown, ctx?: ToolCtx) {
+			const refusal = subagentControlRefusal(ctx);
+			if (refusal) return reply(refusal, { refused: "subagent" }, true);
 			const found = findJob(rt, params.workerId);
 			if ("error" in found) return found.error;
 			const { job } = found;

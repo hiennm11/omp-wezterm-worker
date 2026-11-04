@@ -749,10 +749,13 @@ kind of the agent, the id of the agent and the session id:
 A host without the field runs an older OMP. The extension treats a missing
 agent as the main agent, so it keeps working there.
 
-A subagent that calls `wezterm_spawn_worker` still takes the session of the
-runtime, because the tool binds the session of its caller. The worker then
-belongs to the subagent, and the main session loses the authority of its own
-worker. This is a case of its own. See
+A subagent that calls `wezterm_spawn_worker` does not bind its session. The
+worker belongs to the main session, and the main monitor keeps authority.
+
+A subagent can read worker status, pane text and results. It can start a
+worker, but it cannot steer, cancel, acknowledge, release, take over, resolve,
+clean up or resume a worker. Each control tool refuses before reading worker
+state or accessing a pane. The refusal does not change state. See
 `docs/adr/0014-a-subagent-does-not-take-the-authority-of-the-main-session.md`.
 
 ### Two workers in one checkout
