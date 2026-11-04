@@ -488,6 +488,35 @@ session as a user message and starts a new turn. The agent works on a finished
 worker right away. `pi.sendMessage` with `deliverAs: "steer"` is the fallback
 for a host that does not expose `sendUserMessage`.
 
+**An actionable event wakes the main agent too.** The monitor writes the event
+into the database. The extension then sends a short message with the same
+channel. The message names the worker, the condition, the run time, the event
+id, and the tools `wezterm_worker_peek`, `wezterm_worker_steer` and
+`wezterm_worker_ack`. It holds no result text, and it never tells the worker
+to continue.
+
+The wake happens once per event. A later poll sends no second message. The
+event stays in the list of the pending events, so it still blocks
+`wezterm_worker_cleanup` until the owner handles it with
+`wezterm_worker_ack`.
+
+Only the owner of the task of the event may wake the session. The attempt of
+the wake uses the event id as its key, so the wake never marks the result of
+the run as sent. The replay of a result still delivers that result.
+
+Two conditions never wake the session. A `result` has its own delivery. An
+`execution_loss` comes with the stop of the worker, and the stop path
+notifies the owner already.
+
+A restart can lose the wake. The startup recovery wakes the session again for
+every event that the session owns, that nobody handled, and that never reached
+the session. The events of a run that ended and delivered its result stay out.
+
+A wake that arrives while the main session runs waits on the steering queue of
+the host. The host delivers it at the boundary of the current turn, and the
+next turn works on it. A live probe of omp 18.16.0 measured that behaviour.
+See `docs/adr/0013-wake-the-main-session-for-an-event.md`.
+
 **The pane is closed when the worker finishes.** A finished worker leaves its
 pane open by default, and those panes collect. `closePaneOnFinish` closes
 the pane after the extension reads the result. The transcript is the result
@@ -912,6 +941,7 @@ omp-wezterm-worker/
 │   │   ├── executions.ts        the execution ledger of a run
 │   │   ├── ledger-sync.ts       the sync between the transcript and the ledger
 │   │   ├── events.ts            the worker events and their handling
+│   │   ├── event-wake.ts        the wake of the main session for an actionable event
 │   │   ├── status-list.ts       the list of workers that the status tool shows
 │   │   ├── resolution.ts        the owner resolution of an unknown outcome
 │   │   ├── delivery.ts          the delivery attempts of a pending event

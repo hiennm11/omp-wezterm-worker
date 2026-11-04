@@ -11,7 +11,8 @@
 
 import type { ClaudeRunState } from "./claude-run-state.ts";
 import type { LifecycleDb } from "./db.ts";
-import { createEvent, eventKey, findEventByKey, resolveObsoleteEvent } from "./events.ts";
+import { eventKey, findEventByKey, resolveObsoleteEvent } from "./events.ts";
+import { raiseEvent } from "./event-wake.ts";
 import type { Job } from "./job.ts";
 import { paneTail } from "./pane.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -69,20 +70,22 @@ export function startupBlockReason(
  * function creates the event once, so a repeated poll raises no second one.
  */
 export function recordStartupBlock(
-	db: LifecycleDb,
+	rt: WorkerRuntime,
 	runId: string,
 	reason: StartupBlockReason,
 	now: number,
 ): void {
-	createEvent(
-		db,
-		`ev-${runId}-${STARTUP_EVIDENCE_ID}-${STARTUP_CONDITION}`,
-		eventKey(runId, STARTUP_EVIDENCE_ID, STARTUP_CONDITION),
-		runId,
-		STARTUP_CONDITION,
-		STARTUP_CONDITION,
-		JSON.stringify({ reason }),
-		true,
+	raiseEvent(
+		rt,
+		{
+			id: `ev-${runId}-${STARTUP_EVIDENCE_ID}-${STARTUP_CONDITION}`,
+			key: eventKey(runId, STARTUP_EVIDENCE_ID, STARTUP_CONDITION),
+			runId,
+			kind: STARTUP_CONDITION,
+			condition: STARTUP_CONDITION,
+			payload: JSON.stringify({ reason }),
+			actionable: true,
+		},
 		now,
 	);
 }
@@ -130,7 +133,7 @@ export async function checkStartupBlock(
 		if (job.paneId === null) return;
 		const reason = startupBlockReason(state.sessionId, launchedAt, now, await readPaneText(rt, job.paneId));
 		if (reason === null) return;
-		recordStartupBlock(db, job.id, reason, now);
+		recordStartupBlock(rt, job.id, reason, now);
 	} catch (e) {
 		/* a failed check must never end the monitor */
 		rt.errors.push(e instanceof Error ? e.message : String(e));

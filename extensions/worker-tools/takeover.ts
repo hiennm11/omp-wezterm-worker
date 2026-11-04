@@ -107,7 +107,7 @@ export function registerTakeoverTool({ pi, rt, deliver }: ToolDeps): void {
 			// took. An unreadable process table gives no worker, so the
 			// attempt stays unresolved and raises an event for the owner.
 			const workers = await findLiveWorkers(rt);
-			reconcileAttempts(rt.openDb(), workers, sessionId, Date.now(), job.id);
+			reconcileAttempts(rt, workers, sessionId, Date.now(), job.id);
 			// A finished worker needs no monitor. The new owner holds the
 			// authority for its pending events, but the worker stays as it is.
 			if (!isActive(job)) {

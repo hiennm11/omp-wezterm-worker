@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { markIssued, readAttempt, reserveAttempt } from "../extensions/lib/attempts.ts";
-import { type LifecycleDb, openDatabase } from "../extensions/lib/db.ts";
+import type { LifecycleDb } from "../extensions/lib/db.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
 import { acquireOwnership } from "../extensions/lib/ownership.ts";
@@ -25,10 +25,12 @@ export const OWN = "session-new";
 /** The session that holds the task. */
 export const OTHER = "session-old";
 
-/** A database in a fresh directory. */
-export function freshDb(): { db: LifecycleDb; dir: string } {
+/** A runtime with a database in a fresh directory. */
+export function freshDb(): { db: LifecycleDb; dir: string; rt: WorkerRuntime } {
 	const dir = mkdtempSync(join(tmpdir(), "wt-unresolved-"));
-	return { db: openDatabase(join(dir, "lifecycle.db")), dir };
+	const rt = createRuntime(async () => ({ code: 0, stdout: "", stderr: "" }));
+	rt.config.stateDir = dir;
+	return { db: rt.openDb(), dir, rt };
 }
 
 /** The ownership row of a task that a session owns. */

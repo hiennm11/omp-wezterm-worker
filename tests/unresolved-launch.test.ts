@@ -7,6 +7,7 @@
  */
 
 import assert from "node:assert/strict";
+import { rmSync } from "node:fs";
 import { test } from "node:test";
 
 import { pendingEvents, readEvent } from "../extensions/lib/events.ts";
@@ -16,7 +17,6 @@ import { registerResolveTool } from "../extensions/worker-tools/resolve.ts";
 import { registerStatusTool } from "../extensions/worker-tools/status.ts";
 import { finish, OLD_PID, ownedTask, takeOver } from "./takeover-helpers.ts";
 import {
-	closeDb,
 	closeRuntime,
 	fakeRuntime,
 	freshDb,
@@ -31,10 +31,10 @@ import {
 } from "./unresolved-launch-helpers.ts";
 
 test("an unresolved launch creates one actionable event", () => {
-	const { db, dir } = freshDb();
+	const { db, dir, rt } = freshDb();
 	try {
 		seedOpenAttempt(db, "wz-1", "att-1");
-		reconcileAttempts(db, [], OWN, 1002);
+		reconcileAttempts(rt, [], OWN, 1002);
 		const events = pendingEvents(db);
 		assert.equal(events.length, 1);
 		const event = events[0];
@@ -44,15 +44,16 @@ test("an unresolved launch creates one actionable event", () => {
 		assert.equal(event.actionable, true);
 		assert.equal(stateOf(db, "att-1"), "unresolved");
 	} finally {
-		closeDb(db, dir);
+		rt.closeDb();
+		rmSync(dir, { recursive: true, force: true });
 	}
 });
 
 test("the event of an unresolved launch names the attempt and the job", () => {
-	const { db, dir } = freshDb();
+	const { db, dir, rt } = freshDb();
 	try {
 		seedOpenAttempt(db, "wz-1", "att-1");
-		reconcileAttempts(db, [], OWN, 1002);
+		reconcileAttempts(rt, [], OWN, 1002);
 		const event = pendingEvents(db)[0];
 		assert.ok(event);
 		assert.ok(event.payload);
@@ -60,16 +61,17 @@ test("the event of an unresolved launch names the attempt and the job", () => {
 		assert.equal(payload.attemptId, "att-1");
 		assert.equal(payload.jobId, "wz-1");
 	} finally {
-		closeDb(db, dir);
+		rt.closeDb();
+		rmSync(dir, { recursive: true, force: true });
 	}
 });
 
 test("a second recovery creates no second event", () => {
-	const { db, dir } = freshDb();
+	const { db, dir, rt } = freshDb();
 	try {
 		seedOpenAttempt(db, "wz-1", "att-1");
-		reconcileAttempts(db, [], OWN, 1002);
-		reconcileAttempts(db, [], OWN, 1100);
+		reconcileAttempts(rt, [], OWN, 1002);
+		reconcileAttempts(rt, [], OWN, 1100);
 		const events = pendingEvents(db);
 		assert.equal(events.length, 1);
 		const rows = db.handle.prepare("SELECT COUNT(*) AS n FROM events").all();
@@ -77,7 +79,8 @@ test("a second recovery creates no second event", () => {
 		assert.ok(row && typeof row === "object" && "n" in row);
 		assert.equal(Number(row.n), 1, "no second event was created");
 	} finally {
-		closeDb(db, dir);
+		rt.closeDb();
+		rmSync(dir, { recursive: true, force: true });
 	}
 });
 
@@ -107,7 +110,7 @@ test("the status tool lists the event of an unresolved launch", async () => {
 		const job = makeJob(dir, "wz-1");
 		rt.jobs.set(job.id, job);
 		seedOpenAttempt(rt.openDb(), job.id, "att-1");
-		reconcileAttempts(rt.openDb(), [], OWN, 1002);
+		reconcileAttempts(rt, [], OWN, 1002);
 
 		const tool = toolOf(rt, registerStatusTool, "status");
 		const result = await tool.execute("t1", {});
@@ -126,7 +129,7 @@ test("the abandoned resolution frees the attempt", async () => {
 		rt.sessionId = OWN;
 		seedOwner(rt.openDb(), "wz-1", OWN);
 		seedOpenAttempt(rt.openDb(), "wz-1", "att-1");
-		reconcileAttempts(rt.openDb(), [], OWN, 1002);
+		reconcileAttempts(rt, [], OWN, 1002);
 		const event = pendingEvents(rt.openDb())[0];
 		assert.ok(event);
 
@@ -147,7 +150,7 @@ test("the incomplete resolution frees the attempt", async () => {
 		rt.sessionId = OWN;
 		seedOwner(rt.openDb(), "wz-1", OWN);
 		seedOpenAttempt(rt.openDb(), "wz-1", "att-1");
-		reconcileAttempts(rt.openDb(), [], OWN, 1002);
+		reconcileAttempts(rt, [], OWN, 1002);
 		const event = pendingEvents(rt.openDb())[0];
 		assert.ok(event);
 
@@ -167,7 +170,7 @@ test("the recorded_result resolution is refused and the attempt stays unresolved
 		rt.sessionId = OWN;
 		seedOwner(rt.openDb(), "wz-1", OWN);
 		seedOpenAttempt(rt.openDb(), "wz-1", "att-1");
-		reconcileAttempts(rt.openDb(), [], OWN, 1002);
+		reconcileAttempts(rt, [], OWN, 1002);
 		const event = pendingEvents(rt.openDb())[0];
 		assert.ok(event);
 
@@ -189,7 +192,7 @@ test("the recorded_result resolution is refused for an event without a payload",
 		rt.sessionId = OWN;
 		seedOwner(rt.openDb(), "wz-1", OWN);
 		seedOpenAttempt(rt.openDb(), "wz-1", "att-1");
-		reconcileAttempts(rt.openDb(), [], OWN, 1002);
+		reconcileAttempts(rt, [], OWN, 1002);
 		const event = pendingEvents(rt.openDb())[0];
 		assert.ok(event);
 		// An event whose payload names no attempt still refuses the result.
@@ -211,7 +214,7 @@ test("a session that does not own the task cannot resolve the event", async () =
 	try {
 		rt.sessionId = OWN;
 		seedOpenAttempt(rt.openDb(), "wz-1", "att-1");
-		reconcileAttempts(rt.openDb(), [], OWN, 1002);
+		reconcileAttempts(rt, [], OWN, 1002);
 		const event = pendingEvents(rt.openDb())[0];
 		assert.ok(event);
 		seedOwner(rt.openDb(), "wz-1", OTHER);
@@ -233,7 +236,7 @@ test("the event of an unresolved launch keeps its identity after the resolution"
 		rt.sessionId = OWN;
 		seedOwner(rt.openDb(), "wz-1", OWN);
 		seedOpenAttempt(rt.openDb(), "wz-1", "att-1");
-		reconcileAttempts(rt.openDb(), [], OWN, 1002);
+		reconcileAttempts(rt, [], OWN, 1002);
 		const event = pendingEvents(rt.openDb())[0];
 		assert.ok(event);
 

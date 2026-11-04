@@ -9,8 +9,9 @@
  */
 
 import type { ClaudeRunState } from "./claude-run-state.ts";
-import type { LifecycleDb } from "./db.ts";
-import { createEvent, eventKey, resolveObsoleteEvent } from "./events.ts";
+import { eventKey, resolveObsoleteEvent } from "./events.ts";
+import { raiseEvent } from "./event-wake.ts";
+import type { WorkerRuntime } from "./runtime.ts";
 
 /**
  * The condition that a permission request raises.
@@ -48,41 +49,45 @@ const MISSING_REPORT_EVIDENCE_ID = "report-without-cycle";
  * that names a cycle proves nothing about the work that runs now, so the
  * owner must see it.
  */
-export function recordNativeEvents(db: LifecycleDb, runId: string, state: ClaudeRunState, now: number): void {
+export function recordNativeEvents(rt: WorkerRuntime, runId: string, state: ClaudeRunState, now: number): void {
 	for (const [callId, tool] of state.openApprovals) {
 		const evidenceId = `approval-${callId}`;
 		const key = eventKey(runId, evidenceId, PERMISSION_CONDITION);
-		createEvent(
-			db,
-			`ev-${runId}-${evidenceId}-${PERMISSION_CONDITION}`,
-			key,
-			runId,
-			PERMISSION_CONDITION,
-			PERMISSION_CONDITION,
-			JSON.stringify({ callId, tool }),
-			true,
+		raiseEvent(
+			rt,
+			{
+				id: `ev-${runId}-${evidenceId}-${PERMISSION_CONDITION}`,
+				key,
+				runId,
+				kind: PERMISSION_CONDITION,
+				condition: PERMISSION_CONDITION,
+				payload: JSON.stringify({ callId, tool }),
+				actionable: true,
+			},
 			now,
 		);
 	}
 	if (state.reports.some((report) => report.cycleId === null)) {
 		const evidenceId = MISSING_REPORT_EVIDENCE_ID;
 		const key = eventKey(runId, evidenceId, MISSING_REPORT_CONDITION);
-		createEvent(
-			db,
-			`ev-${runId}-${evidenceId}-${MISSING_REPORT_CONDITION}`,
-			key,
-			runId,
-			MISSING_REPORT_CONDITION,
-			MISSING_REPORT_CONDITION,
-			null,
-			true,
+		raiseEvent(
+			rt,
+			{
+				id: `ev-${runId}-${evidenceId}-${MISSING_REPORT_CONDITION}`,
+				key,
+				runId,
+				kind: MISSING_REPORT_CONDITION,
+				condition: MISSING_REPORT_CONDITION,
+				payload: null,
+				actionable: true,
+			},
 			now,
 		);
 	}
 	for (const callId of state.resolvedApprovals.keys()) {
 		const evidenceId = `approval-${callId}`;
 		resolveObsoleteEvent(
-			db,
+			rt.openDb(),
 			runId,
 			evidenceId,
 			PERMISSION_CONDITION,

@@ -115,6 +115,13 @@ export interface WorkerRuntime {
 	/** The stable identity of the calling session, when the host gives one. */
 	sessionId: string | null;
 	/**
+	 * Put a text into the main session and start a turn.
+	 *
+	 * The function returns the name of the channel that carried the text. A
+	 * runtime without a host returns `none`, and the caller sends no message.
+	 */
+	sendToMainSession: (text: string) => "sendUserMessage" | "sendMessage" | "none";
+	/**
 	 * The tools that a worker process may call.
 	 *
 	 * A worker is a separate OMP process. It must not supervise other
@@ -204,6 +211,7 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 		dbFile: null,
 		sessionFile: null,
 		sessionId: null,
+		sendToMainSession: () => "none",
 		workerTools: new Map(),
 		ownerTools: new Map(),
 		processId: process.pid,

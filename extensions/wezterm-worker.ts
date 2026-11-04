@@ -27,6 +27,7 @@ import { mkdirSync } from "node:fs";
 import { attachWorker } from "./lib/attach.ts";
 import { lastGuidance, loadConfig } from "./lib/config.ts";
 import { createDeliver } from "./lib/deliver.ts";
+import { replayEvents } from "./lib/event-wake.ts";
 import { releaseEndedGroups } from "./lib/group-recovery.ts";
 import type { ExtensionAPI } from "./lib/host.ts";
 import { startRequest } from "./lib/limits.ts";
@@ -71,6 +72,17 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	rt.sessionLeaseHeld = createLeaseProbe(pi);
 	mkdirSync(rt.config.stateDir, { recursive: true });
 	pi.setLabel?.("WezTerm Workers");
+
+	// The channel that wakes the main session. The wake of an event and the
+	// delivery of a result use the same channel. See docs/adr/0004.
+	rt.sendToMainSession = (text: string) => {
+		if (typeof pi.sendUserMessage === "function") {
+			pi.sendUserMessage(text, { triggerTurn: true });
+			return "sendUserMessage";
+		}
+		pi.sendMessage(text, { deliverAs: "steer", triggerTurn: true, attribution: "agent" });
+		return "sendMessage";
+	};
 	// A setting that the new release refuses must not pass without a word.
 	if (lastGuidance) pi.logger?.warn?.(`[wezterm-worker] ${lastGuidance}`);
 
@@ -130,7 +142,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		// never sends a launch command again. An attempt that found no
 		// worker raises an event, so the owner finds it in the status.
 		const workers = await findLiveWorkers(rt);
-		reconcileAttempts(db, workers, rt.sessionId, Date.now());
+		reconcileAttempts(rt, workers, rt.sessionId, Date.now());
 
 		for (const job of restored.alive) {
 			rt.jobs.set(job.id, job);
@@ -174,6 +186,14 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		// A restart can lose the result of a finished run. The recovery sends
 		// the result of a run that this session owns and never delivered.
 		recoverTask(rt, [...rt.jobs.values()], deps.deliver, Date.now());
+
+		// A restart can lose the wake of an event. The recovery wakes the main
+		// session for every event that this session owns, that nobody handled,
+		// and that never reached the main session.
+		const woken = replayEvents(rt, Date.now());
+		if (woken.length > 0) {
+			pi.logger?.info?.(`[wezterm-worker] The startup recovery woke the session for ${woken.length} event(s).`);
+		}
 	});
 
 	// Report a failed poll through the host logger, so a broken worker poll

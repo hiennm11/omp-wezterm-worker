@@ -190,6 +190,16 @@ The replay uses the same delivery as the first attempt. It keeps the event ident
 
 A delivery that fails does not stop the replay of the next run.
 
+An actionable event wakes the main session. The wake uses the channel of the delivery of a result.
+
+The wake happens once per event. A later poll sends no second message.
+
+The key of the wake is the id of the event. The wake never marks the result of its run as sent.
+
+The wake holds no result text. It never tells the worker to continue.
+
+The startup recovery wakes the session for every event that the session owns, that nobody handled, and that never reached the session. See ADR 0013.
+
 Let an operator retry. Normal observation polls do not resend a pending event.
 
 Resolve an obsolete input request only when recorded evidence proves that its condition no longer applies.
