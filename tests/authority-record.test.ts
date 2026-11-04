@@ -315,7 +315,6 @@ test("the delivery of a session that does not own the task sends no message", ()
 		assert.equal(rt.errors.length, 1);
 		assert.match(rt.errors[0] ?? "", /wz-1/);
 		assert.match(rt.errors[0] ?? "", /session-old/);
-
 	} finally {
 		finish(rt, dir);
 	}

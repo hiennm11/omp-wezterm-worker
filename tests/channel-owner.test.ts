@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createDeliver } from "../extensions/lib/deliver.ts";
 import { createRuntime } from "../extensions/lib/runtime.ts";
-import { RUNTIME, createHost, sessionContext } from "./harness.ts";
+import { createHost, RUNTIME, sessionContext } from "./harness.ts";
 import { makeJob } from "./takeover-helpers.ts";
 
 const cwd = process.cwd();
 
-async function verifyChannelOwner(firstAgent: { id: string; kind: "main" | "sub" }, secondAgent: { id: string; kind: "main" | "sub" }) {
+async function verifyChannelOwner(
+	firstAgent: { id: string; kind: "main" | "sub" },
+	secondAgent: { id: string; kind: "main" | "sub" },
+) {
 	const first = createHost({ cwd, agent: firstAgent });
 	const second = createHost({ cwd, agent: secondAgent });
 	try {
