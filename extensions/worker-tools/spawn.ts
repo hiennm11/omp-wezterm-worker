@@ -5,6 +5,7 @@
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 
+import { isSubagent } from "../lib/subagent.ts";
 import {
 	backendLabel,
 	backendRefusal,
@@ -197,7 +198,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 			}
 			const admitted = admitLaunch(rt, ctx.sessionManager?.getSessionFile?.());
 			if ("refusal" in admitted) return refusalReply(admitted.refusal);
-			bindSession(rt, ctx.sessionManager);
+			if (!isSubagent(ctx)) bindSession(rt, ctx.sessionManager);
 			const acquisition = await acquireTask(rt, admitted.jobId);
 			if (!maySupervise(acquisition)) {
 				return reply(

@@ -144,15 +144,15 @@ The main session with exclusive authority to control a worker and deliver its ev
 _Avoid_: Watcher, daemon, recipient
 
 **Main session**:
-The session of the person. It holds the supervision owner role. A subagent
-never holds it, because OMP loads the extension again for a subagent in the
-same process.
+The session of the person. It holds supervision authority. Subagents cannot
+control its workers. A subagent that starts a worker leaves it in this session.
 _Avoid_: Owner, primary session
 
 **Subagent session**:
 A session that OMP starts for an agent below the main session. It loads the
 extension again in the same process. It binds no session, recovers nothing,
-attaches no monitor and stops no monitor of the main session.
+attaches no monitor and stops no monitor of the main session. It can read
+workers and start one. It cannot control a worker.
 _Avoid_: Child session, nested session, worker
 
 **Read-only session**:

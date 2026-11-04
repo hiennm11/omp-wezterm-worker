@@ -8,6 +8,8 @@ import { cancelJob } from "../lib/lifecycle.ts";
 import { taskKey } from "../lib/owner.ts";
 import { readOwnership } from "../lib/ownership.ts";
 import { findJob, reply, type ToolDeps } from "./kit.ts";
+import { subagentControlRefusal } from "../lib/subagent.ts";
+import type { ToolCtx } from "../lib/host.ts";
 
 export function registerCancelTool({ pi, rt }: ToolDeps): void {
 	const z = pi.zod;
@@ -21,7 +23,9 @@ export function registerCancelTool({ pi, rt }: ToolDeps): void {
 			workerId: z.string().describe("Id of the worker to cancel."),
 		}),
 		loadMode: "essential",
-		async execute(_id: string, params: { workerId: string }) {
+		async execute(_id: string, params: { workerId: string }, _signal: unknown, _onUpdate: unknown, ctx?: ToolCtx) {
+			const refusal = subagentControlRefusal(ctx);
+			if (refusal) return reply(refusal, { refused: "subagent" }, true);
 			const found = findJob(rt, params.workerId);
 			if ("error" in found) return found.error;
 			const { job } = found;
