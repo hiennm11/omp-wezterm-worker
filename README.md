@@ -730,7 +730,9 @@ work.
 
 OMP loads this extension again for every subagent of a session. The second
 load runs in the same process, and the runtime lives at module scope, so the
-two sessions share it.
+two sessions share it. The main session sets `sendToMainSession` in its
+`session_start` handler after the subagent guard. A subagent never sets this
+shared channel.
 
 A subagent must not take the authority of the main session. The handler of
 `session_start` reads the agent of the session. A subagent returns at once:
@@ -751,6 +753,7 @@ agent as the main agent, so it keeps working there.
 
 A subagent that calls `wezterm_spawn_worker` does not bind its session. The
 worker belongs to the main session, and the main monitor keeps authority.
+Result deliveries and event wakes use the shared channel of the main session.
 
 A subagent can read worker status, pane text and results. It can start a
 worker, but it cannot steer, cancel, acknowledge, release, take over, resolve,

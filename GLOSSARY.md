@@ -146,6 +146,8 @@ _Avoid_: Watcher, daemon, recipient
 **Main session**:
 The session of the person. It holds supervision authority. Subagents cannot
 control its workers. A subagent that starts a worker leaves it in this session.
+The main session sets the shared message channel in `session_start`. A subagent
+never sets this channel.
 _Avoid_: Owner, primary session
 
 **Subagent session**:

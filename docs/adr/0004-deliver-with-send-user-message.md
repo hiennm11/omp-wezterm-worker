@@ -1,8 +1,8 @@
 # A result is delivered with sendUserMessage, not a steered sendMessage
 
-The extension puts the result of a finished worker into the main session with
-`pi.sendUserMessage(text, { triggerTurn: true })`. The call lands the text as
-a user message and starts a turn. The main agent then works on the result.
+The main session sets the shared channel in its `session_start` handler.
+The handler returns before channel assignment when the session is a subagent.
+The result uses this channel, which calls `pi.sendUserMessage` when available.
 The user reads nothing.
 
 `pi.sendMessage(text, { deliverAs: "steer", triggerTurn: true })` does not
