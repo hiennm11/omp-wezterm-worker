@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { readCallLedger } from "../extensions/lib/calls.ts";
-import { CYCLE_SETTLE_MS, needsIntervention, readCycleState } from "../extensions/lib/cycle-state.ts";
+import { CYCLE_SETTLE_MS, CYCLE_THINKING_STALL_MS, cycleInterventionCondition, needsIntervention, needsThinkingStall, readCycleState } from "../extensions/lib/cycle-state.ts";
+import { eventKey } from "../extensions/lib/events.ts";
 import { decideFromReports } from "../extensions/lib/report-decision.ts";
 
 /** Write a transcript that holds the given lines. */
@@ -115,7 +116,7 @@ test("a new cycle restarts the settling time", () => {
  */
 function thinkingAfterToolResult(dir: string): string {
 	return writeTranscript(dir, [
-		{ type: "message", id: "e0", message: { role: "user", content: [{ type: "text", text: "do it" }] } },
+		{ type: "message", id: "e0", timestamp: 1000, message: { role: "user", content: [{ type: "text", text: "do it" }] } },
 		{
 			type: "message",
 			id: "e1",
@@ -130,23 +131,78 @@ function thinkingAfterToolResult(dir: string): string {
 		{
 			type: "message",
 			id: "e2",
+			timestamp: 1000,
 			message: { role: "toolResult", toolCallId: "call-1", content: [{ type: "text", text: "file" }] },
 		},
 	]);
 }
 
-test("a tool result at the end of a transcript keeps the cycle open", () => {
+test("a recent tool result does not trigger a thinking stall", () => {
 	const dir = mkdtempSync(join(tmpdir(), "wt-settle-"));
 	try {
-		const ledger = readCallLedger(thinkingAfterToolResult(dir));
-		const state = readCycleState(ledger, null, 1000);
-		assert.equal(state.closed, false, "the model still thinks after the tool result");
-		assert.equal(needsIntervention(state, false, 1000 + CYCLE_SETTLE_MS), false);
-		assert.equal(decideFromReports(ledger, []).condition, null, "no event while the model thinks");
+		const state = readCycleState(readCallLedger(thinkingAfterToolResult(dir)), null, 1000);
+		assert.equal(needsThinkingStall(state, 1000 + CYCLE_THINKING_STALL_MS - 1), false);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
+
+test("a stalled thinking cycle needs an event once despite a working report", () => {
+	const dir = mkdtempSync(join(tmpdir(), "wt-settle-"));
+	try {
+		const ledger = readCallLedger(thinkingAfterToolResult(dir));
+		const state = readCycleState(ledger, null, 1000);
+		assert.equal(needsThinkingStall(state, 1000 + CYCLE_THINKING_STALL_MS - 1), false);
+		assert.equal(needsThinkingStall(state, 1000 + CYCLE_THINKING_STALL_MS), true);
+		assert.equal(needsThinkingStall(state, 1000 + CYCLE_THINKING_STALL_MS + 1), true);
+		assert.equal(decideFromReports(ledger, []).condition, null);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("a thinking stall event uses the cycle evidence id and stays deduplicated", () => {
+	const dir = mkdtempSync(join(tmpdir(), "wt-settle-"));
+	try {
+		const ledger = readCallLedger(thinkingAfterToolResult(dir));
+		const state = readCycleState(ledger, null, 1000);
+		assert.equal(cycleInterventionCondition(state, true, 601_000, null), "thinking_stall");
+		assert.equal(cycleInterventionCondition(state, true, 602_000, null), "thinking_stall");
+		assert.equal(eventKey("run", state.evidenceId, "thinking_stall"), `run|${state.evidenceId}|thinking_stall`);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("an assistant entry resets the thinking stall clock", () => {
+	const dir = mkdtempSync(join(tmpdir(), "wt-settle-"));
+	try {
+		const firstLedger = readCallLedger(thinkingAfterToolResult(dir));
+		const first = readCycleState(firstLedger, null, 1000);
+		const nextFile = writeTranscript(dir, [
+			{ type: "message", id: "e0", timestamp: 1000, message: { role: "user", content: [{ type: "text", text: "do it" }] } },
+			{ type: "message", id: "e1", timestamp: 500_000, message: { role: "assistant", content: [{ type: "text", text: "thinking" }] } },
+		]);
+		const next = readCycleState(readCallLedger(nextFile), first, 500_000);
+		assert.equal(needsThinkingStall(next, 500_000 + CYCLE_THINKING_STALL_MS - 1), false);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("a closed cycle still needs missing_report, not a thinking stall", () => {
+	const dir = mkdtempSync(join(tmpdir(), "wt-settle-"));
+	try {
+		const ledger = readCallLedger(closedCycle(dir));
+		const state = readCycleState(ledger, null, 1000);
+		assert.equal(needsThinkingStall(state, 601_000), false);
+		assert.equal(needsIntervention(state, false, 1000 + CYCLE_SETTLE_MS), true);
+		assert.equal(decideFromReports(ledger, []).condition, "missing_report");
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 
 test("an assistant message that holds a tool call keeps the cycle open", () => {
 	const dir = mkdtempSync(join(tmpdir(), "wt-settle-"));
