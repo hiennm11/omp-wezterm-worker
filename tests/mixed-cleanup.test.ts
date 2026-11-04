@@ -66,7 +66,11 @@ test("the cleanup of the Codex run refuses while its event waits for the owner",
 		const refused = await cleanup.execute("t2", { workerId: started.codex }, ctx);
 		assert.equal(refused.isError, true, "the cleanup was not refused");
 		assert.match(replyText(refused), /unhandled event/, "the refusal names no unhandled event");
-		assert.deepEqual(refused.details.pendingEvents, [eventId], "the refusal names another event");
+		assert.deepEqual(
+			[...(refused.details.pendingEvents as string[])].sort(),
+			[eventId, `ev-${started.codex}-result`].sort(),
+			"the refusal does not name the permission event and the result event",
+		);
 		assert.equal(existsSync(codex.sessionDir), true, "the cleanup removed the session folder");
 	} finally {
 		await machine.cleanup();
@@ -95,6 +99,12 @@ test("the cleanup of the Codex run removes only its session folder after the ack
 			disposition: "accepted",
 		});
 		assert.equal(answered.details.acknowledged, true, "the acknowledgement of the Codex worker failed");
+		const resultAck = await ack.execute("t2b", {
+			workerId: started.codex,
+			eventId: `ev-${started.codex}-result`,
+			disposition: "accepted",
+		});
+		assert.equal(resultAck.details.acknowledged, true, "the acknowledgement of the result failed");
 
 		const cleanup = toolOf(machine.rt, registerCleanupTool, "cleanup");
 		const done = await cleanup.execute("t3", { workerId: started.codex }, ctx);
