@@ -197,7 +197,9 @@ _Avoid_: Task state, worker state
 
 **Instruction cycle**:
 One stretch of worker work that starts at the task instruction or a steering input.
-It ends at a terminal assistant boundary with no open tool call.
+It ends at a terminal assistant boundary. That boundary is an assistant message
+that ends its turn with text and holds no tool call. A tool result that follows
+the last assistant message keeps the cycle open.
 _Avoid_: Turn, assistant message, step
 
 **Execution record**:

@@ -54,6 +54,10 @@ A cycle starts at the accepted task instruction or at a steering input.
 
 A cycle ends at a verified terminal assistant boundary with no open foreground call.
 
+The terminal boundary is an assistant message that ends its turn with text and holds no tool call.
+
+A tool result that follows the last assistant message does not close a cycle. The model thinks after the result of a call, and that thinking can take longer than the settling time.
+
 A cycle must hold at its terminal boundary for a settling time before the rule applies.
 
 A partial transcript or an open tool call does not close a cycle.

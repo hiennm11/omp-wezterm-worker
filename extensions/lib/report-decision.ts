@@ -65,6 +65,11 @@ export function decideFromReports(ledger: CallLedger, reports: WorkerReport[]): 
 		return { state, result, condition: null, evidenceId };
 	}
 
+	// A cycle with a thinking model has not ended. The worker is still working.
+	if (end.kind === "thinking") {
+		return { state, result, condition: null, evidenceId };
+	}
+
 	// A report inside the cycle satisfies the report rule.
 	if (hasReport) {
 		// A working report followed by a verified idle execution is a
