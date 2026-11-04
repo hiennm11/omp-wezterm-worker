@@ -137,6 +137,26 @@ function thinkingAfterToolResult(dir: string): string {
 	]);
 }
 
+test("a tool call that stays open for longer than the limit is not a thinking stall", () => {
+	const dir = mkdtempSync(join(tmpdir(), "wt-settle-"));
+	try {
+		const file = writeTranscript(dir, [
+			{ type: "message", id: "e0", timestamp: 1000, message: { role: "user", content: [{ type: "text", text: "do it" }] } },
+			{
+				type: "message",
+				id: "e1",
+				timestamp: 1000,
+				message: { role: "assistant", content: [{ type: "toolCall", id: "call-1", name: "bash" }] },
+			},
+		]);
+		const state = readCycleState(readCallLedger(file), null, 1000);
+		assert.equal(needsThinkingStall(state, 1000 + CYCLE_THINKING_STALL_MS + 1), false);
+		assert.equal(cycleInterventionCondition(state, true, 1000 + CYCLE_THINKING_STALL_MS + 1, null), null);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 test("a recent tool result does not trigger a thinking stall", () => {
 	const dir = mkdtempSync(join(tmpdir(), "wt-settle-"));
 	try {
