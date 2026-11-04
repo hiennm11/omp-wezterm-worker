@@ -1,18 +1,13 @@
 /**
  * Delivering a finished worker back to the main session.
  *
- * The delivery must wake the main agent, not just drop text into the
- * transcript. `pi.sendUserMessage(text, { triggerTurn: true })` does that:
- * the text lands in the session as a user message and a new turn starts, so
- * the agent acts on the result immediately.
- *
- * `pi.sendMessage` with `deliverAs: "steer"` is the fallback for a host that
- * does not expose `sendUserMessage`. See docs/adr/0004.
+ * The channel is set at `session_start` by the main session. Event wakes and
+ * result deliveries share it, so a subagent cannot redirect either message.
+ * See docs/adr/0004 for why the channel prefers `sendUserMessage`.
  */
 
 import { backendLabel, readBackend } from "./backend.ts";
 import { beginDelivery, markSent, markUncertain } from "./delivery.ts";
-import type { ExtensionAPI } from "./host.ts";
 import type { Job } from "./job.ts";
 import { nativeJobUsageReport, requestUsageOf } from "./native-usage-report.ts";
 import { generationOf } from "./owner.ts";
@@ -66,7 +61,7 @@ export function formatDelivery(job: Job, usage: DeliveryUsage, nativeCycles = 0,
 	return `${header}\n\n${body}\n\n(${meta})${request}`;
 }
 
-export function createDeliver(pi: ExtensionAPI, rt: WorkerRuntime): (job: Job) => void {
+export function createDeliver(rt: WorkerRuntime): (job: Job) => void {
 	return (job) => {
 		/* A native worker reports its usage through its bridge. The OMP
 		   reader finds no transcript, so the native totals are the measured
@@ -107,17 +102,13 @@ export function createDeliver(pi: ExtensionAPI, rt: WorkerRuntime): (job: Job) =
 		);
 		if (attempt.refused) {
 			// The event stays pending for the owner that holds the task.
-			pi.logger?.warn?.(`[wezterm-worker] The delivery of worker ${job.id} was refused: ${attempt.refusal}`);
+			rt.errors.push(`[wezterm-worker] The delivery of worker ${job.id} was refused: ${attempt.refusal}`);
 			return;
 		}
 		try {
-			if (typeof pi.sendUserMessage === "function") {
-				pi.sendUserMessage(text, { triggerTurn: true });
-				markSent(db, attemptId, "sendUserMessage", Date.now());
-				return;
-			}
-			pi.sendMessage(text, { deliverAs: "steer", triggerTurn: true, attribution: "agent" });
-			markSent(db, attemptId, "sendMessage", Date.now());
+			const channel = rt.sendToMainSession(text);
+			if (channel === "none") return;
+			markSent(db, attemptId, channel, Date.now());
 		} catch (e) {
 			// The host refused the message. The event stays pending, and the
 			// attempt stays uncertain.

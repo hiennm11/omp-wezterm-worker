@@ -325,7 +325,7 @@ test("the delivery of a result still works after the wake of an event", () => {
 
 		// The worker ends. The delivery of the result goes out after the wake.
 		const finished: Job = { ...job, status: "completed", finishedAt: 1_032_000, result: "THE-ANSWER" };
-		createDeliver({ sendUserMessage: (text: string) => sent.push(text) } as never, rt)(finished);
+		createDeliver(rt)(finished);
 
 		assert.equal(sent.length, 2, "the result of the run reaches the main session too");
 		const attempts = deliveriesOfEvent(rt.openDb(), job.id);

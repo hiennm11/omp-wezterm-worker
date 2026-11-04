@@ -306,14 +306,16 @@ test("the delivery of a session that does not own the task sends no message", ()
 		const job = makeJob(dir, "wz-1");
 		seedOwner(rt, job.id, OTHER);
 		const host = fakeHost();
-
-		createDeliver(host.pi, rt)(job);
-
-		assert.equal(host.sent.length, 0);
+		rt.sendToMainSession = (text) => {
+			host.sent.push(text);
+			return "sendUserMessage";
+		};
+		createDeliver(rt)(job);
 		assert.equal(deliveriesOfEvent(rt.openDb(), job.id).length, 0);
-		assert.equal(host.warnings.length, 1);
-		assert.match(host.warnings[0] ?? "", /wz-1/);
-		assert.match(host.warnings[0] ?? "", /session-old/);
+		assert.equal(rt.errors.length, 1);
+		assert.match(rt.errors[0] ?? "", /wz-1/);
+		assert.match(rt.errors[0] ?? "", /session-old/);
+
 	} finally {
 		finish(rt, dir);
 	}
@@ -327,8 +329,11 @@ test("the delivery of the owner of the task sends the message", () => {
 		seedOwner(rt, job.id, OWN);
 		const host = fakeHost();
 
-		createDeliver(host.pi, rt)(job);
-
+		rt.sendToMainSession = (text) => {
+			host.sent.push(text);
+			return "sendUserMessage";
+		};
+		createDeliver(rt)(job);
 		assert.equal(host.sent.length, 1);
 		const attempts = deliveriesOfEvent(rt.openDb(), job.id);
 		assert.equal(attempts.length, 1);

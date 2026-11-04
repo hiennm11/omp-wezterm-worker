@@ -22,6 +22,9 @@ A subagent returns at once. It binds nothing and attaches no monitor. It
 replays no event. The registration of the tools stays at the factory, so a
 subagent still sees the tools.
 
+The main session sets `sendToMainSession` after the subagent guard in
+`session_start`. A subagent never sets this shared channel.
+
 The handler of `session_shutdown` reads the same field. A subagent does
 nothing. The end of a subagent must not stop the monitors of the main session
 and must not close the database of the main session.
@@ -32,6 +35,9 @@ those values before.
 
 A host without the field runs a previous version of OMP. The extension treats
 a missing agent as the main agent, so it keeps working there.
+
+The main session sets the shared message channel in `session_start`. A
+subagent returns before this assignment and never changes the channel.
 
 ## Why this change and not another
 
