@@ -515,7 +515,7 @@ the session. The events of a run that ended and delivered its result stay out.
 A wake that arrives while the main session runs waits on the steering queue of
 the host. The host delivers it at the boundary of the current turn, and the
 next turn works on it. A live probe of omp 18.16.0 measured that behaviour.
-See `docs/adr/0013-wake-the-main-session-for-an-event.md`.
+See `docs/adr/0016-wake-the-main-session-for-an-event.md`.
 
 **The pane is closed when the worker finishes.** A finished worker leaves its
 pane open by default, and those panes collect. `closePaneOnFinish` closes
