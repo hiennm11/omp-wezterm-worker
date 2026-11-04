@@ -17,9 +17,10 @@ test("finalizing a completed run creates one actionable result event", async (t)
 	rt.jobs.set(job.id, job);
 	await finalizeJob(rt, job, "completed", null, "done");
 	await finalizeJob(rt, job, "completed", null, "done");
-	assert.deepEqual(eventsOfRun(rt.openDb(), job.id).map(({ id, condition, actionable }) => ({ id, condition, actionable })), [
-		{ id: `ev-${job.id}-result`, condition: "result", actionable: true },
-	]);
+	assert.deepEqual(
+		eventsOfRun(rt.openDb(), job.id).map(({ id, condition, actionable }) => ({ id, condition, actionable })),
+		[{ id: `ev-${job.id}-result`, condition: "result", actionable: true }],
+	);
 });
 
 test("finalizing a failed run creates an actionable result event", async (t) => {
@@ -27,7 +28,10 @@ test("finalizing a failed run creates an actionable result event", async (t) => 
 	const job = jobOf("result-failed", { status: "running", paneId: null });
 	rt.jobs.set(job.id, job);
 	await finalizeJob(rt, job, "failed", "failed", null);
-	assert.deepEqual(eventsOfRun(rt.openDb(), job.id).map((event) => [event.condition, event.actionable]), [["result", true]]);
+	assert.deepEqual(
+		eventsOfRun(rt.openDb(), job.id).map((event) => [event.condition, event.actionable]),
+		[["result", true]],
+	);
 });
 
 test("cancelling a run creates no result event", async (t) => {
@@ -65,8 +69,21 @@ test("a result delivery uses the event id and format", (t) => {
 	createDeliver(rt)(job);
 	const eventId = `ev-${job.id}-result`;
 	assert.equal(deliveriesOfEvent(rt.openDb(), eventId)[0]?.eventId, eventId);
-	assert.ok(messages[0]?.includes(`Event id: ${eventId}. Acknowledge it with wezterm_worker_ack after you read the result.`));
-	assert.doesNotMatch(formatDelivery({ ...job, pendingStop: { status: "cancelled", error: "stop", failure: null } }, { worker: { state: "unknown", totals: null, cost: null, note: "" }, request: { state: "unknown", totals: null, cost: null, note: "" } }), /Event id:/);
+	assert.ok(
+		messages[0]?.includes(
+			`Event id: ${eventId}. Acknowledge it with wezterm_worker_ack after you read the result.`,
+		),
+	);
+	assert.doesNotMatch(
+		formatDelivery(
+			{ ...job, pendingStop: { status: "cancelled", error: "stop", failure: null } },
+			{
+				worker: { state: "unknown", totals: null, cost: null, note: "" },
+				request: { state: "unknown", totals: null, cost: null, note: "" },
+			},
+		),
+		/Event id:/,
+	);
 });
 
 test("replay delivers an undelivered run under its result event id", (t) => {
@@ -95,17 +112,34 @@ test("a result event stays silent when the run ends", async (t) => {
 
 test("cleanup refuses a result event until wezterm_worker_ack handles it", async (t) => {
 	const { rt, dir } = runtimeFor(t, fakeWezterm().exec);
-	const job = jobOf("result-cleanup", { status: "completed", paneId: null, sessionDir: sessionDirOf(dir, "result-cleanup") });
+	const job = jobOf("result-cleanup", {
+		status: "completed",
+		paneId: null,
+		sessionDir: sessionDirOf(dir, "result-cleanup"),
+	});
 	rt.jobs.set(job.id, job);
 	acquireOwnership(rt.openDb(), taskKey(job.id), "session-1", 1, "t", 1000);
 	rt.sessionId = "session-1";
 	const eventId = `ev-${job.id}-result`;
-	createEvent(rt.openDb(), eventId, eventKey(job.id, "result", "result"), job.id, "result", "result", null, true, 1);
+	createEvent(
+		rt.openDb(),
+		eventId,
+		eventKey(job.id, "result", "result"),
+		job.id,
+		"result",
+		"result",
+		null,
+		true,
+		1,
+	);
 	const cleanup = cleanupTool(rt);
 	const refused = await cleanup.execute("call-1", { workerId: job.id });
 	assert.equal(refused.isError, true);
 	assert.ok(refused.content[0]?.text.includes(eventId));
-	const tools = new Map<string, { execute: (id: string, params: Record<string, unknown>) => Promise<unknown> }>();
+	const tools = new Map<
+		string,
+		{ execute: (id: string, params: Record<string, unknown>) => Promise<unknown> }
+	>();
 	registerAckTool({
 		pi: { zod: fakeZod(), registerTool: (tool: never) => tools.set("ack", tool as never) } as never,
 		rt,

@@ -7,8 +7,8 @@
  */
 
 import { backendLabel, readBackend } from "./backend.ts";
-import { createEvent, eventKey, findEventByKey } from "./events.ts";
 import { beginDelivery, markSent, markUncertain } from "./delivery.ts";
+import { createEvent, eventKey, findEventByKey } from "./events.ts";
 import type { Job } from "./job.ts";
 import { nativeJobUsageReport, requestUsageOf } from "./native-usage-report.ts";
 import { generationOf } from "./owner.ts";
@@ -22,7 +22,13 @@ export interface DeliveryUsage {
 	worker: UsageReport;
 	request: UsageReport;
 }
-export function formatDelivery(job: Job, usage: DeliveryUsage, nativeCycles = 0, restored = false, eventId?: string): string {
+export function formatDelivery(
+	job: Job,
+	usage: DeliveryUsage,
+	nativeCycles = 0,
+	restored = false,
+	eventId?: string,
+): string {
 	const pending = job.pendingStop;
 	/* A restart cut the counts of a restored run. The delivery says that the
 	   counts start at the restart. */
@@ -57,7 +63,9 @@ export function formatDelivery(job: Job, usage: DeliveryUsage, nativeCycles = 0,
 	]
 		.filter((line): line is string => line !== null)
 		.join(" | ");
-	const eventLine = eventId ? `Event id: ${eventId}. Acknowledge it with wezterm_worker_ack after you read the result.\n\n` : "";
+	const eventLine = eventId
+		? `Event id: ${eventId}. Acknowledge it with wezterm_worker_ack after you read the result.\n\n`
+		: "";
 	const request = `\n\nThis request so far: ${formatUsage(usage.request)}. The main session is not counted.`;
 	return `${header}\n\n${body}\n\n(${meta})\n\n${eventLine}${request}`;
 }
@@ -85,8 +93,10 @@ export function createDeliver(rt: WorkerRuntime): (job: Job) => void {
 		const resultKey = eventKey(job.id, "result", "result");
 		/* The authority check and both writes share one transaction. */
 		const delivery = writeUnderAuthority(db, rt.sessionId, job.id, () => {
-			const event = findEventByKey(db, resultKey) ??
-				createEvent(db, `ev-${job.id}-result`, resultKey, job.id, "result", "result", null, true, Date.now()).event;
+			const event =
+				findEventByKey(db, resultKey) ??
+				createEvent(db, `ev-${job.id}-result`, resultKey, job.id, "result", "result", null, true, Date.now())
+					.event;
 			const text = formatDelivery(
 				job,
 				{
