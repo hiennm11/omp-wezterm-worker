@@ -238,6 +238,12 @@ An attempt that settled and an attempt of uncertain outcome stay distinct from a
 
 Ownership is exclusive per task. Different main sessions can supervise different tasks concurrently.
 
+A subagent of a session never holds ownership. OMP loads the extension again for a subagent in the same process. The runtime lives at module scope, so the two sessions share it. A subagent binds no session, recovers nothing, attaches no monitor and replays no event.
+
+The end of a subagent stops no monitor of the main session and closes no database of the main session.
+
+A host that names no kind of the agent runs an older OMP. The extension treats the missing kind as the main agent.
+
 Coordinate shared storage writes. Make sure that one session cannot overwrite another session's records.
 
 Take ownership atomically. Every lifecycle write and delivery needs current authority.

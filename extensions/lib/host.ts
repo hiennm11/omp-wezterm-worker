@@ -31,6 +31,8 @@ export interface EventCtx {
 	clearTimer?: (timer: NodeJS.Timeout) => void;
 	/** Read-only view of the calling session. */
 	sessionManager?: SessionView;
+	/** The agent that this session runs. A host without the field is older. */
+	agent?: { kind: "main" | "sub"; id?: string; name?: string; depth?: number };
 }
 
 /** The read-only view of a session that the host gives to a handler and to a tool. */
