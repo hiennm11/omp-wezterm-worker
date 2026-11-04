@@ -8,14 +8,15 @@ the run as `failed` with the text "Worker pane was closed before this session
 re-attached". The code did not deliver that result. The main session waited
 for a worker that ended.
 
-The replay of a start could not repair the loss. The replay runs after the
-loop that takes over the workers. That loop ended the worker. The replay read
-a run that was no longer active, because the run row held the status
-`failed` of the old process.
+The replay of a start cannot repair this loss. The replay runs after the
+loop that takes over the workers. That loop ends the worker first, so the
+replay would have to read a run that ended in the same start.
 
-The replay marked the time of the first recovery. It sent only the runs that
-ended at or after that time. The worker ended before the recovery, so the
-replay skipped it.
+The replay marks the time of the first recovery. It sends only the runs that
+ended at or after that time. In a state directory without a mark, a worker
+that ended during that first start is older than the mark, so the replay
+skips it. The production database already held a mark, so this rule does not
+explain the five runs of the production database.
 
 The delivery now happens in the code that takes over the worker. That code
 ends the worker and delivers the result in the same step. The mark
@@ -26,7 +27,14 @@ The takeover tool uses the same code. A session that takes a task over also
 delivers the result of a worker whose pane is gone. The tool still replays no
 pending event.
 
-The cause came from a copy of the state database of the user. The
-database held five runs that ended with the text of the closed pane. None of
-them had a delivery. The replay functions of the extension selected all three
-runs of one session. The replay was never the cause. The takeover was.
+## What this change does not prove
+
+The production database held five runs that ended with the text of the
+closed pane. None of them had a delivery. This change fixes the path of the
+attach and of the takeover. A test proves that path.
+
+This change does not prove why those five runs had no delivery. One open
+hypothesis says that a second load of the extension in the same process
+changes the identity of the session in the shared runtime. Then the replay
+finds no run that the session owns. Nobody tested this hypothesis. The
+issue tracker holds it as a separate task.
