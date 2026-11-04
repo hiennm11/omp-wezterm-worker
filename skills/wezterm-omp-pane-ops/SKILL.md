@@ -332,8 +332,13 @@ steer.
 
 The cycle kind `thinking` means that the last entry is a tool result, or that
 the last assistant message did not end its turn with text. A thinking model can
-take longer than 30 seconds between two tool calls. The kind has no time limit
-yet (issue 133). A worker whose model stops answering raises no event.
+take longer than 30 seconds between two tool calls. The kind raises no
+`missing_report`. After 600 seconds without a new transcript entry, the monitor
+raises the event `thinking_stall` once for each last entry. The event wakes the
+main session and never stops the worker. An open tool call, for example a long
+build, is not a stall. The limit is a constant, not a config key. In the
+measured data, no gap between a tool result and the next answer was above 600
+seconds. No run has shown the event in a real pane yet.
 
 **The extension closes the pane when the worker finishes.** Reading the
 result must come first. The transcript is the result source. The worker stops
