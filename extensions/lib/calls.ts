@@ -54,6 +54,10 @@ export interface CallLedger {
 	lastUserEntryId: string | null;
 	/** The id of the session header, when the transcript holds one. */
 	sessionId: string | null;
+	/** True when the last assistant message ended its turn with text and held no tool call. */
+	lastAssistantEndedTurn: boolean;
+	/** True when a tool result follows the last assistant message. */
+	toolResultAfterLastAssistant: boolean;
 }
 
 /** The fields of a transcript entry that the parser reads. */
@@ -93,6 +97,8 @@ export function readCallLedger(file: string): CallLedger {
 		userMessages: 0,
 		lastUserEntryId: null,
 		sessionId: null,
+		lastAssistantEndedTurn: false,
+		toolResultAfterLastAssistant: false,
 	};
 	let raw: string;
 	try {
@@ -127,7 +133,11 @@ export function readCallLedger(file: string): CallLedger {
 		if (message.role === "assistant") {
 			ledger.turns += 1;
 			const blocks = Array.isArray(message.content) ? (message.content as Block[]) : [];
+			let hasText = false;
+			let hasToolCall = false;
 			for (const block of blocks) {
+				if (block.type === "text") hasText = true;
+				if (block.type === "toolCall") hasToolCall = true;
 				if (block.type !== "toolCall" || !block.id) continue;
 				const call: ObservedCall = {
 					callId: block.id,
@@ -139,9 +149,16 @@ export function readCallLedger(file: string): CallLedger {
 				ledger.calls.push(call);
 				byCallId.set(block.id, call);
 			}
+			// A turn ends at a text block that holds no tool call. A turn that
+			// holds a tool call continues after the result of that call.
+			ledger.lastAssistantEndedTurn = hasText && !hasToolCall;
+			ledger.toolResultAfterLastAssistant = false;
 			continue;
 		}
 		if (message.role === "toolResult") {
+			// The model thinks after the result of a call. The result is the
+			// last entry of the transcript while the model thinks.
+			if (ledger.turns > 0) ledger.toolResultAfterLastAssistant = true;
 			if (message.toolName === "wait") {
 				ledger.backgroundResults.push(...waitResultsOf(message.details));
 			}

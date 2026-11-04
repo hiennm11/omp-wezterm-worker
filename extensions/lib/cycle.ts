@@ -14,6 +14,8 @@ export type CycleEnd =
 	| { kind: "terminal"; turn: number }
 	/** The cycle has an open tool call and cannot end yet. */
 	| { kind: "open"; callId: string; name: string; turn: number }
+	/** The model thinks. The last turn did not end. */
+	| { kind: "thinking"; turn: number }
 	/** The transcript holds no assistant message yet. */
 	| { kind: "empty" };
 
@@ -21,12 +23,18 @@ export type CycleEnd =
  * The state of the instruction cycle of a transcript.
  *
  * The cycle starts at the last user message. It ends at the last assistant
- * message when no call of that message is open.
+ * message when that message ends its turn with text and holds no tool call.
+ *
+ * A settled tool call does not end the cycle. The model thinks after the
+ * result of a call, and that thinking can take longer than the settling
+ * time. A turn that holds a tool call also does not end the cycle.
  */
 export function cycleEnd(ledger: CallLedger): CycleEnd {
 	if (ledger.turns === 0) return { kind: "empty" };
 	const open = ledger.calls.find((call) => !call.settled);
 	if (open) return { kind: "open", callId: open.callId, name: open.name, turn: open.turn };
+	if (ledger.toolResultAfterLastAssistant) return { kind: "thinking", turn: ledger.turns };
+	if (!ledger.lastAssistantEndedTurn) return { kind: "thinking", turn: ledger.turns };
 	return { kind: "terminal", turn: ledger.turns };
 }
 
@@ -52,6 +60,8 @@ export function missingReportCondition(ledger: CallLedger, hasReport: boolean): 
 	const end = cycleEnd(ledger);
 	// An open call does not close the cycle. The worker is still working.
 	if (end.kind === "open") return null;
+	// A thinking model does not close the cycle. The worker still works.
+	if (end.kind === "thinking") return null;
 	return "missing_report";
 }
 

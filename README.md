@@ -460,9 +460,12 @@ growth prove nothing.
 
 The rule for a missing report counts one **instruction cycle**, not one
 assistant message. A cycle starts at the task instruction or at a steering
-input. It ends at a terminal assistant boundary with no open tool call. A
-report inside the cycle satisfies the rule. A working report followed by a
-verified idle worker is a separate condition.
+input. It ends at a terminal assistant boundary. That boundary is an
+assistant message that ends its turn with text and holds no tool call. A tool
+result that follows the last assistant message keeps the cycle open, because
+the model thinks after the result of a call. A report inside the cycle
+satisfies the rule. A working report followed by a verified idle worker is a
+separate condition.
 
 The supervisor refuses a completion report while a tool call or a background
 execution has no evidence of a settlement. The supervisor cannot see every
