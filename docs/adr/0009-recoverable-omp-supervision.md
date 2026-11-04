@@ -198,7 +198,7 @@ The key of the wake is the id of the event. The wake never marks the result of i
 
 The wake holds no result text. It never tells the worker to continue.
 
-The startup recovery wakes the session for every event that the session owns, that nobody handled, and that never reached the session. See ADR 0013.
+The startup recovery wakes the session for every event that the session owns, that nobody handled, and that never reached the session. See ADR 0016.
 
 Let an operator retry. Normal observation polls do not resend a pending event.
 
