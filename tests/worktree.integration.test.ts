@@ -12,9 +12,8 @@ import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-
-import { createHost, removeDir, sessionContext, waitFor } from "./harness.ts";
 import { worktreeDiagnostics } from "./diagnostic-helpers.ts";
+import { createHost, removeDir, sessionContext, waitFor } from "./harness.ts";
 
 /** The programs the test needs. */
 function hasProgram(name: string): boolean {
@@ -78,13 +77,16 @@ test("the worktree survives the worker and cleanup keeps the changes", {
 			1000,
 		);
 		const status = await host.call("wezterm_worker_status", { workerId });
-		const statusDetails = status.details && typeof status.details === "object" && "workers" in status.details
-			? status.details.workers
-			: null;
-		const worker = Array.isArray(statusDetails) && statusDetails[0] && typeof statusDetails[0] === "object"
-			? statusDetails[0]
-			: null;
-		const finalStatus = worker && "status" in worker && typeof worker.status === "string" ? worker.status : "unknown";
+		const statusDetails =
+			status.details && typeof status.details === "object" && "workers" in status.details
+				? status.details.workers
+				: null;
+		const worker =
+			Array.isArray(statusDetails) && statusDetails[0] && typeof statusDetails[0] === "object"
+				? statusDetails[0]
+				: null;
+		const finalStatus =
+			worker && "status" in worker && typeof worker.status === "string" ? worker.status : "unknown";
 		const error = worker && "error" in worker && typeof worker.error === "string" ? worker.error : null;
 		const gitStatus = existsSync(worktreePath)
 			? spawnSync("git", ["status", "--porcelain"], { cwd: worktreePath, encoding: "utf8" }).stdout
@@ -109,7 +111,11 @@ test("the worktree survives the worker and cleanup keeps the changes", {
 		const kept = await host.call("wezterm_worker_cleanup", { workerId });
 		assert.ok(existsSync(worktreePath), `Cleanup removed a worktree that holds changes\n${diagnostics}`);
 		assert.match(host.text(kept), /kept/, `Cleanup did not report that it kept the worktree\n${diagnostics}`);
-		assert.match(host.text(kept), /worker-output\.txt/, `Cleanup did not list the changed path\n${diagnostics}`);
+		assert.match(
+			host.text(kept),
+			/worker-output\.txt/,
+			`Cleanup did not list the changed path\n${diagnostics}`,
+		);
 
 		// --- cleanup with force removes it, and the branch survives ---
 		const forced = await host.call("wezterm_worker_cleanup", { workerId, force: true });

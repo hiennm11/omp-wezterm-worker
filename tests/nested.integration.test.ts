@@ -12,7 +12,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-
+import { workerDiagnostics } from "./diagnostic-helpers.ts";
 import {
 	createHost,
 	currentPanes,
@@ -22,7 +22,6 @@ import {
 	sessionContext,
 	waitFor,
 } from "./harness.ts";
-import { workerDiagnostics } from "./diagnostic-helpers.ts";
 
 const ACTIVE_WORKER_WAIT_MS = 30_000;
 
@@ -133,9 +132,10 @@ test("a spawn over the active worker limit is refused", {
 			const rows = await Promise.all(
 				workerIds.map(async (workerId) => {
 					const result = await host.call("wezterm_worker_status", { workerId });
-					const workers = result.details && typeof result.details === "object" && "workers" in result.details
-						? result.details.workers
-						: null;
+					const workers =
+						result.details && typeof result.details === "object" && "workers" in result.details
+							? result.details.workers
+							: null;
 					if (Array.isArray(workers) && workers[0] && typeof workers[0] === "object") {
 						const row = workers[0];
 						if ("workerId" in row && "status" in row && "error" in row && "paneId" in row) {

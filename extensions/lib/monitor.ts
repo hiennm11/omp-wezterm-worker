@@ -10,7 +10,7 @@ import { statSync } from "node:fs";
 
 import { readCallLedger } from "./calls.ts";
 import { claudeBoundReport, claudeCompletionBlocker } from "./claude-run-state.ts";
-import { cycleInterventionCondition, type CycleState, readCycleState } from "./cycle-state.ts";
+import { type CycleState, cycleInterventionCondition, readCycleState } from "./cycle-state.ts";
 import { raiseEvent } from "./event-wake.ts";
 import { eventKey, resolveObsoleteEvent } from "./events.ts";
 import { isActive, type Job, type JobStatus, type PendingStop } from "./job.ts";
@@ -202,7 +202,12 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 
 		const cycle = readCycleState(ledger, cycleStates.get(job.id) ?? null, now);
 		cycleStates.set(job.id, cycle);
-		const condition = cycleInterventionCondition(cycle, decision.state !== "unknown", now, decision.condition);
+		const condition = cycleInterventionCondition(
+			cycle,
+			decision.state !== "unknown",
+			now,
+			decision.condition,
+		);
 		if (condition) {
 			const key = eventKey(job.id, cycle.evidenceId, condition);
 			raiseEvent(
@@ -220,10 +225,24 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 			);
 		}
 		if (condition !== "thinking_stall") {
-			resolveObsoleteEvent(db, job.id, cycle.evidenceId, "thinking_stall", "The transcript changed after the stall.", now);
+			resolveObsoleteEvent(
+				db,
+				job.id,
+				cycle.evidenceId,
+				"thinking_stall",
+				"The transcript changed after the stall.",
+				now,
+			);
 		}
 		if (condition !== "missing_report" && condition !== "idle_after_working") {
-			resolveObsoleteEvent(db, job.id, cycle.evidenceId, "missing_report", "The worker reported its task state.", now);
+			resolveObsoleteEvent(
+				db,
+				job.id,
+				cycle.evidenceId,
+				"missing_report",
+				"The worker reported its task state.",
+				now,
+			);
 		}
 
 		// A completion report ends the worker. The outstanding execution rows
