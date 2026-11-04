@@ -5,15 +5,14 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { openDatabase } from "../extensions/lib/db.ts";
+import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
-import { readOwnership } from "../extensions/lib/ownership.ts";
+import { acquireOwnership, readOwnership } from "../extensions/lib/ownership.ts";
+import { persistRuns } from "../extensions/lib/runs.ts";
 import type { AgentDescriptor } from "../extensions/lib/subagent.ts";
 import { createHost, RUNTIME, type TestHost } from "./harness.ts";
 import { sessionContext } from "./session-context.ts";
 
-import { acquireOwnership } from "../extensions/lib/ownership.ts";
-import { persistRuns } from "../extensions/lib/runs.ts";
-import { freshRunState, type Job } from "../extensions/lib/job.ts";
 const MAIN = "session-subagent-control-main";
 const SUB = "session-subagent-control-sub";
 const WORKER = "wz-subagent-control";
@@ -39,7 +38,8 @@ test("a subagent can read a worker but cannot control it", async () => {
 	const main = createHost({ stateDir, cwd: stateDir, sessionId: MAIN, agent: MAIN_AGENT });
 	const sub = createHost({ stateDir, cwd: stateDir, sessionId: SUB, agent: SUB_AGENT });
 	RUNTIME.wezterm = async (args) => {
-		if (args[0] === "list") return { code: 0, stdout: JSON.stringify([...panes].map((pane_id) => ({ pane_id }))), stderr: "" };
+		if (args[0] === "list")
+			return { code: 0, stdout: JSON.stringify([...panes].map((pane_id) => ({ pane_id }))), stderr: "" };
 		return { code: 0, stdout: "pane output", stderr: "" };
 	};
 	RUNTIME.exec = async () => ({ code: 0, stdout: "[]", stderr: "" });
@@ -47,10 +47,24 @@ test("a subagent can read a worker but cannot control it", async () => {
 		await main.fire("session_start", sessionContext(stateDir, MAIN, MAIN_AGENT));
 		await sub.fire("session_start", sessionContext(stateDir, SUB, SUB_AGENT));
 		const job: Job = {
-			id: WORKER, label: WORKER, task: "task", cwd: stateDir, model: null, tools: null,
-			placement: "split", sessionDir: stateDir, sessionFile: null, worktreePath: null,
-			worktreeBranch: null, worktreeOrigin: null, timeoutMs: 0, idleTimeoutMs: 0,
-			closePaneOnFinish: true, ...freshRunState(Date.now()), status: "running", paneId: PANE,
+			id: WORKER,
+			label: WORKER,
+			task: "task",
+			cwd: stateDir,
+			model: null,
+			tools: null,
+			placement: "split",
+			sessionDir: stateDir,
+			sessionFile: null,
+			worktreePath: null,
+			worktreeBranch: null,
+			worktreeOrigin: null,
+			timeoutMs: 0,
+			idleTimeoutMs: 0,
+			closePaneOnFinish: true,
+			...freshRunState(Date.now()),
+			status: "running",
+			paneId: PANE,
 			startedAt: Date.now(),
 		};
 		const db = openDatabase(join(stateDir, "lifecycle.db"));
@@ -70,7 +84,11 @@ test("a subagent can read a worker but cannot control it", async () => {
 			["wezterm_worker_resume", { workerId: WORKER }],
 		] as const) {
 			const result = await sub.call(name, args);
-			assert.equal(sub.text(result), "A subagent cannot control a worker. Call this tool from the main session.", name);
+			assert.equal(
+				sub.text(result),
+				"A subagent cannot control a worker. Call this tool from the main session.",
+				name,
+			);
 			assert.deepEqual(ownership(stateDir), before, `${name} changed the ownership row`);
 			assert.equal(RUNTIME.jobs.get(WORKER)?.status, "running", `${name} changed worker status`);
 			assert.deepEqual([...panes], [PANE], `${name} changed the pane list`);
@@ -88,7 +106,10 @@ test("the main session is not refused by the subagent rule", async () => {
 	try {
 		await main.fire("session_start", sessionContext(stateDir, MAIN, MAIN_AGENT));
 		const result = await main.call("wezterm_worker_status", {});
-		assert.notEqual(main.text(result), "A subagent cannot control a worker. Call this tool from the main session.");
+		assert.notEqual(
+			main.text(result),
+			"A subagent cannot control a worker. Call this tool from the main session.",
+		);
 	} finally {
 		await stop([main], stateDir);
 	}

@@ -164,8 +164,16 @@ test("a subagent that launches a worker keeps the main session", async () => {
 		const workerId = (result.details as { workerId?: string } | undefined)?.workerId;
 		assert.ok(workerId, `the subagent started no worker: ${JSON.stringify(result.details)}`);
 		assert.equal(RUNTIME.sessionId, MAIN, "the runtime stopped naming the main session");
-		assert.equal(ownerRowOf(stateDir, workerId)?.sessionId, MAIN, "the new worker does not belong to the main session");
-		assert.equal(monitorVerdict(mainOwner, RUNTIME.sessionId), "act", "the main monitor lost authority of its worker");
+		assert.equal(
+			ownerRowOf(stateDir, workerId)?.sessionId,
+			MAIN,
+			"the new worker does not belong to the main session",
+		);
+		assert.equal(
+			monitorVerdict(mainOwner, RUNTIME.sessionId),
+			"act",
+			"the main monitor lost authority of its worker",
+		);
 	} finally {
 		await endOfTest([main, subagent], stateDir);
 		rmSync(stateDir, { recursive: true, force: true });

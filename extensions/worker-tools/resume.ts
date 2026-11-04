@@ -15,8 +15,8 @@ import { resumeClaudeWorker } from "../lib/resume-claude.ts";
 import { resumeCodexWorker } from "../lib/resume-codex.ts";
 import { resumeWorker } from "../lib/spawn.ts";
 import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
-import { commsDetails, commsRefusalLine, findJob, refusalReply, reply, type ToolDeps } from "./kit.ts";
 import { isSubagent, subagentControlRefusal } from "../lib/subagent.ts";
+import { commsDetails, commsRefusalLine, findJob, refusalReply, reply, type ToolDeps } from "./kit.ts";
 
 export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 	const z = pi.zod;

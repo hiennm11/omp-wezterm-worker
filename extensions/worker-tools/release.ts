@@ -6,12 +6,12 @@
  * already started before the authority moves.
  */
 
+import type { ToolCtx } from "../lib/host.ts";
 import { generationOf, taskKey } from "../lib/owner.ts";
 import { beginRelease, commitRelease } from "../lib/ownership.ts";
 import { releaseRunState } from "../lib/release-state.ts";
-import { findJob, reply, type ToolDeps } from "./kit.ts";
 import { subagentControlRefusal } from "../lib/subagent.ts";
-import type { ToolCtx } from "../lib/host.ts";
+import { findJob, reply, type ToolDeps } from "./kit.ts";
 
 export function registerReleaseTool({ pi, rt }: ToolDeps): void {
 	const z = pi.zod;
@@ -26,7 +26,13 @@ export function registerReleaseTool({ pi, rt }: ToolDeps): void {
 			workerId: z.string().describe("Id of the worker to stop supervising."),
 		}),
 		loadMode: "essential",
-		async execute(_id: string, params: { workerId: string }, _signal: unknown, _onUpdate: unknown, ctx?: ToolCtx) {
+		async execute(
+			_id: string,
+			params: { workerId: string },
+			_signal: unknown,
+			_onUpdate: unknown,
+			ctx?: ToolCtx,
+		) {
 			const refusal = subagentControlRefusal(ctx);
 			if (refusal) return reply(refusal, { refused: "subagent" }, true);
 			const found = findJob(rt, params.workerId);

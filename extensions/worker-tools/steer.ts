@@ -6,6 +6,7 @@ import { controlRefusal, refusalDetails } from "../lib/authority.ts";
 import { readBackend } from "../lib/backend.ts";
 import { steerCodex } from "../lib/codex-session.ts";
 import { checkComms } from "../lib/comms-check.ts";
+import type { ToolCtx } from "../lib/host.ts";
 import { isActive } from "../lib/job.ts";
 import { taskKey } from "../lib/owner.ts";
 import { readOwnership } from "../lib/ownership.ts";
@@ -14,7 +15,6 @@ import { steerWorker } from "../lib/steer.ts";
 import { steerNative } from "../lib/steer-native.ts";
 import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
 import { subagentControlRefusal } from "../lib/subagent.ts";
-import type { ToolCtx } from "../lib/host.ts";
 import { commsDetails, commsNoticeLine, commsRefusalLine, findJob, reply, type ToolDeps } from "./kit.ts";
 
 export function registerSteerTool({ pi, rt }: ToolDeps): void {
@@ -36,7 +36,13 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 				),
 		}),
 		loadMode: "essential",
-		async execute(_id: string, params: { workerId: string; message: string }, _signal: unknown, _onUpdate: unknown, ctx?: ToolCtx) {
+		async execute(
+			_id: string,
+			params: { workerId: string; message: string },
+			_signal: unknown,
+			_onUpdate: unknown,
+			ctx?: ToolCtx,
+		) {
 			const refusal = subagentControlRefusal(ctx);
 			if (refusal) return reply(refusal, { refused: "subagent" }, true);
 			/* The communication check runs before the instruction reaches the

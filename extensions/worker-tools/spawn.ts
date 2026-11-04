@@ -4,8 +4,6 @@
 
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-
-import { isSubagent } from "../lib/subagent.ts";
 import {
 	backendLabel,
 	backendRefusal,
@@ -22,6 +20,7 @@ import { acquireTask, bindSession, maySupervise } from "../lib/owner.ts";
 import { spawnWorker } from "../lib/spawn.ts";
 import { spawnClaudeWorker } from "../lib/spawn-claude.ts";
 import { spawnCodexWorker } from "../lib/spawn-codex.ts";
+import { isSubagent } from "../lib/subagent.ts";
 import { isThinkingLevel, THINKING_LEVELS, type ThinkingLevel, thinkingRefusal } from "../lib/thinking.ts";
 import {
 	commsDetails,

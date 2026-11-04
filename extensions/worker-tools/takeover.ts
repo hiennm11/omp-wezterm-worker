@@ -10,14 +10,14 @@
  */
 
 import { attachWorker } from "../lib/attach.ts";
+import type { ToolCtx } from "../lib/host.ts";
 import { isActive } from "../lib/job.ts";
 import { ensureOwnProcessStart, previousOwnerState, taskKey } from "../lib/owner.ts";
 import { readOwnership, takeOverOwnership } from "../lib/ownership.ts";
 import { findLiveWorkers } from "../lib/process-table.ts";
 import { reconcileAttempts } from "../lib/recovery.ts";
-import { findJob, reply, type ToolDeps } from "./kit.ts";
 import { subagentControlRefusal } from "../lib/subagent.ts";
-import type { ToolCtx } from "../lib/host.ts";
+import { findJob, reply, type ToolDeps } from "./kit.ts";
 
 /** The reason a takeover was refused. */
 type RefusalReason =
@@ -49,7 +49,13 @@ export function registerTakeoverTool({ pi, rt, deliver }: ToolDeps): void {
 			workerId: z.string().describe("Id of the worker to take over."),
 		}),
 		loadMode: "essential",
-		async execute(_id: string, params: { workerId: string }, _signal: unknown, _onUpdate: unknown, ctx?: ToolCtx) {
+		async execute(
+			_id: string,
+			params: { workerId: string },
+			_signal: unknown,
+			_onUpdate: unknown,
+			ctx?: ToolCtx,
+		) {
 			const refusal = subagentControlRefusal(ctx);
 			if (refusal) return reply(refusal, { refused: "subagent" }, true);
 			const found = findJob(rt, params.workerId);
