@@ -21,20 +21,34 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { openDatabase } from "../extensions/lib/db.ts";
+import type { AgentDescriptor } from "../extensions/lib/subagent.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { monitorVerdict } from "../extensions/lib/monitor-authority.ts";
 import { generationOf, taskKey } from "../extensions/lib/owner.ts";
-import { acquireOwnership, readOwnership } from "../extensions/lib/ownership.ts";
+import { acquireOwnership, type Ownership, readOwnership } from "../extensions/lib/ownership.ts";
 import type { RunResult } from "../extensions/lib/process.ts";
 import { replayUndelivered } from "../extensions/lib/recover-task.ts";
 import { persistRuns } from "../extensions/lib/runs.ts";
-import { createHost, RUNTIME, removeDir, sessionContext, type TestHost, waitFor } from "./harness.ts";
+import {
+	createHost,
+	RUNTIME,
+	removeDir,
+	sessionContext,
+	type TestHost,
+	waitFor,
+} from "./harness.ts";
 
 /** The session of the main session. */
 const MAIN = "session-main-load";
 
 /** The session of the subagent of the second load. */
 const SUBAGENT = "session-subagent-load";
+
+/** The main agent of the main session. */
+const MAIN_AGENT: AgentDescriptor = { kind: "main", id: "main", name: "main", depth: 0 };
+
+/** The subagent of the second load. */
+const SUB_AGENT: AgentDescriptor = { kind: "sub", id: "sub-1", name: "LeaseFacts", depth: 1 };
 
 /** The running worker of the main session. */
 const WORKER = "wz-second-load-1";
@@ -148,6 +162,19 @@ function replayable(stateDir: string): string[] {
 }
 
 /**
+ * The owner of a worker.
+ *
+ * The function closes the handle of the database, because a test that removes
+ * the state directory must not hold a file lock.
+ */
+function readOwnershipOf(stateDir: string, jobId: string): Ownership | null {
+	const db = openDatabase(join(stateDir, "lifecycle.db"));
+	const owner = readOwnership(db, taskKey(jobId)).owner;
+	db.close();
+	return owner;
+}
+
+/**
  * The identity of the runtime, the owner of the worker, and the verdict of
  * the monitor.
  */
@@ -156,9 +183,7 @@ function authorityOf(stateDir: string): {
 	ownerSessionId: string | null;
 	verdict: string;
 } {
-	const db = openDatabase(join(stateDir, "lifecycle.db"));
-	const owner = readOwnership(db, taskKey(WORKER)).owner;
-	db.close();
+	const owner = readOwnershipOf(stateDir, WORKER);
 	return {
 		sessionId: RUNTIME.sessionId,
 		ownerSessionId: owner?.sessionId ?? null,
@@ -212,7 +237,7 @@ test("the main session keeps the authority of its worker after a second load of 
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-second-load-"));
 	const { main, subagent } = loadTwice(stateDir);
 	try {
-		await main.fire("session_start", sessionContext(stateDir, MAIN));
+		await main.fire("session_start", sessionContext(stateDir, MAIN, MAIN_AGENT));
 		assert.notEqual(
 			generationOf(RUNTIME, WORKER),
 			null,
@@ -227,7 +252,7 @@ test("the main session keeps the authority of its worker after a second load of 
 		/* The second load runs the session start of the subagent in the same
 		   process. The runtime is shared, so the session id of the subagent
 		   reaches the main session. */
-		await subagent.fire("session_start", sessionContext(stateDir, SUBAGENT));
+		await subagent.fire("session_start", sessionContext(stateDir, SUBAGENT, SUB_AGENT));
 
 		const state = authorityOf(stateDir);
 		assert.equal(
@@ -242,10 +267,7 @@ test("the main session keeps the authority of its worker after a second load of 
 		);
 		assert.deepEqual(replayable(stateDir), [DONE], `the replay found no owned run: ${JSON.stringify(state)}`);
 		assert.equal(
-			monitorVerdict(
-				readOwnership(openDatabase(join(stateDir, "lifecycle.db")), taskKey(WORKER)).owner,
-				RUNTIME.sessionId,
-			),
+			monitorVerdict(readOwnershipOf(stateDir, WORKER), RUNTIME.sessionId),
 			"act",
 			`the monitor of the main session stopped without a write: ${JSON.stringify(state)}`,
 		);
@@ -259,8 +281,8 @@ test("a worker of the main session ends at its deadline after a second load of t
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-second-load-"));
 	const { main, subagent } = loadTwice(stateDir);
 	try {
-		await main.fire("session_start", sessionContext(stateDir, MAIN));
-		await subagent.fire("session_start", sessionContext(stateDir, SUBAGENT));
+		await main.fire("session_start", sessionContext(stateDir, MAIN, MAIN_AGENT));
+		await subagent.fire("session_start", sessionContext(stateDir, SUBAGENT, SUB_AGENT));
 
 		const ended = await waitFor(() => statusOf(stateDir, WORKER) === "failed", 20_000, 200);
 		assert.ok(

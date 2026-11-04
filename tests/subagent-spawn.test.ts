@@ -1,0 +1,212 @@
+/**
+ * The session of a worker that a subagent launches.
+ *
+ * OMP loads the extension again for a subagent in the same process. The
+ * runtime lives at module scope, so the second load shares it. A tool of the
+ * subagent calls `bindSession` with the session of the subagent. The worker
+ * then belongs to the subagent, and the main session loses it.
+ *
+ * The test loads the extension twice in one process. The first load starts
+ * the main session. The second load starts a subagent. The subagent launches
+ * a worker. The test shows which session owns the new worker.
+ */
+
+import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
+
+import { openDatabase } from "../extensions/lib/db.ts";
+import type { AgentDescriptor } from "../extensions/lib/subagent.ts";
+import { freshRunState, type Job } from "../extensions/lib/job.ts";
+import { monitorVerdict } from "../extensions/lib/monitor-authority.ts";
+import { taskKey } from "../extensions/lib/owner.ts";
+import { acquireOwnership, type Ownership, readOwnership } from "../extensions/lib/ownership.ts";
+import type { RunResult } from "../extensions/lib/process.ts";
+import { persistRuns } from "../extensions/lib/runs.ts";
+import {
+	createHost,
+	RUNTIME,
+	removeDir,
+	sessionContext,
+	type TestHost,
+} from "./harness.ts";
+
+/** The session of the main session. */
+const MAIN = "session-main-spawn";
+
+/** The session of the subagent of the second load. */
+const SUBAGENT = "session-subagent-spawn";
+
+/** The running worker of the main session. */
+const MAIN_WORKER = "wz-subagent-spawn-main";
+
+/** The start time of the process of the test. The ownership row holds it. */
+const PROCESS_START = "2026-11-03T00:00:00.000Z";
+
+/** The panes that the fake WezTerm holds. */
+const panes = new Set<number>();
+
+/** The main agent of the main session. */
+const MAIN_AGENT: AgentDescriptor = { kind: "main", id: "main", name: "main", depth: 0 };
+
+/** The subagent of the second load. */
+const SUB_AGENT: AgentDescriptor = { kind: "sub", id: "sub-1", name: "SpawnFacts", depth: 1 };
+
+/**
+ * The answers of the programs that the extension starts.
+ *
+ * The process table holds no worker. The start time of the process of the
+ * test is the value that the ownership row holds.
+ */
+const exec = async (_bin: string, args: string[]): Promise<RunResult> => {
+	if (args.join(" ").includes("Get-CimInstance")) return { code: 0, stdout: "[]", stderr: "" };
+	return { code: 0, stdout: PROCESS_START, stderr: "" };
+};
+
+/**
+ * The answers of the fake WezTerm.
+ *
+ * The spawn gives a pane id. The pane stays in the list, so the monitor of
+ * the worker does not end it.
+ */
+const wezterm = async (args: string[]): Promise<RunResult> => {
+	if (args[0] === "list") {
+		const listing = [...panes].map((pane_id) => ({ pane_id, tab_id: 1, window_id: 1 }));
+		return { code: 0, stdout: JSON.stringify(listing), stderr: "" };
+	}
+	if (args[0] === "split-pane" || args[0] === "spawn") {
+		const paneId = 21;
+		panes.add(paneId);
+		return { code: 0, stdout: String(paneId), stderr: "" };
+	}
+	if (args[0] === "kill-pane") {
+		panes.delete(Number(args[args.indexOf("--pane-id") + 1]));
+		return { code: 0, stdout: "", stderr: "" };
+	}
+	return { code: 0, stdout: "", stderr: "" };
+};
+
+/**
+ * The ownership row of a worker.
+ *
+ * The function closes the handle of the database, because a test that removes
+ * the state directory must not hold a file lock.
+ */
+function ownerRowOf(stateDir: string, jobId: string): Ownership | null {
+	const db = openDatabase(join(stateDir, "lifecycle.db"));
+	const owner = readOwnership(db, taskKey(jobId)).owner;
+	db.close();
+	return owner;
+}
+
+/**
+ * A run of the main session.
+ *
+ * The ownership row names the session of the main session and the process of
+ * the test, so the session takes the task again without a takeover.
+ */
+function seedRun(stateDir: string): Job {
+	const job: Job = {
+		id: MAIN_WORKER,
+		label: "subagent-spawn-main",
+		task: "Do the work of the task.",
+		cwd: stateDir,
+		model: null,
+		tools: null,
+		placement: "split",
+		sessionDir: join(stateDir, "sessions", MAIN_WORKER),
+		sessionFile: null,
+		worktreePath: null,
+		worktreeBranch: null,
+		worktreeOrigin: null,
+		timeoutMs: 0,
+		idleTimeoutMs: 0,
+		closePaneOnFinish: true,
+		...freshRunState(Date.now()),
+		status: "running",
+		paneId: 20,
+		startedAt: Date.now(),
+	};
+	const db = openDatabase(join(stateDir, "lifecycle.db"));
+	acquireOwnership(db, taskKey(job.id), MAIN, process.pid, PROCESS_START, Date.now());
+	persistRuns(db, MAIN, [job]);
+	db.close();
+	return job;
+}
+
+/**
+ * Two loads of the extension in one process.
+ *
+ * The first load starts the main session. The second load starts a subagent
+ * with another session id.
+ */
+function loadTwice(stateDir: string): { main: TestHost; subagent: TestHost } {
+	seedRun(stateDir);
+	panes.clear();
+	panes.add(20);
+	RUNTIME.exec = exec;
+	RUNTIME.wezterm = wezterm;
+
+	const main = createHost({ stateDir, cwd: stateDir, sessionId: MAIN });
+	const subagent = createHost({ stateDir, cwd: stateDir, sessionId: SUBAGENT });
+	return { main, subagent };
+}
+
+/**
+ * The end of a test.
+ *
+ * The test starts no worker process, so the cleanup closes the database and
+ * removes the state directory.
+ */
+async function endOfTest(hosts: TestHost[], stateDir: string): Promise<void> {
+	for (const host of hosts) {
+		await host.fire("session_shutdown", sessionContext(stateDir));
+	}
+	removeDir(stateDir);
+}
+
+test("a subagent that launches a worker takes the session of the runtime", async () => {
+	const stateDir = mkdtempSync(join(tmpdir(), "wt-subagent-spawn-"));
+	const { main, subagent } = loadTwice(stateDir);
+	try {
+		await main.fire("session_start", sessionContext(stateDir, MAIN, MAIN_AGENT));
+		await subagent.fire("session_start", sessionContext(stateDir, SUBAGENT, SUB_AGENT));
+
+		const mainOwner = ownerRowOf(stateDir, MAIN_WORKER);
+		const result = await subagent.call("wezterm_spawn_worker", { task: "Do the work of the task." });
+		const workerId = (result.details as { workerId?: string } | undefined)?.workerId;
+		assert.ok(workerId, `the subagent started no worker: ${JSON.stringify(result.details)}`);
+
+		assert.equal(
+			ownerRowOf(stateDir, workerId)?.sessionId,
+			SUBAGENT,
+			"the worker of the subagent belongs to the main session",
+		);
+		assert.equal(
+			RUNTIME.sessionId,
+			SUBAGENT,
+			"the runtime did not take the session of the subagent that launched the worker",
+		);
+
+		/* The runtime now holds the session of the subagent. The monitor of
+		   the main session reads that session, so it no longer holds the
+		   authority of its own worker. The monitor of the subagent holds the
+		   authority of the new worker. */
+		const owner = ownerRowOf(stateDir, workerId);
+		assert.equal(
+			monitorVerdict(owner, RUNTIME.sessionId),
+			"act",
+			"the monitor of the subagent lost the authority of its worker",
+		);
+		assert.equal(
+			monitorVerdict(mainOwner, RUNTIME.sessionId),
+			"stop",
+			"the monitor of the main session kept the authority of its worker",
+		);
+	} finally {
+		await endOfTest([main, subagent], stateDir);
+		rmSync(stateDir, { recursive: true, force: true });
+	}
+});

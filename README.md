@@ -686,6 +686,37 @@ work.
 
 ## Concurrency safety
 
+### Subagents of the main session
+
+OMP loads this extension again for every subagent of a session. The second
+load runs in the same process, and the runtime lives at module scope, so the
+two sessions share it.
+
+A subagent must not take the authority of the main session. The handler of
+`session_start` reads the agent of the session. A subagent returns at once:
+it binds no session, recovers nothing, attaches no monitor and replays no
+event. The handler of `session_shutdown` does the same, so the end of a
+subagent never stops the monitors of the main session and never closes its
+database. The tools stay registered, so a subagent still sees them.
+
+The `session_start` handler writes one line to the log. The line names the
+kind of the agent, the id of the agent and the session id:
+
+```text
+[wezterm-worker] session_start: kind=sub id=sub-1 session=...
+```
+
+A host without the field runs an older OMP. The extension treats a missing
+agent as the main agent, so it keeps working there.
+
+A subagent that calls `wezterm_spawn_worker` still takes the session of the
+runtime, because the tool binds the session of its caller. The worker then
+belongs to the subagent, and the main session loses the authority of its own
+worker. This is a case of its own. See
+`docs/adr/0014-a-subagent-does-not-take-the-authority-of-the-main-session.md`.
+
+### Two workers in one checkout
+
 Two workers that edit the same checkout are a real risk. Two options:
 
 - **`isolated: true`** — the worker gets its own `git worktree`
@@ -857,6 +888,7 @@ omp-wezterm-worker/
 │   │   ├── migrate.ts           the one-time migration of the old registry
 │   │   ├── ownership.ts         the ownership of a task, its release and its takeover
 │   │   ├── owner.ts             the acquisition of a task by this session
+│   │   ├── subagent.ts          the agent of a session, main or sub
 │   │   ├── session-lease.ts     the probe of the lease of a session
 │   │   ├── authority.ts         the authority rules of the control and cleanup tools
 │   │   ├── write-authority.ts   the authority check of a write for a task

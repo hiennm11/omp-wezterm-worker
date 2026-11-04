@@ -13,8 +13,10 @@ import { join } from "node:path";
 export { answerAfterLastUser, readTranscript, type TranscriptMessage } from "./transcript-helpers.ts";
 
 import extension, { RUNTIME } from "../extensions/wezterm-worker.ts";
+import { sessionContext } from "./session-context.ts";
 
 export { RUNTIME };
+export { sessionContext };
 
 export interface ToolResult {
 	content: Array<{ type: string; text: string }>;
@@ -45,6 +47,8 @@ export interface TestHost {
 	labels: string[];
 	/** The error messages that the extension sent to the host logger. */
 	loggedErrors: string[];
+	/** The messages that the extension sent to the host logger at the info level. */
+	loggedInfos: string[];
 	/** The names of the slash commands that the extension registered. */
 	commands: string[];
 	stateDir: string;
@@ -180,6 +184,7 @@ export function createHost(options: { stateDir?: string; cwd: string; sessionId?
 		delivered: [],
 		labels: [],
 		loggedErrors: [],
+		loggedInfos: [],
 		commands: [],
 		stateDir,
 		panes: new Set(),
@@ -251,7 +256,9 @@ export function createHost(options: { stateDir?: string; cwd: string; sessionId?
 			host.labels.push(label);
 		},
 		logger: {
-			info() {},
+			info(message: string) {
+				host.loggedInfos.push(message);
+			},
 			warn() {},
 			error(message: string) {
 				host.loggedErrors.push(message);
@@ -279,22 +286,6 @@ export function createHost(options: { stateDir?: string; cwd: string; sessionId?
 		if (entry.event === "input") entry.handler({}, {});
 	}
 	return host;
-}
-
-/** The event context the host passes to a `session_start` handler. */
-export function sessionContext(cwd: string, sessionId?: string): unknown {
-	return {
-		cwd,
-		sessionManager: sessionId ? { getSessionId: () => sessionId } : undefined,
-		setInterval(fn: () => void, ms: number) {
-			const handle = setInterval(fn, ms);
-			handle.unref?.();
-			return handle;
-		},
-		clearTimer(handle: NodeJS.Timeout) {
-			clearInterval(handle);
-		},
-	};
 }
 
 /**

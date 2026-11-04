@@ -36,6 +36,7 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0011-the-ste100-skill-is-the-only-checker.md",
 	"docs/adr/0012-codex-backend-workers.md",
 	"docs/adr/0013-a-worker-that-loses-its-pane-delivers-its-result.md",
+	"docs/adr/0014-a-subagent-does-not-take-the-authority-of-the-main-session.md",
 	"docs/plans/recoverable-omp-supervision.md",
 ];
 

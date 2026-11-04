@@ -39,6 +39,7 @@ import { detectRole, ownSessionDir } from "./lib/role.ts";
 import { createRuntime } from "./lib/runtime.ts";
 import { createLeaseProbe } from "./lib/session-lease.ts";
 import { reconcileStopIntents } from "./lib/stop-reconcile.ts";
+import { isSubagent, sessionStartLine } from "./lib/subagent.ts";
 import { registerWorkerBootstrap } from "./lib/worker-bootstrap.ts";
 import { registerAckTool } from "./worker-tools/ack.ts";
 import { registerCancelTool } from "./worker-tools/cancel.ts";
@@ -97,6 +98,14 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	for (const job of restored.finished) rt.jobs.set(job.id, job);
 
 	pi.on("session_start", async (_event, ctx) => {
+		pi.logger?.info?.(sessionStartLine(ctx));
+
+		/* OMP loads the extension again for a subagent in the same process.
+		   The runtime lives at module scope, so the second load shares it. A
+		   subagent must not take the authority of the main session, so it
+		   binds nothing, recovers nothing and attaches no monitor. */
+		if (isSubagent(ctx)) return;
+
 		// Managed timers: a poll that throws must not tear the session down.
 		rt.timers = {
 			setInterval: (fn, ms) => {
@@ -175,7 +184,12 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		}
 	};
 
-	pi.on("session_shutdown", () => {
+	pi.on("session_shutdown", (_event, ctx) => {
+		/* The runtime is shared by every session of the process. The end of
+		   a subagent must not stop the monitors of the main session and must
+		   not close its database. */
+		if (isSubagent(ctx)) return;
+
 		// The last errors of the session must reach the logger before the
 		// database closes. OMP emits no other event for the end of a session.
 		drainErrors();
