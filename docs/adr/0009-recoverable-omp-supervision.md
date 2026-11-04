@@ -72,6 +72,14 @@ A later valid report can resolve an obsolete event. The history of that event st
 
 The transcript with no new text alone remains status information. It does not stop a worker. It does not wake the main agent again and again.
 
+The OMP monitor raises `thinking_stall` when a thinking cycle has no transcript entry for 600 seconds.
+
+The event uses the cycle evidence id and wakes the main session once.
+
+The event does not stop, cancel, or restart the worker.
+
+New transcript evidence resolves the obsolete event.
+
 A working report does not hide an execution gap.
 
 If the worker ends its cycle without active execution or an observable external wait, create one intervention event.

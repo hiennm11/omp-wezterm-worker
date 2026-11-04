@@ -7,6 +7,7 @@
  * report then resolves.
  */
 
+import type { EventCondition } from "./events.ts";
 import type { CallLedger } from "./calls.ts";
 import { cycleEnd, cycleEvidenceId } from "./cycle.ts";
 
@@ -22,6 +23,10 @@ export interface CycleState {
 	closed: boolean;
 	/** The time when the closed state was first seen. */
 	closedSince: number;
+	/** The last transcript entry id used by the thinking clock. */
+	lastEntryId: string | null;
+	/** The time when the last transcript entry occurred. */
+	lastEntryAt: number;
 }
 
 /**
@@ -35,11 +40,27 @@ export function readCycleState(ledger: CallLedger, previous: CycleState | null, 
 	const evidenceId = cycleEvidenceId(ledger);
 	const closed = end.kind === "terminal";
 	const terminalTurn = closed ? end.turn : 0;
-	// The cycle changed. The settling time starts again.
+	const lastEntryAt = ledger.lastEntryAt ?? now;
 	if (!previous || previous.evidenceId !== evidenceId || previous.terminalTurn !== terminalTurn) {
-		return { evidenceId, terminalTurn, closed, closedSince: closed ? now : 0 };
+		return {
+			evidenceId,
+			terminalTurn,
+			closed,
+			closedSince: closed ? now : 0,
+			lastEntryId: ledger.lastEntryId,
+			lastEntryAt,
+		};
+	}
+	if (previous.lastEntryId !== ledger.lastEntryId) {
+		return { ...previous, closed, lastEntryId: ledger.lastEntryId, lastEntryAt };
 	}
 	return { ...previous, closed, closedSince: previous.closedSince };
+}
+
+export const CYCLE_THINKING_STALL_MS = 600_000;
+
+export function needsThinkingStall(state: CycleState, now: number): boolean {
+	return !state.closed && state.lastEntryId !== null && now - state.lastEntryAt >= CYCLE_THINKING_STALL_MS;
 }
 
 /**
@@ -60,4 +81,14 @@ export function needsIntervention(state: CycleState, hasReport: boolean, now: nu
 	if (hasReport) return false;
 	if (!state.closed) return false;
 	return now - state.closedSince >= CYCLE_SETTLE_MS;
+}
+
+export function cycleInterventionCondition(
+	state: CycleState,
+	hasReport: boolean,
+	now: number,
+	settledCondition: EventCondition | null,
+): EventCondition | null {
+	if (needsThinkingStall(state, now)) return "thinking_stall";
+	return needsIntervention(state, hasReport, now) ? settledCondition : null;
 }

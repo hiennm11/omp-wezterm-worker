@@ -10,7 +10,7 @@ import { statSync } from "node:fs";
 
 import { readCallLedger } from "./calls.ts";
 import { claudeBoundReport, claudeCompletionBlocker } from "./claude-run-state.ts";
-import { type CycleState, needsIntervention, readCycleState } from "./cycle-state.ts";
+import { cycleInterventionCondition, type CycleState, readCycleState } from "./cycle-state.ts";
 import { raiseEvent } from "./event-wake.ts";
 import { eventKey, resolveObsoleteEvent } from "./events.ts";
 import { isActive, type Job, type JobStatus, type PendingStop } from "./job.ts";
@@ -198,27 +198,17 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 		const decision = decideFromReports(ledger, reports);
 		const db = rt.openDb();
 
-		// The ledger of the run holds one row for every call of this run.
-		// The sync writes what the transcript shows, so the completion check
-		// below sees the outstanding executions of the run.
 		syncExecutions(db, job.id, ledger, job.baselineTurns, now);
 
-		// The cycle must hold at its terminal boundary before the supervisor
-		// asks the owner for help. The worker writes its report in the turn
-		// that follows its answer.
 		const cycle = readCycleState(ledger, cycleStates.get(job.id) ?? null, now);
 		cycleStates.set(job.id, cycle);
-		const settled = needsIntervention(cycle, decision.state !== "unknown", now);
-
-		// The events keep their identity. The key joins the run, the cycle
-		// and the condition, so a recovery finds the event that exists.
-		const condition = settled ? decision.condition : null;
+		const condition = cycleInterventionCondition(cycle, decision.state !== "unknown", now, decision.condition);
 		if (condition) {
-			const key = eventKey(job.id, decision.evidenceId, condition);
+			const key = eventKey(job.id, cycle.evidenceId, condition);
 			raiseEvent(
 				rt,
 				{
-					id: `ev-${job.id}-${decision.evidenceId}-${condition}`,
+					id: `ev-${job.id}-${cycle.evidenceId}-${condition}`,
 					key,
 					runId: job.id,
 					kind: condition,
@@ -228,17 +218,12 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 				},
 				now,
 			);
-		} else {
-			// A later valid report resolves the event that the condition
-			// created. The history of the event stays.
-			resolveObsoleteEvent(
-				db,
-				job.id,
-				decision.evidenceId,
-				"missing_report",
-				"The worker reported its task state.",
-				now,
-			);
+		}
+		if (condition !== "thinking_stall") {
+			resolveObsoleteEvent(db, job.id, cycle.evidenceId, "thinking_stall", "The transcript changed after the stall.", now);
+		}
+		if (condition !== "missing_report" && condition !== "idle_after_working") {
+			resolveObsoleteEvent(db, job.id, cycle.evidenceId, "missing_report", "The worker reported its task state.", now);
 		}
 
 		// A completion report ends the worker. The outstanding execution rows
