@@ -7,9 +7,9 @@
  * report then resolves.
  */
 
-import type { EventCondition } from "./events.ts";
 import type { CallLedger } from "./calls.ts";
 import { cycleEnd, cycleEvidenceId } from "./cycle.ts";
+import type { EventCondition } from "./events.ts";
 
 /**
  * The state of one cycle, with the time it was seen.
