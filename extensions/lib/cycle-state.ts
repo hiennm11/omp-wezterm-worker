@@ -21,6 +21,8 @@ export interface CycleState {
 	terminalTurn: number;
 	/** True when the cycle holds no open tool call. */
 	closed: boolean;
+	/** True when the model thinks: no tool call is open and the turn did not end. */
+	thinking: boolean;
 	/** The time when the closed state was first seen. */
 	closedSince: number;
 	/** The last transcript entry id used by the thinking clock. */
@@ -39,6 +41,7 @@ export function readCycleState(ledger: CallLedger, previous: CycleState | null, 
 	const end = cycleEnd(ledger);
 	const evidenceId = cycleEvidenceId(ledger);
 	const closed = end.kind === "terminal";
+	const thinking = end.kind === "thinking";
 	const terminalTurn = closed ? end.turn : 0;
 	const lastEntryAt = ledger.lastEntryAt ?? now;
 	if (!previous || previous.evidenceId !== evidenceId || previous.terminalTurn !== terminalTurn) {
@@ -46,21 +49,22 @@ export function readCycleState(ledger: CallLedger, previous: CycleState | null, 
 			evidenceId,
 			terminalTurn,
 			closed,
+			thinking,
 			closedSince: closed ? now : 0,
 			lastEntryId: ledger.lastEntryId,
 			lastEntryAt,
 		};
 	}
 	if (previous.lastEntryId !== ledger.lastEntryId) {
-		return { ...previous, closed, lastEntryId: ledger.lastEntryId, lastEntryAt };
+		return { ...previous, closed, thinking, lastEntryId: ledger.lastEntryId, lastEntryAt };
 	}
-	return { ...previous, closed, closedSince: previous.closedSince };
+	return { ...previous, closed, thinking, closedSince: previous.closedSince };
 }
 
 export const CYCLE_THINKING_STALL_MS = 600_000;
 
 export function needsThinkingStall(state: CycleState, now: number): boolean {
-	return !state.closed && state.lastEntryId !== null && now - state.lastEntryAt >= CYCLE_THINKING_STALL_MS;
+	return state.thinking && state.lastEntryId !== null && now - state.lastEntryAt >= CYCLE_THINKING_STALL_MS;
 }
 
 /**
