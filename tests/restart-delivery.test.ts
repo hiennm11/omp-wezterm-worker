@@ -18,8 +18,8 @@ import { test } from "node:test";
 
 import { openDatabase } from "../extensions/lib/db.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
-import { acquireOwnership } from "../extensions/lib/ownership.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
+import { acquireOwnership } from "../extensions/lib/ownership.ts";
 import { persistRuns } from "../extensions/lib/runs.ts";
 import { createHost, sessionContext } from "./harness.ts";
 
@@ -77,7 +77,9 @@ function seedRun(stateDir: string, overrides: Partial<Job> = {}): Job {
 /** The delivery attempts of one run. */
 function deliveriesOf(stateDir: string, runId: string): Array<{ state: string; detail: string | null }> {
 	const db = openDatabase(join(stateDir, "lifecycle.db"));
-	const rows = db.handle.prepare("SELECT state, detail FROM deliveries WHERE event_id = ?").all(runId) as Array<{
+	const rows = db.handle
+		.prepare("SELECT state, detail FROM deliveries WHERE event_id = ?")
+		.all(runId) as Array<{
 		state: string;
 		detail: string | null;
 	}>;
