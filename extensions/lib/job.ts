@@ -9,6 +9,7 @@
 import type { WorkerBackend } from "./backend.ts";
 import type { Placement } from "./config.ts";
 import type { NativeTotals } from "./native-usage.ts";
+import type { ThinkingLevel } from "./thinking.ts";
 import type { UsageTotals } from "./usage.ts";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
@@ -54,6 +55,13 @@ export interface Job {
 	cwd: string;
 	model: string | null;
 	tools: string[] | null;
+	/**
+	 * The thinking level that the plugin asks OMP for.
+	 *
+	 * Null or a missing value means that the plugin asks for no level. A run
+	 * that the database holds from before this field existed has no value.
+	 */
+	thinking?: ThinkingLevel | null;
 	status: JobStatus;
 	paneId: number | null;
 	tabId: number | null;

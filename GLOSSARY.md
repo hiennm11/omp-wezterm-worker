@@ -119,6 +119,12 @@ a follow-up instruction that score below the minimum. A machine without the
 skill gives the verdict skipped, and the tool never refuses a text then.
 _Avoid_: Style check, lint, grammar check
 
+**Thinking level**:
+The level of thought that OMP gives a worker. The user selects the level of
+each worker. The extension asks OMP for that level and never asks for
+another. OMP maps a level that the model lacks.
+_Avoid_: Effort, budget, reasoning level
+
 ## Agreed supervision terms
 
 These terms describe the supervision model. The runtime enforces the acquisition, the release and the takeover of a task. It also checks the authority of the control tools `steer`, `cancel`, `cleanup` and `resume`, of the record tools `ack` and `resolve`, and of the delivery of a result. The runtime checks the authority of the automatic path of a monitor too. The end and the stop of a monitor run as counted actions, so the release waits for them.
