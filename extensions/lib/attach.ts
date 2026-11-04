@@ -32,6 +32,10 @@ export async function attachWorker(rt: WorkerRuntime, job: Job, notify: (job: Jo
 	const pane = job.paneId === null ? "gone" : await paneState(rt, job.paneId);
 	if (pane === "gone") {
 		await settleDetachedJob(rt, job);
+		/* The worker ended and the main session must learn it. The recovery
+		   of a later start cannot deliver it, because the recovery of the
+		   start that attached the worker already ran. */
+		notify(job);
 		return;
 	}
 	const backend = readBackend(job);

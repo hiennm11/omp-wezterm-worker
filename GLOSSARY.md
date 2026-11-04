@@ -65,6 +65,12 @@ The delivery of a result again after a restart lost it. The replay sends only
 the results that the session owns and that never reached the main session.
 _Avoid_: Redelivery, retry, resend
 
+**Attachment delivery**:
+The delivery of the result of a worker whose pane is gone. The attachment ends
+the worker and delivers the result in the same step. The replay of a later
+start cannot deliver it, because the worker ended before that start.
+_Avoid_: Detached delivery, late delivery
+
 **Registry**:
 The file that records every worker, so a worker survives an OMP restart.
 The new release keeps the records in a database. The old file stays as evidence.
