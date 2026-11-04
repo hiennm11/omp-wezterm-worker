@@ -58,6 +58,13 @@ wezterm cli spawn --cwd "C:/work/repo" -- omp --no-title --cwd "C:/work/repo" "t
 Each pane id prints on stdout. Every value after `--` is its own argv element.
 A task with a space, a quote or `$(...)` needs no escape and no shell.
 
+The flag `--thinking <level>` sets the thinking level of an OMP worker. The
+values are `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` and
+`auto`. The spawn tool takes it as the optional parameter `thinking` (ADR 0015).
+A native backend refuses it. OMP can lower a level that the model lacks, and the
+transcript does not record the level that ran. The spawn reply names the level
+that the plugin asked for.
+
 `wezterm cli list --format json` reports `pane_id`, `tab_id`, `window_id`,
 `title`, `cwd` and `workspace` per pane. Use it to check a pane is still
 alive.
@@ -248,17 +255,19 @@ it as the result and you deliver the preamble instead of the answer.
 
 The mechanics of this skill run as an OMP extension at
 `D:\repos\omp-wezterm-worker` (public: `github.com/hiennm11/omp-wezterm-worker`).
-It registers `wezterm_spawn_worker`, `wezterm_worker_status`,
-`wezterm_worker_steer`, `wezterm_worker_peek`, `wezterm_worker_result`,
-`wezterm_worker_resume`, `wezterm_worker_cancel` and `wezterm_worker_cleanup`.
+It registers twelve tools for the main session: `wezterm_spawn_worker`,
+`wezterm_worker_status`, `wezterm_worker_ack`, `wezterm_worker_steer`,
+`wezterm_worker_peek`, `wezterm_worker_result`, `wezterm_worker_resume`,
+`wezterm_worker_cancel`, `wezterm_worker_cleanup`, `wezterm_worker_release`,
+`wezterm_worker_takeover` and `wezterm_worker_resolve`.
 
 **The extension's README is the source of truth for its tools and parameters.**
 Read it. Do not recall them. What belongs here is only the operating
 knowledge the README cannot state:
 
 - The extension starts a real interactive CLI in a pane. The default backend
-  is OMP. Set `backend: "claude"` for Claude Code. The code does not implement
-  Codex.
+  is OMP. Set `backend: "claude"` for Claude Code. Set `backend: "codex"` for
+  Codex. See ADR 0010 and ADR 0012.
 - OMP activity comes from its session JSONL. Claude activity comes from the
   native observations. Pane text is a debug view. It does not prove completion.
 - A worker gets the **exact task and cwd**, and does not inherit the main
@@ -312,6 +321,19 @@ session as a user message and starts a new turn. The agent works on a finished
 worker immediately. `pi.sendMessage(..., { deliverAs: "steer" })` is
 the fallback for a host without `sendUserMessage`. A `followUp` queues behind
 whatever the agent does, so you must not use it for a result.
+
+An actionable event wakes the agent the same way, once for each event
+(ADR 0016). A message that arrives while the agent is in a turn goes on the
+steering queue. The host delivers it at the turn boundary and does not abort the
+running tool. The events `result` and `execution_loss` do not wake the agent
+this way. The condition `missing_report` means that a cycle ended without a
+report. It does not mean that the worker is dead. Read the transcript before you
+steer.
+
+The cycle kind `thinking` means that the last entry is a tool result, or that
+the last assistant message did not end its turn with text. A thinking model can
+take longer than 30 seconds between two tool calls. The kind has no time limit
+yet (issue 133). A worker whose model stops answering raises no event.
 
 **The extension closes the pane when the worker finishes.** Reading the
 result must come first. The transcript is the result source. The worker stops
@@ -415,6 +437,60 @@ tokens of each worker and of the request, read from the transcripts. The value
 `unknown` means that the transcript holds no usage data. Report it as unknown.
 The count does not include the main session.
 
+## Running workers: traps that cost time
+
+Each item below came from a real run.
+
+**Do not put the path of the owner checkout in a task.** An isolated worker
+starts in its own worktree. A task that says "work in `D:/repos/<repo>`" makes the
+worker write there. Two workers did this and changed the checkout of the owner.
+Write "work only in your current directory" and use relative paths. After the
+first edit of a worker, run `git status` in the owner checkout.
+
+**A report of a clean lint is not evidence.** Two workers reported a clean
+`biome check` and left an import in the wrong order and an unused import. Run
+the check yourself on the branch of the worker.
+
+**Ask for the first red test early.** One worker analysed for 62 minutes and
+made no commit. One steering message later it made a commit within 10 minutes.
+Put a time limit for the first test in the task. The deep analysis was still
+correct, so do not read a late commit as a wrong result.
+
+**Run one `npm run check` for a merge of several branches.** Merge the
+branches into one branch, resolve the conflicts, and run the check once on the
+result. Conflicts in `package.json` (the long `test:unit` line),
+`GLOSSARY.md` and the list of documents keep both sides. Two branches can pick
+the same ADR number.
+
+**`gh pr merge --rebase` drops merge commits.** Build a linear branch with
+`git cherry-pick` first. Compare its tree with the tree that passed the check.
+The diff must be empty. Then the check does not need a second run.
+
+**`wezterm cli list` and `kill-pane` can hang.** Several calls took 5 minutes and
+returned nothing. Stop a worker by the process id when the pane command hangs.
+Find the id from the command line, which holds the run id. A hung `wezterm cli`
+process can stay behind and must be stopped too.
+
+**Remove a `node_modules` junction with `cmd /c rmdir`.** `rm` does not remove
+the link in Git Bash. The first removal looked successful and the link stayed.
+Never delete through the link.
+
+**A restart in the same window keeps the session id and changes the process.**
+One measured restart left the old process alive as the parent of the new one.
+The ownership row of a running worker kept the old process. The new process saw
+the worker as read-only. The fix of issue 121 lets a session take its task back
+when no process holds the lease of the session. That restart ran before the
+fix, so nobody has measured the fix yet. Do not stop the old process: it can be
+the parent of your window. Until a run proves the fix, read the worker from its
+branch and from the database.
+
+**A limit in the config file needs an OMP restart.** The change of
+`maxActiveWorkers` did nothing until OMP started again.
+
+**A relative path in `git worktree add` resolves against the current directory.**
+A path that began with the wrong drive created a folder on drive D. Use absolute
+paths.
+
 ## Extension runtime rules (OMP)
 
 From the official extension docs (`can1357/oh-my-pi` → `docs/extensions.md`):
@@ -435,6 +511,13 @@ From the official extension docs (`can1357/oh-my-pi` → `docs/extensions.md`):
   session-entry labelling action.
 - `pi.zod` is the schema builder. `pi.registerTool`, `pi.registerCommand` and
   `pi.on` are the registration methods.
+- **OMP loads the extension again for each subagent in the same process.**
+  Module-level variables stay shared across those loads. A handler of
+  `session_start` or `session_shutdown` that runs for a subagent changes the
+  state of the main session. Read `ctx.agent.kind` (`main` or `sub`) and return
+  early for `sub`. A host without the field counts as `main`. The extension
+  does this (ADR 0014). The value that OMP gives a real subagent is not yet
+  proven by a run. The first log line at `session_start` shows it.
 
 ## The domain vocabulary
 
