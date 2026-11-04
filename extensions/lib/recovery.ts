@@ -7,9 +7,11 @@
 
 import { type AttemptState, markUnresolved, openAttempts, readAttempt } from "./attempts.ts";
 import type { LifecycleDb } from "./db.ts";
-import { createEvent, eventKey } from "./events.ts";
+import { eventKey, type WorkerEvent } from "./events.ts";
+import { recordEvent, wakeCreated } from "./event-wake.ts";
 import { taskKey } from "./owner.ts";
 import { type Ownership, readOwnership } from "./ownership.ts";
+import type { WorkerRuntime } from "./runtime.ts";
 
 /** The reason a recovery resolved an attempt. */
 export type RecoveryOutcome =
@@ -77,12 +79,13 @@ export function mayReconcileAttempt(
  * limits the work to the attempts of one task.
  */
 export function reconcileAttempts(
-	db: LifecycleDb,
+	rt: WorkerRuntime,
 	workers: FoundWorker[],
 	sessionId: string | null,
 	now: number,
 	jobId?: string,
 ): RecoveryOutcome[] {
+	const db = rt.openDb();
 	const outcomes: RecoveryOutcome[] = [];
 	for (const attempt of openAttempts(db)) {
 		if (jobId !== undefined && attempt.jobId !== jobId) continue;
@@ -108,10 +111,13 @@ export function reconcileAttempts(
 		/* The state change and the event run in one transaction. A crash
 		   between them would leave an attempt with no event, and the next
 		   startup finds no open attempt. */
-		db.write(() => {
+		const created = db.write(() => {
 			markUnresolved(db, attempt.id, now);
-			recordUnresolvedLaunch(db, attempt.id, attempt.jobId, now);
+			return recordUnresolvedLaunch(db, attempt.id, attempt.jobId, now);
 		});
+		/* The wake runs after the transaction, because a transaction never
+		   spans a message injection. */
+		wakeCreated(rt, created, now);
 		outcomes.push({ kind: "unresolved", attemptId: attempt.id, jobId: attempt.jobId });
 	}
 	return outcomes;
@@ -123,16 +129,23 @@ export function reconcileAttempts(
  * The key joins the job, the attempt and the condition. A second startup
  * finds the event that exists, so it creates no second one.
  */
-function recordUnresolvedLaunch(db: LifecycleDb, attemptId: string, jobId: string, now: number): void {
-	createEvent(
+function recordUnresolvedLaunch(
+	db: LifecycleDb,
+	attemptId: string,
+	jobId: string,
+	now: number,
+): { event: WorkerEvent; created: boolean } {
+	return recordEvent(
 		db,
-		`ev-${jobId}-${attemptId}-unresolved_launch`,
-		eventKey(jobId, attemptId, "unresolved_launch"),
-		jobId,
-		"unresolved_launch",
-		"unresolved_launch",
-		JSON.stringify({ attemptId, jobId }),
-		true,
+		{
+			id: `ev-${jobId}-${attemptId}-unresolved_launch`,
+			key: eventKey(jobId, attemptId, "unresolved_launch"),
+			runId: jobId,
+			kind: "unresolved_launch",
+			condition: "unresolved_launch",
+			payload: JSON.stringify({ attemptId, jobId }),
+			actionable: true,
+		},
 		now,
 	);
 }

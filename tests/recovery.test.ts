@@ -5,16 +5,19 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { markIssued, readAttempt, reserveAttempt } from "../extensions/lib/attempts.ts";
 import { jobIdOfCommandLine, workersOf } from "../extensions/lib/correlation.ts";
-import { type LifecycleDb, openDatabase } from "../extensions/lib/db.ts";
+import type { LifecycleDb } from "../extensions/lib/db.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
 import { acquireOwnership } from "../extensions/lib/ownership.ts";
 import { parseProcessRows } from "../extensions/lib/process-table.ts";
 import { mayReconcileAttempt, reconcileAttempts } from "../extensions/lib/recovery.ts";
+import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 
-/** A database in a fresh directory. */
-function freshDb(): { db: LifecycleDb; dir: string } {
+/** A runtime with a database in a fresh directory. */
+function freshDb(): { db: LifecycleDb; dir: string; rt: WorkerRuntime } {
 	const dir = mkdtempSync(join(tmpdir(), "wt-recovery-"));
-	return { db: openDatabase(join(dir, "lifecycle.db")), dir };
+	const rt = createRuntime(async () => ({ code: 0, stdout: "", stderr: "" }));
+	rt.config.stateDir = dir;
+	return { db: rt.openDb(), dir, rt };
 }
 
 /** The ownership row of a task that a session owns. */
@@ -50,12 +53,12 @@ test("the process table gives the workers and ignores the other processes", () =
 });
 
 test("a crash after the pane creation recovers the worker without a duplicate", () => {
-	const { db, dir } = freshDb();
+	const { db, dir, rt } = freshDb();
 	try {
 		reserveAttempt(db, "att-1", "wz-1", 1000);
 		markIssued(db, "att-1", 1001);
 		const outcomes = reconcileAttempts(
-			db,
+			rt,
 			[{ jobId: "wz-1", paneId: 42, sessionId: "s-1", sessionFile: "C:/state/wz-1.jsonl" }],
 			"session-new",
 			1002,
@@ -64,17 +67,17 @@ test("a crash after the pane creation recovers the worker without a duplicate", 
 		assert.equal(outcomes[0].kind, "attached");
 		assert.equal(outcomes[0].paneId, 42);
 	} finally {
-		db.close();
+		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
 
 test("an attempt that finds no worker stays unresolved", () => {
-	const { db, dir } = freshDb();
+	const { db, dir, rt } = freshDb();
 	try {
 		reserveAttempt(db, "att-1", "wz-1", 1000);
 		markIssued(db, "att-1", 1001);
-		const outcomes = reconcileAttempts(db, [], "session-new", 1002);
+		const outcomes = reconcileAttempts(rt, [], "session-new", 1002);
 		assert.equal(outcomes.length, 1);
 		assert.equal(outcomes[0].kind, "unresolved");
 		const rows = db.handle.prepare("SELECT state FROM launch_attempts").all();
@@ -83,38 +86,38 @@ test("an attempt that finds no worker stays unresolved", () => {
 		assert.ok(row && typeof row === "object" && "state" in row);
 		assert.equal(row.state, "unresolved");
 	} finally {
-		db.close();
+		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
 
 test("the recovery never sends the command again", () => {
-	const { db, dir } = freshDb();
+	const { db, dir, rt } = freshDb();
 	try {
 		reserveAttempt(db, "att-1", "wz-1", 1000);
 		markIssued(db, "att-1", 1001);
-		reconcileAttempts(db, [], "session-new", 1002);
+		reconcileAttempts(rt, [], "session-new", 1002);
 		// A second recovery finds no open attempt, so it does nothing.
-		const again = reconcileAttempts(db, [], "session-new", 1100);
+		const again = reconcileAttempts(rt, [], "session-new", 1100);
 		assert.equal(again.length, 0);
 		const rows = db.handle.prepare("SELECT COUNT(*) AS n FROM launch_attempts").all();
 		const row = rows[0];
 		assert.ok(row && typeof row === "object" && "n" in row);
 		assert.equal(Number(row.n), 1, "no second attempt was created");
 	} finally {
-		db.close();
+		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
 
 test("the attempt of a task of another session stays issued", () => {
-	const { db, dir } = freshDb();
+	const { db, dir, rt } = freshDb();
 	try {
 		seedOwner(db, "wz-1", "session-old");
 		reserveAttempt(db, "att-1", "wz-1", 1000);
 		markIssued(db, "att-1", 1001);
 		const outcomes = reconcileAttempts(
-			db,
+			rt,
 			[{ jobId: "wz-1", paneId: 42, sessionId: "s-1", sessionFile: "C:/state/wz-1.jsonl" }],
 			"session-new",
 			1002,
@@ -122,59 +125,59 @@ test("the attempt of a task of another session stays issued", () => {
 		assert.equal(outcomes.length, 0, "the session of another task gets no outcome");
 		assert.equal(stateOf(db, "att-1"), "issued");
 	} finally {
-		db.close();
+		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
 
 test("the attempt of a task of another session with no worker stays issued", () => {
-	const { db, dir } = freshDb();
+	const { db, dir, rt } = freshDb();
 	try {
 		seedOwner(db, "wz-1", "session-old");
 		reserveAttempt(db, "att-1", "wz-1", 1000);
 		markIssued(db, "att-1", 1001);
-		const outcomes = reconcileAttempts(db, [], "session-new", 1002);
+		const outcomes = reconcileAttempts(rt, [], "session-new", 1002);
 		assert.equal(outcomes.length, 0, "the session of another task gets no outcome");
 		assert.equal(stateOf(db, "att-1"), "issued");
 	} finally {
-		db.close();
+		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
 
 test("the attempt of a task of this session becomes unresolved", () => {
-	const { db, dir } = freshDb();
+	const { db, dir, rt } = freshDb();
 	try {
 		seedOwner(db, "wz-1", "session-new");
 		reserveAttempt(db, "att-1", "wz-1", 1000);
 		markIssued(db, "att-1", 1001);
-		const outcomes = reconcileAttempts(db, [], "session-new", 1002);
+		const outcomes = reconcileAttempts(rt, [], "session-new", 1002);
 		assert.equal(outcomes.length, 1);
 		assert.equal(outcomes[0].kind, "unresolved");
 		assert.equal(stateOf(db, "att-1"), "unresolved");
 	} finally {
-		db.close();
+		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
 
 test("a session without an identity skips the attempt of an owned task", () => {
-	const { db, dir } = freshDb();
+	const { db, dir, rt } = freshDb();
 	try {
 		seedOwner(db, "wz-1", "session-old");
 		reserveAttempt(db, "att-1", "wz-1", 1000);
 		markIssued(db, "att-1", 1001);
-		const outcomes = reconcileAttempts(db, [], null, 1002);
+		const outcomes = reconcileAttempts(rt, [], null, 1002);
 		assert.equal(outcomes.length, 0, "a session without an identity owns no task");
 		assert.equal(stateOf(db, "att-1"), "issued");
 	} finally {
-		db.close();
+		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
 
 test("the job id limit skips the attempts of the other tasks", () => {
-	const { db, dir } = freshDb();
+	const { db, dir, rt } = freshDb();
 	try {
 		seedOwner(db, "wz-1", "session-new");
 		seedOwner(db, "wz-2", "session-new");
@@ -182,13 +185,13 @@ test("the job id limit skips the attempts of the other tasks", () => {
 		markIssued(db, "att-1", 1001);
 		reserveAttempt(db, "att-2", "wz-2", 1000);
 		markIssued(db, "att-2", 1001);
-		const outcomes = reconcileAttempts(db, [], "session-new", 1002, "wz-1");
+		const outcomes = reconcileAttempts(rt, [], "session-new", 1002, "wz-1");
 		assert.equal(outcomes.length, 1);
 		assert.equal(outcomes[0].jobId, "wz-1");
 		assert.equal(stateOf(db, "att-1"), "unresolved");
 		assert.equal(stateOf(db, "att-2"), "issued", "the attempt of the other task stays open");
 	} finally {
-		db.close();
+		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });
 	}
 });

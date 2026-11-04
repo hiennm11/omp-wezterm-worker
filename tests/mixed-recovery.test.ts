@@ -162,7 +162,7 @@ test("the recovery of the launch attempts creates no second worker", async () =>
 			/* The process table of the machine names no worker, so every
 			   attempt that a crash left open becomes unresolved. The
 			   recovery never starts a second worker. */
-			const outcomes = reconcileAttempts(second.rt.openDb(), [], OWN, Date.now());
+			const outcomes = reconcileAttempts(second.rt, [], OWN, Date.now());
 			assert.deepEqual(outcomes, [], "the recovery settled an attempt of a live worker");
 			assert.equal(machine.launches, launches, "the recovery started a program");
 		} finally {

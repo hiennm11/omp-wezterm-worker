@@ -70,6 +70,11 @@ The delivery of the result of a worker whose pane is gone. The attachment ends
 the worker and delivers the result in the same step. The replay of a later
 start cannot deliver it, because the worker ended before that start.
 _Avoid_: Detached delivery, late delivery
+**Event wake**:
+The message that puts an actionable worker event into the main session. It
+uses the channel of a delivery, and it names the event id. It happens once per
+event. It holds no result text, and it never tells the worker to continue.
+_Avoid_: Notification, event delivery, result delivery
 
 **Registry**:
 The file that records every worker, so a worker survives an OMP restart.

@@ -11,7 +11,8 @@ import { statSync } from "node:fs";
 import { readCallLedger } from "./calls.ts";
 import { claudeBoundReport, claudeCompletionBlocker } from "./claude-run-state.ts";
 import { type CycleState, needsIntervention, readCycleState } from "./cycle-state.ts";
-import { createEvent, eventKey, resolveObsoleteEvent } from "./events.ts";
+import { eventKey, resolveObsoleteEvent } from "./events.ts";
+import { raiseEvent } from "./event-wake.ts";
 import { isActive, type Job, type JobStatus, type PendingStop } from "./job.ts";
 import { completionBlockerOf, syncExecutions } from "./ledger-sync.ts";
 import { finalizeJob, stopJob } from "./lifecycle.ts";
@@ -214,15 +215,17 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 		const condition = settled ? decision.condition : null;
 		if (condition) {
 			const key = eventKey(job.id, decision.evidenceId, condition);
-			createEvent(
-				db,
-				`ev-${job.id}-${decision.evidenceId}-${condition}`,
-				key,
-				job.id,
-				condition,
-				condition,
-				null,
-				true,
+			raiseEvent(
+				rt,
+				{
+					id: `ev-${job.id}-${decision.evidenceId}-${condition}`,
+					key,
+					runId: job.id,
+					kind: condition,
+					condition,
+					payload: null,
+					actionable: true,
+				},
 				now,
 			);
 		} else {
@@ -313,7 +316,7 @@ export function monitorNativeJob(rt: WorkerRuntime, job: Job, notify: (job: Job)
 		/* A permission request is a fact that the owner must know. The
 		   person answers it in the pane, so the request is raised as an
 		   event and it stays open until the request settles. */
-		recordNativeEvents(rt.openDb(), job.id, state, now);
+		recordNativeEvents(rt, job.id, state, now);
 
 		/* A session that did not start waits for the person. The missing
 		   session start is the fact, and the pane text names the cause.
