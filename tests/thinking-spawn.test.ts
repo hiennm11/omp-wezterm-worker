@@ -19,7 +19,7 @@ import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts"
 import { resumeWorker, spawnWorker } from "../extensions/lib/spawn.ts";
 import type { ThinkingLevel } from "../extensions/lib/thinking.ts";
 import { registerSpawnTool } from "../extensions/worker-tools/spawn.ts";
-import { type CodexFake, codexFake } from "./codex-spawn-helpers.ts";
+import { codexFake } from "./codex-spawn-helpers.ts";
 
 /** The context of a call of the spawn tool. */
 const CONTEXT = {
