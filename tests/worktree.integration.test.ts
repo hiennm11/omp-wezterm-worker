@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { createHost, removeDir, sessionContext, waitFor } from "./harness.ts";
+import { worktreeDiagnostics } from "./diagnostic-helpers.ts";
 
 /** The programs the test needs. */
 function hasProgram(name: string): boolean {
@@ -77,27 +78,38 @@ test("the worktree survives the worker and cleanup keeps the changes", {
 			1000,
 		);
 		const status = await host.call("wezterm_worker_status", { workerId });
-		assert.ok(finished, `The worker did not finish: ${host.text(status)}`);
+		const statusDetails = status.details && typeof status.details === "object" && "workers" in status.details
+			? status.details.workers
+			: null;
+		const worker = Array.isArray(statusDetails) && statusDetails[0] && typeof statusDetails[0] === "object"
+			? statusDetails[0]
+			: null;
+		const finalStatus = worker && "status" in worker && typeof worker.status === "string" ? worker.status : "unknown";
+		const error = worker && "error" in worker && typeof worker.error === "string" ? worker.error : null;
+		const gitStatus = existsSync(worktreePath)
+			? spawnSync("git", ["status", "--porcelain"], { cwd: worktreePath, encoding: "utf8" }).stdout
+			: "(worktree missing)";
+		const diagnostics = worktreeDiagnostics(finalStatus, error, gitStatus);
+		assert.ok(finished, `The worker did not finish: ${host.text(status)}\n${diagnostics}`);
 
 		// --- the worktree survives the worker ---
 		assert.ok(
 			existsSync(worktreePath),
-			"The worktree was removed when the worker finished. The extension must keep it.",
+			`The worktree was removed when the worker finished. The extension must keep it.\n${diagnostics}`,
 		);
 		assert.ok(
 			existsSync(join(worktreePath, "worker-output.txt")),
-			"The worker output is gone. The worktree was removed too early.",
+			`The worker output is gone. The worktree was removed too early.\n${diagnostics}`,
 		);
 		assert.ok(
 			changedPaths(worktreePath).length > 0,
-			"The worktree has no changes, so the dirty check has nothing to find",
+			`The worktree has no changes, so the dirty check has nothing to find\n${diagnostics}`,
 		);
-
 		// --- cleanup without force keeps the dirty worktree ---
 		const kept = await host.call("wezterm_worker_cleanup", { workerId });
-		assert.ok(existsSync(worktreePath), "Cleanup removed a worktree that holds changes");
-		assert.match(host.text(kept), /kept/, "Cleanup did not report that it kept the worktree");
-		assert.match(host.text(kept), /worker-output\.txt/, "Cleanup did not list the changed path");
+		assert.ok(existsSync(worktreePath), `Cleanup removed a worktree that holds changes\n${diagnostics}`);
+		assert.match(host.text(kept), /kept/, `Cleanup did not report that it kept the worktree\n${diagnostics}`);
+		assert.match(host.text(kept), /worker-output\.txt/, `Cleanup did not list the changed path\n${diagnostics}`);
 
 		// --- cleanup with force removes it, and the branch survives ---
 		const forced = await host.call("wezterm_worker_cleanup", { workerId, force: true });

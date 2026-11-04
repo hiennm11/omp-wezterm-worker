@@ -22,6 +22,9 @@ import {
 	sessionContext,
 	waitFor,
 } from "./harness.ts";
+import { workerDiagnostics } from "./diagnostic-helpers.ts";
+
+const ACTIVE_WORKER_WAIT_MS = 30_000;
 
 function hasProgram(name: string): boolean {
 	const probe = spawnSync(name, ["--version"], { windowsHide: true, encoding: "utf8" });
@@ -118,13 +121,52 @@ test("a spawn over the active worker limit is refused", {
 	await host.fire("input", {});
 
 	try {
-		for (const label of ["first", "second", "third"]) {
-			const spawned = await host.call("wezterm_spawn_worker", { task: LONG_TASK, cwd: repo, label });
-			assert.ok(
-				detailString(spawned.details, "workerId"),
-				`The ${label} spawn returned no worker id: ${host.text(spawned)}`,
-			);
+		const workerIds: string[] = [];
+		for (const [index, label] of ["first", "second", "third"].entries()) {
+			const task = LONG_TASK.replace("count.txt", `count-${label}.txt`);
+			const spawned = await host.call("wezterm_spawn_worker", { task, cwd: repo, label });
+			const workerId = detailString(spawned.details, "workerId");
+			assert.ok(workerId, `The ${label} spawn returned no worker id: ${host.text(spawned)}`);
+			workerIds[index] = workerId;
 		}
+		const active = async () => {
+			const rows = await Promise.all(
+				workerIds.map(async (workerId) => {
+					const result = await host.call("wezterm_worker_status", { workerId });
+					const workers = result.details && typeof result.details === "object" && "workers" in result.details
+						? result.details.workers
+						: null;
+					if (Array.isArray(workers) && workers[0] && typeof workers[0] === "object") {
+						const row = workers[0];
+						if ("workerId" in row && "status" in row && "error" in row && "paneId" in row) {
+							return {
+								workerId: typeof row.workerId === "string" ? row.workerId : workerId,
+								status: typeof row.status === "string" ? row.status : "unknown",
+								error: typeof row.error === "string" ? row.error : null,
+								paneId: typeof row.paneId === "number" ? row.paneId : null,
+							};
+						}
+					}
+					return { workerId, status: "unknown", error: host.text(result), paneId: null };
+				}),
+			);
+			return rows;
+		};
+		const ready = await waitFor(
+			async () => (await active()).every((worker) => worker.status === "running"),
+			ACTIVE_WORKER_WAIT_MS,
+		);
+		const statuses = await active();
+		const paneIds = currentPanes();
+		const diagnostics = workerDiagnostics(
+			statuses.map((worker) => ({
+				workerId: worker.workerId,
+				status: worker.status,
+				error: worker.error,
+				paneState: `paneId=${worker.paneId ?? "(none)"}, open=${worker.paneId !== null && paneIds.includes(worker.paneId)}`,
+			})),
+		);
+		assert.ok(ready, `Workers did not all become active within ${ACTIVE_WORKER_WAIT_MS}ms:\n${diagnostics}`);
 		const panesAfterThree = currentPanes().sort();
 
 		const fourth = await host.call("wezterm_spawn_worker", { task: "Reply OK", cwd: repo, label: "fourth" });
