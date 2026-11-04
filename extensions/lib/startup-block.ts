@@ -11,8 +11,8 @@
 
 import type { ClaudeRunState } from "./claude-run-state.ts";
 import type { LifecycleDb } from "./db.ts";
-import { eventKey, findEventByKey, resolveObsoleteEvent } from "./events.ts";
 import { raiseEvent } from "./event-wake.ts";
+import { eventKey, findEventByKey, resolveObsoleteEvent } from "./events.ts";
 import type { Job } from "./job.ts";
 import { paneTail } from "./pane.ts";
 import type { WorkerRuntime } from "./runtime.ts";

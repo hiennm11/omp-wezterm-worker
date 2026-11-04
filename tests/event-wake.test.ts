@@ -226,10 +226,7 @@ test("the startup recovery wakes the session for an event that never reached it"
 		await host.fire("session_start", sessionContext(cwd, OWN));
 
 		assert.equal(host.delivered.length, 1, "the recovery wakes the main session once");
-		assert.ok(
-			host.delivered[0]?.includes("ev-wz-1-evidence-missing_report"),
-			"the wake names the event",
-		);
+		assert.ok(host.delivered[0]?.includes("ev-wz-1-evidence-missing_report"), "the wake names the event");
 
 		// The event stays pending. The owner still has to handle it.
 		const pending = pendingEvents(RUNTIME.openDb());

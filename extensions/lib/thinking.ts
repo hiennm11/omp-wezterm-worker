@@ -38,8 +38,5 @@ export function readThinkingLevel(value: unknown): ThinkingLevel | null {
 
 /** The text that refuses a value that names no thinking level. */
 export function thinkingRefusal(value: unknown): string {
-	return (
-		`Unknown thinking level '${String(value)}'. ` +
-		`Use one of: ${THINKING_LEVELS.join(", ")}.`
-	);
+	return `Unknown thinking level '${String(value)}'. ` + `Use one of: ${THINKING_LEVELS.join(", ")}.`;
 }

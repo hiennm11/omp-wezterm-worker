@@ -158,12 +158,7 @@ export function wakeCreated(
  * is recorded before the message goes out, and the key of the attempt is the
  * id of the event. A run id would mark the result of the run as sent.
  */
-export function wakeEvent(
-	rt: WorkerRuntime,
-	event: WorkerEvent,
-	worker: EventWorker,
-	now: number,
-): boolean {
+export function wakeEvent(rt: WorkerRuntime, event: WorkerEvent, worker: EventWorker, now: number): boolean {
 	if (!wakesMainSession(event)) return false;
 	const db = rt.openDb();
 	if (hasSentDelivery(db, event.id)) return false;
@@ -183,7 +178,9 @@ export function wakeEvent(
 		return true;
 	} catch (e) {
 		markUncertain(db, event.id, e instanceof Error ? e.message : String(e), Date.now());
-		rt.errors.push(`The wake for the event ${event.id} failed: ${e instanceof Error ? e.message : String(e)}`);
+		rt.errors.push(
+			`The wake for the event ${event.id} failed: ${e instanceof Error ? e.message : String(e)}`,
+		);
 		return false;
 	}
 }

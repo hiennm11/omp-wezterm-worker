@@ -9,8 +9,8 @@
  */
 
 import type { ClaudeRunState } from "./claude-run-state.ts";
-import { eventKey, resolveObsoleteEvent } from "./events.ts";
 import { raiseEvent } from "./event-wake.ts";
+import { eventKey, resolveObsoleteEvent } from "./events.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 
 /**
@@ -49,7 +49,12 @@ const MISSING_REPORT_EVIDENCE_ID = "report-without-cycle";
  * that names a cycle proves nothing about the work that runs now, so the
  * owner must see it.
  */
-export function recordNativeEvents(rt: WorkerRuntime, runId: string, state: ClaudeRunState, now: number): void {
+export function recordNativeEvents(
+	rt: WorkerRuntime,
+	runId: string,
+	state: ClaudeRunState,
+	now: number,
+): void {
 	for (const [callId, tool] of state.openApprovals) {
 		const evidenceId = `approval-${callId}`;
 		const key = eventKey(runId, evidenceId, PERMISSION_CONDITION);

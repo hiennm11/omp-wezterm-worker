@@ -21,7 +21,7 @@ import { acquireTask, bindSession, maySupervise } from "../lib/owner.ts";
 import { spawnWorker } from "../lib/spawn.ts";
 import { spawnClaudeWorker } from "../lib/spawn-claude.ts";
 import { spawnCodexWorker } from "../lib/spawn-codex.ts";
-import { isThinkingLevel, THINKING_LEVELS, thinkingRefusal, type ThinkingLevel } from "../lib/thinking.ts";
+import { isThinkingLevel, THINKING_LEVELS, type ThinkingLevel, thinkingRefusal } from "../lib/thinking.ts";
 import {
 	commsDetails,
 	commsNoticeLine,
