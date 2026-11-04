@@ -7,6 +7,7 @@
  */
 
 import { backendLabel, readBackend } from "./backend.ts";
+import { createEvent, eventKey, findEventByKey } from "./events.ts";
 import { beginDelivery, markSent, markUncertain } from "./delivery.ts";
 import type { Job } from "./job.ts";
 import { nativeJobUsageReport, requestUsageOf } from "./native-usage-report.ts";
@@ -21,8 +22,7 @@ export interface DeliveryUsage {
 	worker: UsageReport;
 	request: UsageReport;
 }
-
-export function formatDelivery(job: Job, usage: DeliveryUsage, nativeCycles = 0, restored = false): string {
+export function formatDelivery(job: Job, usage: DeliveryUsage, nativeCycles = 0, restored = false, eventId?: string): string {
 	const pending = job.pendingStop;
 	/* A restart cut the counts of a restored run. The delivery says that the
 	   counts start at the restart. */
@@ -57,8 +57,9 @@ export function formatDelivery(job: Job, usage: DeliveryUsage, nativeCycles = 0,
 	]
 		.filter((line): line is string => line !== null)
 		.join(" | ");
+	const eventLine = eventId ? `Event id: ${eventId}. Acknowledge it with wezterm_worker_ack after you read the result.\n\n` : "";
 	const request = `\n\nThis request so far: ${formatUsage(usage.request)}. The main session is not counted.`;
-	return `${header}\n\n${body}\n\n(${meta})${request}`;
+	return `${header}\n\n${body}\n\n(${meta})\n\n${eventLine}${request}`;
 }
 
 export function createDeliver(rt: WorkerRuntime): (job: Job) => void {
@@ -79,32 +80,31 @@ export function createDeliver(rt: WorkerRuntime): (job: Job) => void {
 		const restored =
 			readBackend(job) !== "omp" &&
 			typeof (rt.claudeStates.get(job.id)?.usage.restoredAt ?? job.nativeUsage?.restoredAt) === "number";
-		const text = formatDelivery(
-			job,
-			{
-				worker: workerUsage,
-				request: requestUsageOf(rt.jobs, rt.requestLaunches, rt.claudeStates),
-			},
-			nativeCycles,
-			restored,
-		);
-		// The delivery attempt is recorded before the message goes out. The
-		// attempt keeps the event identity and the owner generation. A
-		// settled attempt and an uncertain attempt stay distinct from a
-		// handling acknowledgement.
 		const db = rt.openDb();
 		const attemptId = `del-${job.id}-${Date.now()}`;
-		/* Only the owner of the task may deliver the result. The check and
-		   the attempt run in one transaction, so a session that lost the
-		   task sends no message and writes no attempt. */
-		const attempt = writeUnderAuthority(db, rt.sessionId, job.id, () =>
-			beginDelivery(db, attemptId, job.id, generationOf(rt, job.id) ?? 0, Date.now()),
-		);
-		if (attempt.refused) {
-			// The event stays pending for the owner that holds the task.
-			rt.errors.push(`[wezterm-worker] The delivery of worker ${job.id} was refused: ${attempt.refusal}`);
+		const resultKey = eventKey(job.id, "result", "result");
+		/* The authority check and both writes share one transaction. */
+		const delivery = writeUnderAuthority(db, rt.sessionId, job.id, () => {
+			const event = findEventByKey(db, resultKey) ??
+				createEvent(db, `ev-${job.id}-result`, resultKey, job.id, "result", "result", null, true, Date.now()).event;
+			const text = formatDelivery(
+				job,
+				{
+					worker: workerUsage,
+					request: requestUsageOf(rt.jobs, rt.requestLaunches, rt.claudeStates),
+				},
+				nativeCycles,
+				restored,
+				job.pendingStop === null ? event.id : undefined,
+			);
+			const attempt = beginDelivery(db, attemptId, event.id, generationOf(rt, job.id) ?? 0, Date.now());
+			return { text, attempt };
+		});
+		if (delivery.refused) {
+			rt.errors.push(`[wezterm-worker] The delivery of worker ${job.id} was refused: ${delivery.refusal}`);
 			return;
 		}
+		const { text } = delivery.value;
 		try {
 			const channel = rt.sendToMainSession(text);
 			if (channel === "none") return;

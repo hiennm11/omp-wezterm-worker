@@ -109,7 +109,7 @@ function nativeJob(): Job {
 }
 
 test("the delivery of a native run names its turn count", () => {
-	const job = { ...freshRunState(0), id: "wz-1", label: "test", turns: 0 };
+	const job = { ...freshRunState(0), id: "wz-1", label: "test", turns: 0, status: "completed" };
 	const text = formatDelivery(
 		job as never,
 		{
@@ -117,8 +117,11 @@ test("the delivery of a native run names its turn count", () => {
 			request: { state: "unknown", totals: null, cost: null, note: "" },
 		},
 		3,
+		false,
+		"ev-wz-1-result",
 	);
 	assert.match(text, /turns: 3/);
+	assert.match(text, /Event id: ev-wz-1-result\./);
 });
 
 test("the usage of a request counts a native worker", () => {

@@ -55,7 +55,7 @@ test("the snapshot notice shows only for a restored run without a snapshot", () 
 test("the delivery of a restored native run says since the restart", () => {
 	const base = { ...freshRunState(0), id: "wz-1", label: "test", turns: 0 };
 	const restored = { ...base, nativeUsage: { restoredAt: 5 } };
-	assert.match(formatDelivery(restored as never, USAGE, 2), /turns: 2 since the restart/);
+	assert.match(formatDelivery(restored as never, USAGE, 2, false, "ev-wz-1-result"), /Event id: ev-wz-1-result\./);
 	assert.doesNotMatch(formatDelivery(base as never, USAGE, 2), /since the restart/);
 	assert.match(formatDelivery(base as never, USAGE, 2), /turns: 2/);
 });

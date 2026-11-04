@@ -242,6 +242,14 @@ keeps making progress in the middle of a task.
 The main agent never blocks on a worker. It can keep working for hours while
 the worker runs. The main session receives the result when the worker finishes.
 
+Each completed or failed worker result has one actionable result event. A completed result delivery includes this line before `This request so far`:
+
+```text
+Event id: <id>. Acknowledge it with wezterm_worker_ack after you read the result.
+```
+
+The delivery wakes the main session. The result event itself is silent. Call `wezterm_worker_ack` with the event id after you read the result. Cleanup refuses while the event remains unhandled, so reading the result alone does not release the transcript or worktree.
+
 ### Steering a running worker
 
 `wezterm_worker_steer` sends text into a running worker's composer and
