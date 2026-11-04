@@ -72,7 +72,7 @@ test("the events of three backends have three ids that name their own run", asyn
 	const machine = mixedMachine();
 	try {
 		await raiseEventsOfThreeBackends(machine);
-		const events = pendingEvents(machine.rt.openDb());
+		const events = pendingEvents(machine.rt.openDb()).filter((event) => event.condition !== "result");
 		assert.equal(events.length, 3, "the database holds no three events");
 		const ids = events.map((event) => event.id);
 		assert.equal(new Set(ids).size, 3, "the events do not have three different ids");
@@ -82,10 +82,11 @@ test("the events of three backends have three ids that name their own run", asyn
 		/* The key of an event joins the run, the evidence and the condition.
 		   The key of the event of a run names that run, so a second run with
 		   the same evidence does not find the event of the first run. */
-		const keys = machine.rt
-			.openDb()
-			.handle.prepare("SELECT key FROM meta WHERE key LIKE 'event_key:%'")
-			.all() as { key: string }[];
+		const keys = (
+			machine.rt.openDb().handle.prepare("SELECT key FROM meta WHERE key LIKE 'event_key:%'").all() as {
+				key: string;
+			}[]
+		).filter((row) => !row.key.endsWith("|result"));
 		assert.equal(keys.length, 3, "the database holds no three keys");
 		for (const key of keys.map((row) => row.key)) {
 			const runId = key.slice("event_key:".length).split("|")[0];

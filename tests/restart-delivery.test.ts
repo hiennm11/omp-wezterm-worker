@@ -74,12 +74,12 @@ function seedRun(stateDir: string, overrides: Partial<Job> = {}): Job {
 	return job;
 }
 
-/** The delivery attempts of one run. */
+/** The delivery attempts of one run, under the job id and under the id of its result event. */
 function deliveriesOf(stateDir: string, runId: string): Array<{ state: string; detail: string | null }> {
 	const db = openDatabase(join(stateDir, "lifecycle.db"));
 	const rows = db.handle
-		.prepare("SELECT state, detail FROM deliveries WHERE event_id = ?")
-		.all(runId) as Array<{
+		.prepare("SELECT state, detail FROM deliveries WHERE event_id IN (?, ?)")
+		.all(runId, `ev-${runId}-result`) as Array<{
 		state: string;
 		detail: string | null;
 	}>;

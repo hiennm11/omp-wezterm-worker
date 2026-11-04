@@ -211,7 +211,7 @@ test("a failed native worker marks its open execution rows unknown and creates t
 		const rows = executionsOfRun(db, job.id);
 		assert.equal(rows.length, 1);
 		assert.equal(rows[0].state, "unknown");
-		const events = eventsOfRun(db, job.id);
+		const events = eventsOfRun(db, job.id).filter((event) => event.condition !== "result");
 		assert.equal(events.length, 1);
 		assert.equal(events[0].condition, "execution_loss");
 	} finally {
@@ -232,7 +232,7 @@ test("a failed native worker without execution rows creates no event", async () 
 
 		await finalizeJob(rt, job, "failed", "the native worker crashed", null);
 
-		const events = eventsOfRun(rt.openDb(), job.id);
+		const events = eventsOfRun(rt.openDb(), job.id).filter((event) => event.condition !== "result");
 		assert.equal(events.length, 0);
 	} finally {
 		rt.closeDb();
@@ -263,7 +263,7 @@ test("a failed worker marks its open execution rows unknown and creates the even
 		const rows = executionsOfRun(db, job.id);
 		assert.equal(rows.length, 1);
 		assert.equal(rows[0].state, "unknown");
-		const events = eventsOfRun(db, job.id);
+		const events = eventsOfRun(db, job.id).filter((event) => event.condition !== "result");
 		assert.equal(events.length, 1);
 		assert.equal(events[0].condition, "execution_loss");
 	} finally {
