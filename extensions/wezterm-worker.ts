@@ -73,9 +73,13 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	mkdirSync(rt.config.stateDir, { recursive: true });
 	pi.setLabel?.("WezTerm Workers");
 
+	// Temporary, for issue 128: names the factory run that owns a log line.
+	const loadId = Math.random().toString(36).slice(2, 7);
+
 	// The channel that wakes the main session. The wake of an event and the
 	// delivery of a result use the same channel. See docs/adr/0004.
 	rt.sendToMainSession = (text: string) => {
+		pi.logger?.info?.(`[wezterm-worker] diag128 send: load=${loadId} chars=${text.length}`);
 		if (typeof pi.sendUserMessage === "function") {
 			pi.sendUserMessage(text, { triggerTurn: true });
 			return "sendUserMessage";
@@ -83,6 +87,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		pi.sendMessage(text, { deliverAs: "steer", triggerTurn: true, attribution: "agent" });
 		return "sendMessage";
 	};
+	pi.logger?.info?.(`[wezterm-worker] diag128 channel assigned: load=${loadId}`);
 	// A setting that the new release refuses must not pass without a word.
 	if (lastGuidance) pi.logger?.warn?.(`[wezterm-worker] ${lastGuidance}`);
 
@@ -110,7 +115,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	for (const job of restored.finished) rt.jobs.set(job.id, job);
 
 	pi.on("session_start", async (_event, ctx) => {
-		pi.logger?.info?.(sessionStartLine(ctx));
+		pi.logger?.info?.(`${sessionStartLine(ctx)} load=${loadId}`);
 
 		/* OMP loads the extension again for a subagent in the same process.
 		   The runtime lives at module scope, so the second load shares it. A
