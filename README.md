@@ -730,7 +730,7 @@ need it.
 | Worker exceeds `timeoutMs` | The extension stops the worker. When the pane list shows the pane gone, the worker is marked `failed` with a timeout message. Until then it stays `running` with a `stop` reason. |
 | User closes the worker pane | The worker stays in the database; the isolated worktree (if any) is kept. |
 | OMP restarts while a worker runs | The worker is re-read from `lifecycle.db` and re-monitored if its pane is still alive. A native worker also gets a new bridge, and the worker follows it through the handover file. |
-| OMP restarts after the user closed the pane | The worker is marked `failed` with "Worker pane was closed before this session re-attached". A worker with a pending stop gets the status of that stop. |
+| OMP restarts after the user closed the pane | The worker is marked `failed` with "Worker pane was closed before this session re-attached". A worker with a pending stop gets the status of that stop. The main session receives the result of the worker. |
 | The pane list cannot be read | The pane state is unknown. It is never treated as gone. A stop stays unconfirmed, and the startup check does not fail the worker. |
 | A launch breaks a limit | The spawn or the resume is refused with an error that names the rule. No worker and no pane are created. |
 
@@ -1030,6 +1030,7 @@ omp-wezterm-worker/
 │   ├── restored-run.test.ts    the usage of a native run that a restart restored
 │   ├── restored-run-text.test.ts the texts of a restored native run
 │   ├── recover-task.test.ts    the replay of a result that a restart lost
+│   ├── restart-delivery.test.ts the delivery of a worker that lost its pane
 │   ├── group-release.test.ts    the release of a resource group
 │   ├── group-holder.test.ts     the holder of a resource group that ended
 │   ├── group-holder-helpers.ts  the helpers of the group holder tests
@@ -1183,6 +1184,7 @@ breaks a test.
 | `restored-run.test.ts` | The re-attachment marks the usage of the run with the time of the restart. A restored run with a measured turn has a partial usage, and the note says that the counts start at the restart of OMP. A run that never restarted keeps a measured usage. A restored run without a measured turn stays unknown. A restored run with a turn without usage keeps both reasons. |
 | `restored-run-text.test.ts` | The turn label says that a restart cut the count. The snapshot notice shows only for a restored run without a snapshot. The delivery of a restored native run says since the restart. The status of a live restored run names the missing snapshot. The status of a run that never restarted shows no restart text. The status of a finished restored run still says since the restart. |
 | `recover-task.test.ts` | A finished run without a sent delivery is selected. A cancelled run stays out. A run without a mark is selected. The replay sends only the result that this session owns and never delivered. A delivery that throws does not stop the replay of the next run. The first recovery marks the time and replays no run that ended before it. |
+| `restart-delivery.test.ts` | A new main session delivers the result of a worker that lost its pane. A worker that finished before the first recovery is not delivered again. |
 | `group-release.test.ts` | A run that ends with its pane closed frees its group, and a new resume takes it. A run that ends with its pane alive keeps its group. A failed launch of a resume frees the group. The recovery frees a group whose holder ended, and it keeps a group whose holder is active, has no job, or still has a live pane. |
 | `group-holder.test.ts` | The holder of an ended run frees its group when its pane is gone. The holder of an ended run keeps its group while its pane is open, and the refusal names the pane. The holder of an ended run keeps its group when the pane list cannot be read. An active holder and a holder that this process does not know keep their group. A resume takes the group of a source run whose pane was closed by hand. A resume refuses while the pane of the holder is open. The cleanup of a task whose holder ended with its pane gone goes on. The cleanup refuses and names the pane while the pane of the holder is open. |
 | `group-recovery-panes.test.ts` | The startup recovery frees the group of a holder whose pane is gone, and it marks the pane of the run as closed. The recovery keeps the group of a holder whose pane is open, and it keeps the group when the pane list cannot be read. The recovery frees the group of a holder whose pane is closed without a pane list. The recovery reads the pane list one time for two groups. The recovery reads no pane list when no ended holder has an open pane. The recovery keeps the group of an active holder and of a holder that this process does not know. The decision names one result for every state of the pane. |
