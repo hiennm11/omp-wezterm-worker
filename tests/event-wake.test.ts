@@ -328,7 +328,7 @@ test("the delivery of a result still works after the wake of an event", () => {
 		createDeliver(rt)(finished);
 
 		assert.equal(sent.length, 2, "the result of the run reaches the main session too");
-		const attempts = deliveriesOfEvent(rt.openDb(), job.id);
+		const attempts = deliveriesOfEvent(rt.openDb(), `ev-${job.id}-result`);
 		assert.equal(attempts.length, 1, "the result has one delivery row");
 		assert.equal(attempts[0]?.state, "sent");
 	} finally {

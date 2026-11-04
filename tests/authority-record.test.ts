@@ -311,7 +311,7 @@ test("the delivery of a session that does not own the task sends no message", ()
 			return "sendUserMessage";
 		};
 		createDeliver(rt)(job);
-		assert.equal(deliveriesOfEvent(rt.openDb(), job.id).length, 0);
+		assert.equal(deliveriesOfEvent(rt.openDb(), `ev-${job.id}-result`).length, 0);
 		assert.equal(rt.errors.length, 1);
 		assert.match(rt.errors[0] ?? "", /wz-1/);
 		assert.match(rt.errors[0] ?? "", /session-old/);
@@ -334,7 +334,7 @@ test("the delivery of the owner of the task sends the message", () => {
 		};
 		createDeliver(rt)(job);
 		assert.equal(host.sent.length, 1);
-		const attempts = deliveriesOfEvent(rt.openDb(), job.id);
+		const attempts = deliveriesOfEvent(rt.openDb(), `ev-${job.id}-result`);
 		assert.equal(attempts.length, 1);
 		assert.equal(attempts[0]?.state, "sent");
 		assert.equal(host.warnings.length, 0);

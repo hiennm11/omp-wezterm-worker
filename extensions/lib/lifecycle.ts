@@ -21,6 +21,7 @@ import { reportState } from "./report-decision.ts";
 import { readReports } from "./report-store.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { confirmStopIntent, failStopIntent, recordStopIntent } from "./stop-intent.ts";
+import { createEvent, eventKey } from "./events.ts";
 import { inspectWorktree } from "./worktree.ts";
 
 /**
@@ -126,8 +127,22 @@ export async function finalizeJob(
 	// The client of the app server holds a socket. The run ends here, so the
 	// socket closes with it. A run that ended early closes its socket too.
 	closeCodexClient(rt, job);
-
-	rt.persist();
+	rt.openDb().write(() => {
+		rt.persist();
+		if (status === "completed" || status === "failed") {
+			createEvent(
+				rt.openDb(),
+				`ev-${job.id}-result`,
+				eventKey(job.id, "result", "result"),
+				job.id,
+				"result",
+				"result",
+				null,
+				true,
+				Date.now(),
+			);
+		}
+	});
 }
 
 /**

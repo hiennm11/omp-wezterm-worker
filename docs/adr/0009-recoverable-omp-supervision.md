@@ -182,6 +182,13 @@ Persist the result and its pending event in the same state update.
 
 Each event keeps one ID through replay. Deliver at least once and make repeated handling safe.
 
+Each run that ends as completed or failed creates one actionable result event. The event id is `ev-<run id>-result`.
+The event key is `eventKey(runId, "result", "result")`. A repeated finalization returns the same event.
+The final run row and its result event commit in one database transaction. A cancelled run creates no result event.
+The event condition `result` is silent. The result delivery wakes the session and carries the event id.
+The owner acknowledges that id after it reads the result. Cleanup refuses while the event remains unhandled.
+Delivery attempts use the event id. Recovery also checks the run id for deliveries written before this rule.
+
 A correct message put does not prove handling.
 
 The main session acknowledges the event ID with a recorded disposition after handling it.

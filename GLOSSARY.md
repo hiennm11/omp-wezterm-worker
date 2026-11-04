@@ -185,6 +185,10 @@ _Avoid_: Resume, restart
 A result, input request, or intervention condition that the main session must handle.
 _Avoid_: Task, turn, notification text
 
+**Result event**:
+The actionable event that represents a completed or failed worker result. The delivery carries its id, and the main session must acknowledge it.
+_See also_: Handling acknowledgement
+
 **Handling acknowledgement**:
 The main session's record that it handled a worker event and chose a
 disposition. Receipt or inspection alone does not count as handling

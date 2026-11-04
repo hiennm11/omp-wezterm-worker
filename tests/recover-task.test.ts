@@ -10,7 +10,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { beginDelivery, markSent } from "../extensions/lib/delivery.ts";
+import { beginDelivery, deliveriesOfEvent, markSent } from "../extensions/lib/delivery.ts";
+import { createEvent, eventKey } from "../extensions/lib/events.ts";
 import type { Job } from "../extensions/lib/job.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
 import { acquireOwnership } from "../extensions/lib/ownership.ts";
@@ -83,6 +84,16 @@ test("the replay sends only the result that this session owns and never delivere
 		replayed.map((job) => job.id),
 		["wz-lost"],
 	);
+});
+
+test("replay does not resend a result delivered under its legacy job id", (t) => {
+	const { rt } = runtimeFor(t, fakeWezterm().exec);
+	const job = ended("wz-legacy", "completed", 2000);
+	own(rt, job, "s1");
+	markSent(rt.openDb(), beginDelivery(rt.openDb(), "del-legacy", job.id, 1, 1500).id, "sendUserMessage", 1501);
+	const notified: string[] = [];
+	replayUndelivered(rt, [job], (run) => notified.push(run.id), null);
+	assert.deepEqual(notified, []);
 });
 
 test("a delivery that throws does not stop the replay of the next run", async (t) => {
