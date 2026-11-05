@@ -138,6 +138,23 @@ Then keep working; the result arrives on its own.
 | `timeoutMs` | number | Deadline for this worker. `0` means **no deadline**. Defaults to the configured `timeoutMs` (30 min). |
 | `closePaneOnFinish` | boolean | Close the worker's pane when it finishes. Defaults to the config value (`true`). Set `false` to leave the pane open for inspection. |
 
+### Spawn presets
+
+Put named presets in `wezterm-worker.json` under `presets`:
+
+```json
+{
+  "presets": {
+    "scout": { "model": "<your-model-id>", "tools": ["read", "grep", "glob"] },
+    "plan": { "model": "<your-model-id>", "thinking": "high" },
+    "task": { "model": "<your-model-id>", "isolated": true }
+  }
+}
+```
+
+The spawn call parameter wins over the preset. The preset wins over the global configuration. The global configuration wins over the default.
+An OMP worker with a non-empty restricted tool list always gets `wezterm_worker_report` when the list omits it. A resume applies the same rule.
+
 ### The Claude Code backend
 
 A spawn that names `backend: "claude"` runs a real interactive Claude Code

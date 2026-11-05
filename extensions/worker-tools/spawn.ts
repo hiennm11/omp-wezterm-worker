@@ -22,6 +22,7 @@ import { spawnClaudeWorker } from "../lib/spawn-claude.ts";
 import { spawnCodexWorker } from "../lib/spawn-codex.ts";
 import { isSubagent } from "../lib/subagent.ts";
 import { isThinkingLevel, THINKING_LEVELS, type ThinkingLevel, thinkingRefusal } from "../lib/thinking.ts";
+import { resolveSpawn, type SpawnPresetValues } from "../lib/preset.ts";
 import {
 	commsDetails,
 	commsNoticeLine,
@@ -42,18 +43,14 @@ function readBackendParam(value: string | undefined): WorkerBackend | null {
 	return null;
 }
 
-interface Params {
+interface Params extends SpawnPresetValues {
 	task: string;
 	cwd?: string;
 	label?: string;
-	model?: string;
-	tools?: string[];
-	thinking?: string;
-	backend?: string;
 	placement?: string;
-	isolated?: boolean;
 	timeoutMs?: number;
 	closePaneOnFinish?: boolean;
+	preset?: string;
 }
 
 export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
@@ -63,9 +60,9 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 		label: "Spawn WezTerm Worker",
 		description:
 			"Spawn a background OMP worker session in its own WezTerm pane so the user can watch it live. " +
-			"The worker is an independent omp process with its own model, tools and session file — it does " +
-			"NOT inherit this conversation. Returns immediately with a worker id, pane id and transcript path; " +
-			"the final result is delivered back into this session automatically when the worker finishes. " +
+			"The worker is an independent omp process with its own model, tools and session file. It does " +
+			"NOT inherit this conversation. Presets come from the configuration file, and call parameters win. " +
+			"Returns a worker id, pane id and transcript path. The final result returns when the worker finishes. " +
 			"Use for long read-only or independent tasks. Prefer the native `task` tool when no pane is needed. " +
 			"The extension scores the `task` text with a Simplified Technical English check (see `commsStandard`). " +
 			"Write short sentences, one instruction per sentence, in the active voice.",
@@ -89,6 +86,10 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 						"The role aliases 'smol', 'task' and 'slow' select a model. " +
 						"These aliases apply to an OMP worker only. A Claude Code worker receives the value unchanged.",
 				),
+			preset: z
+				.string()
+				.optional()
+				.describe("Named preset from the presets in the configuration file. A parameter of this call wins over a preset."),
 			tools: z
 				.array(z.string())
 				.optional()
@@ -136,13 +137,16 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 		}),
 		loadMode: "essential",
 		async execute(_id: string, params: Params, _signal: unknown, _onUpdate: unknown, ctx: ToolCtx) {
+			const resolved = resolveSpawn(rt.config.presets, params.preset, params);
+			if (typeof resolved === "string") return reply(resolved, { preset: params.preset }, true);
+			const spawnParams = resolved;
 			const placement: Placement =
-				params.placement === "tab" || params.placement === "split" ? params.placement : rt.config.placement;
-			const backend = readBackendParam(params.backend);
+				spawnParams.placement === "tab" || spawnParams.placement === "split" ? spawnParams.placement : rt.config.placement;
+			const backend = readBackendParam(spawnParams.backend);
 			if (!backend) {
 				return reply(
-					`Unknown backend '${params.backend}'. Use one of: ${KNOWN_BACKENDS.join(", ")}.`,
-					{ backend: params.backend },
+					`Unknown backend '${spawnParams.backend}'. Use one of: ${KNOWN_BACKENDS.join(", ")}.`,
+					{ backend: spawnParams.backend },
 					true,
 				);
 			}
@@ -153,14 +157,14 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 			if (refusal) return reply(refusal, { backend }, true);
 			/* A value that names no thinking level is refused before the
 			   launch. The extension never maps a level to another level. */
-			const requested = params.thinking ?? null;
+			const requested = spawnParams.thinking ?? null;
 			if (requested !== null && !isThinkingLevel(requested)) {
 				return reply(thinkingRefusal(requested), { backend, thinking: requested }, true);
 			}
 			const thinking: ThinkingLevel | null = requested;
 			/* The tool list of an OMP worker has no meaning for a native
 			   backend. The refusal happens before the launch. */
-			if (backend !== "omp" && params.tools?.length) {
+			if (backend !== "omp" && spawnParams.tools?.length) {
 				return reply(
 					`The tools parameter applies to an OMP worker only. A ${backendLabel(backend)} worker uses the tools of its own CLI.`,
 					{ backend },
@@ -181,7 +185,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 			const comms = await checkComms(
 				rt.exec,
 				rt.config.ste100Skill,
-				params.task,
+				spawnParams.task,
 				"task",
 				rt.config.commsStandard,
 			);
@@ -210,38 +214,38 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				backend === "claude"
 					? await spawnClaudeWorker(rt, {
 							jobId: admitted.jobId,
-							task: params.task,
-							cwd: resolve(params.cwd || ctx.cwd),
-							label: params.label,
-							model: params.model ?? null,
+							task: spawnParams.task,
+							cwd: resolve(spawnParams.cwd || ctx.cwd),
+							label: spawnParams.label,
+							model: spawnParams.model ?? null,
 							sessionId: randomUUID(),
-							isolated: params.isolated,
-							timeoutMs: params.timeoutMs,
-							closePaneOnFinish: params.closePaneOnFinish,
+							isolated: spawnParams.isolated,
+							timeoutMs: spawnParams.timeoutMs,
+							closePaneOnFinish: spawnParams.closePaneOnFinish,
 						})
 					: backend === "codex"
 						? await spawnCodexWorker(rt, {
 								jobId: admitted.jobId,
-								task: params.task,
-								cwd: resolve(params.cwd || ctx.cwd),
-								label: params.label,
-								model: params.model ?? null,
-								isolated: params.isolated,
-								timeoutMs: params.timeoutMs,
-								closePaneOnFinish: params.closePaneOnFinish,
+								task: spawnParams.task,
+								cwd: resolve(spawnParams.cwd || ctx.cwd),
+								label: spawnParams.label,
+								model: spawnParams.model ?? null,
+								isolated: spawnParams.isolated,
+								timeoutMs: spawnParams.timeoutMs,
+								closePaneOnFinish: spawnParams.closePaneOnFinish,
 							})
 						: await spawnWorker(rt, {
 								jobId: admitted.jobId,
-								task: params.task,
-								cwd: params.cwd || ctx.cwd,
-								label: params.label,
-								model: params.model,
-								tools: params.tools,
-								thinking: thinking,
+								task: spawnParams.task,
+								cwd: spawnParams.cwd || ctx.cwd,
+								label: spawnParams.label,
+								model: spawnParams.model,
+								tools: spawnParams.tools,
+								thinking,
 								placement,
-								isolated: params.isolated,
-								timeoutMs: params.timeoutMs,
-								closePaneOnFinish: params.closePaneOnFinish,
+								isolated: spawnParams.isolated,
+								timeoutMs: spawnParams.timeoutMs,
+								closePaneOnFinish: spawnParams.closePaneOnFinish,
 							});
 
 			if (job.status === "failed") {
@@ -260,6 +264,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 			const lines = [
 				`Worker ${job.id} started in pane ${job.paneId}.`,
 				`backend: ${backendLabel(readBackend(job))}`,
+				params.preset ? `preset: ${params.preset}` : null,
 				`cwd: ${job.cwd}`,
 				job.model ? `model: ${job.model}` : null,
 				job.thinking ? `requested thinking level: ${job.thinking}` : null,
