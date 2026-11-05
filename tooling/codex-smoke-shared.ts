@@ -12,11 +12,16 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-
-import { createHost, type TestHost } from "../tests/harness.ts";
-import { type ApprovalPolicy } from "../extensions/lib/codex-approval.ts";
+import type { ApprovalPolicy } from "../extensions/lib/codex-approval.ts";
 import { loadConfig } from "../extensions/lib/config.ts";
-import { APPROVAL_POLICY, codexAuthFile, codexConfigFile, configText, hashOfFile } from "./codex-smoke-home.ts";
+import { createHost, type TestHost } from "../tests/harness.ts";
+import {
+	APPROVAL_POLICY,
+	codexAuthFile,
+	codexConfigFile,
+	configText,
+	hashOfFile,
+} from "./codex-smoke-home.ts";
 import {
 	closePane,
 	codexProcessRows,

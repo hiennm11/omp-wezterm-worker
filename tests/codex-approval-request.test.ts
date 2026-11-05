@@ -13,9 +13,8 @@
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
 import { test } from "node:test";
-
-import type { Job } from "../extensions/lib/job.ts";
 import { endCodexProcesses } from "../extensions/lib/codex-process.ts";
+import type { Job } from "../extensions/lib/job.ts";
 import { resumeCodexWorker } from "../extensions/lib/resume-codex.ts";
 import { spawnCodexWorker } from "../extensions/lib/spawn-codex.ts";
 import { type CodexFake, codexFake } from "./codex-spawn-helpers.ts";
