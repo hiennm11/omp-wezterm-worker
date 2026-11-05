@@ -17,10 +17,11 @@ import { test } from "node:test";
 
 import { openDatabase } from "../extensions/lib/db.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
-import { taskKey } from "../extensions/lib/owner.ts";
+import { acquireTask, bindSession, generationOf, taskKey } from "../extensions/lib/owner.ts";
 import { acquireOwnership, type OwnerPhase } from "../extensions/lib/ownership.ts";
 import type { RunResult } from "../extensions/lib/process.ts";
 import { persistRuns } from "../extensions/lib/runs.ts";
+import { createRuntime } from "../extensions/lib/runtime.ts";
 import { createHost, RUNTIME, removeDir, sessionContext, type TestHost } from "./harness.ts";
 
 /** The session of the main session. */
@@ -175,6 +176,39 @@ test("the shutdown of a subagent releases no task of the main session", async ()
 		await host.fire("session_shutdown", subagent);
 
 		assert.equal(phaseOf(stateDir, RUNNING), "active", "the subagent released the task of the main session");
+	} finally {
+		RUNTIME.closeDb();
+		removeDir(stateDir);
+	}
+});
+
+test("a new process of the same session adopts the worker of a closed session", async () => {
+	/* The old process stays alive and closes its session. The new process of
+	   the same session holds the lease of the session, because it wrote to
+	   the session before the extension ran. The old process must release the
+	   row, so the new process adopts the running worker. */
+	const stateDir = mkdtempSync(join(tmpdir(), "wt-shutdown-adopt-"));
+	const old = makeHost(stateDir);
+	try {
+		await old.fire("session_start", sessionContext(stateDir, SESSION));
+		await old.fire("session_shutdown", sessionContext(stateDir, SESSION));
+		assert.equal(phaseOf(stateDir, RUNNING), "released", "the running worker was not released");
+
+		/* The new process of the same session. It holds the lease, because
+		   it wrote to the session before the extension ran. */
+		const fresh = createRuntime(exec);
+		fresh.config.stateDir = stateDir;
+		fresh.processId = process.pid + 1;
+		fresh.processStartedAt = "2026-11-05T02:00:00.000Z";
+		try {
+			bindSession(fresh, { getSessionId: () => SESSION });
+			fresh.sessionLeaseHeld = async () => true;
+			const result = await acquireTask(fresh, RUNNING);
+			assert.equal(result.acquired, true, result.acquired ? "" : result.reason);
+			assert.equal(generationOf(fresh, RUNNING) !== null, true, "the new process holds no generation");
+		} finally {
+			fresh.closeDb();
+		}
 	} finally {
 		RUNTIME.closeDb();
 		removeDir(stateDir);

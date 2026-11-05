@@ -39,7 +39,6 @@ import { reconcileAttempts } from "./lib/recovery.ts";
 import { detectRole, ownSessionDir } from "./lib/role.ts";
 import { createRuntime } from "./lib/runtime.ts";
 import { createLeaseProbe } from "./lib/session-lease.ts";
-import { releaseSessionTasks } from "./lib/session-release.ts";
 import { reconcileStopIntents } from "./lib/stop-reconcile.ts";
 import { isSubagent, sessionStartLine } from "./lib/subagent.ts";
 import { registerWorkerBootstrap } from "./lib/worker-bootstrap.ts";
@@ -211,52 +210,20 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		}
 	};
 
-	pi.on("session_shutdown", async (_event, ctx) => {
+	pi.on("session_shutdown", (_event, ctx) => {
 		/* The runtime is shared by every session of the process. The end of
 		   a subagent must not stop the monitors of the main session and must
 		   not close its database. */
 		if (isSubagent(ctx)) return;
 
-		/* A closing session gives up the tasks that it still supervises. The
-		   next process of the same session adopts the running worker through
-		   the existing path of a released row. The step runs before the
-		   monitors clear, because the release reads the state of the runs. */
-		try {
-			rt.persist();
-		} catch (e) {
-			rt.errors.push(`The state of the session could not be saved: ${e instanceof Error ? e.message : String(e)}`);
-		}
-		try {
-			const released = await releaseSessionTasks(rt);
-			if (released.length > 0) {
-				pi.logger?.info?.(
-					`[wezterm-worker] The closing session released ${released.length} running task(s): ${released.join(", ")}.`,
-				);
-			}
-		} catch (e) {
-			rt.errors.push(`The release of the running tasks failed: ${e instanceof Error ? e.message : String(e)}`);
-		}
-
 		// The last errors of the session must reach the logger before the
 		// database closes. OMP emits no other event for the end of a session.
-		try {
-			drainErrors();
-		} catch (e) {
-			rt.errors.push(`The errors of the session could not be reported: ${e instanceof Error ? e.message : String(e)}`);
-		}
-		try {
-			for (const timer of rt.monitors.values()) clearInterval(timer);
-			rt.monitors.clear();
-		} catch (e) {
-			rt.errors.push(`The monitors of the session could not be stopped: ${e instanceof Error ? e.message : String(e)}`);
-		}
+		drainErrors();
+		for (const timer of rt.monitors.values()) clearInterval(timer);
+		rt.monitors.clear();
 		// The database holds a file lock. The handle must close, or the state
 		// directory cannot be removed while the process lives.
-		try {
-			rt.closeDb();
-		} catch (e) {
-			rt.errors.push(`The database of the session could not close: ${e instanceof Error ? e.message : String(e)}`);
-		}
+		rt.closeDb();
 	});
 
 	// A user prompt starts a new request. A worker result does not fire `input`.
