@@ -13,7 +13,7 @@ import { clearHandover } from "./bridge-handover.ts";
 import type { BridgeState } from "./claude-bridge.ts";
 import { endCodexProcesses } from "./codex-process.ts";
 import { closeCodexClient, codexStopFailure, stopCodexWorker } from "./codex-stop.ts";
-import { createEvent, eventKey } from "./events.ts";
+import { recordResultEvent } from "./events.ts";
 import { releaseExecutionByHolder } from "./groups.ts";
 import { failJob, type Job, type JobStatus, type PendingStop } from "./job.ts";
 import { closeLedger, completionBlockerOf } from "./ledger-sync.ts";
@@ -54,6 +54,12 @@ export async function finalizeJob(
 	job.error = error;
 	job.result = result;
 	job.finishedAt = Date.now();
+	/* The result event comes with the status, before the first await. A reader
+	   that sees a finished run finds its event, so a cleanup cannot pass in
+	   the gap. A crash between this line and the persist leaves an event for a
+	   run that the database still holds as running. The key is stable, so the
+	   next finalize finds it. */
+	if (status === "completed" || status === "failed") recordResultEvent(rt.openDb(), job.id, job.finishedAt);
 	rt.stopMonitor(job.id);
 
 	/* A Codex worker owns an app server and a TUI in two panes. The server
@@ -127,22 +133,7 @@ export async function finalizeJob(
 	// The client of the app server holds a socket. The run ends here, so the
 	// socket closes with it. A run that ended early closes its socket too.
 	closeCodexClient(rt, job);
-	rt.openDb().write(() => {
-		rt.persist();
-		if (status === "completed" || status === "failed") {
-			createEvent(
-				rt.openDb(),
-				`ev-${job.id}-result`,
-				eventKey(job.id, "result", "result"),
-				job.id,
-				"result",
-				"result",
-				null,
-				true,
-				Date.now(),
-			);
-		}
-	});
+	rt.persist();
 }
 
 /**
