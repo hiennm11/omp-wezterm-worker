@@ -1,15 +1,20 @@
 /**
  * The step of the Codex smoke test that proves the approval of a command.
  *
- * The step asks the person for the approval of a shell command and checks
- * that the extension records one event for the request. The smoke test
- * plays the person. The extension never sends the key of the answer.
+ * The step starts a Codex worker whose configuration names the policy
+ * `untrusted`. The extension sends that policy in the request `turn/start`,
+ * so the core of Codex asks the person for every command that it does not
+ * know. The TUI of the worker shows that dialog.
+ *
+ * The step never answers the dialog. The person owns that answer. The step
+ * only shows that the status tool lists one event of the request, and that
+ * a second poll creates no second event.
  */
 
-import { connectAppServer } from "./codex-smoke-client.ts";
-import { APPROVAL_POLICY } from "./codex-smoke-home.ts";
+import { RUNTIME } from "../tests/harness.ts";
 import { identityOf, spawnIds, statusText } from "./codex-smoke-ledger.ts";
 import {
+	approvalPolicyOf,
 	cancelWorker,
 	currentPaneText,
 	delay,
@@ -17,102 +22,80 @@ import {
 	recordThread,
 	report,
 	type SmokeState,
-	sendKey,
 	textOf,
 } from "./codex-smoke-shared.ts";
 import { eventCountOf, STEP_NAMES, showsCommandDialog } from "./codex-smoke-steps.ts";
+
+/** The task that makes the worker run a command. */
+const APPROVAL_TASK = "Run a shell command that writes APPROVED to approval.txt.";
+
+/** The milliseconds that the step waits for the dialog of the TUI. */
+const DIALOG_WAIT_MS = 120_000;
+
+/** The milliseconds that the step waits before it polls the status again. */
+const SECOND_POLL_WAIT_MS = 3000;
 
 /**
  * Step 8: the status tool lists one permission request, and a second poll
  * creates no second event.
  *
- * The config of the user sets the policy of the approval to `never`, so a
- * turn of the worker runs every command without a question. The smoke test
- * starts one turn of the thread of the worker with the policy `untrusted`,
- * so the core of Codex asks the person for the command. The turn runs on the
- * thread of the worker and on the app server of the worker, so the client
- * of the extension sees the native request and records the event.
+ * The worker of this step runs with the policy `untrusted`. The extension
+ * sends that policy with the turn of the worker, so the core of Codex asks
+ * the person for the command. The TUI shows the dialog, and the extension
+ * records the event of the request.
  *
- * The smoke test plays the person only after it recorded the event. The
- * extension never sends that key.
+ * The step never sends a key to the pane. The person owns that answer. The
+ * step ends the worker with a cancel.
  */
 export async function stepPermissionRequest(state: SmokeState): Promise<void> {
-	const spawned = await state.host.call("wezterm_spawn_worker", {
-		task: "Wait for a task from the person. Do not report anything yet.",
-		cwd: state.repo,
-		label: "codex-smoke-approval",
-		backend: "codex",
-		placement: "tab",
-	});
-	const ids = spawnIds(spawned);
-	if (!ids.workerId || ids.paneId === null) {
+	/* The policy comes from the config file of the smoke test. It applies to
+	   the worker of this step only. The other steps of the smoke test need
+	   the policy of the user. */
+	const policy = RUNTIME.config.codexApprovalPolicy;
+	const configured = approvalPolicyOf(state.stateDir);
+	if (configured === null) {
 		report(
 			state,
 			"fail",
 			STEP_NAMES.permissionRequest,
-			`the spawn returned no worker id: ${textOf(spawned)}`,
+			"the config file of the smoke test names no policy of the approval",
 		);
 		return;
 	}
-	state.workersToCancel.push(ids.workerId);
+	RUNTIME.config.codexApprovalPolicy = configured;
 	try {
-		const identity = identityOf(state.stateDir, ids.workerId);
-		recordPanes(state, ids.paneId, identity);
-		recordThread(state, identity.threadId);
-		if (identity.port === null || !identity.threadId) {
+		const spawned = await state.host.call("wezterm_spawn_worker", {
+			task: APPROVAL_TASK,
+			cwd: state.repo,
+			label: "codex-smoke-approval",
+			backend: "codex",
+			placement: "tab",
+		});
+		const ids = spawnIds(spawned);
+		if (!ids.workerId || ids.paneId === null) {
 			report(
 				state,
 				"fail",
 				STEP_NAMES.permissionRequest,
-				"the worker holds no thread, so no turn can ask for an approval",
+				`the spawn returned no worker id: ${textOf(spawned)}`,
 			);
 			return;
 		}
-		const client = await connectAppServer(`ws://127.0.0.1:${identity.port}`).catch(() => null);
-		if (!client) {
-			report(state, "fail", STEP_NAMES.permissionRequest, "the app server of the worker does not answer");
-			return;
-		}
+		state.workersToCancel.push(ids.workerId);
 		try {
-			const resumed = await client.request("thread/resume", { threadId: identity.threadId });
-			if (resumed.error) {
-				report(
-					state,
-					"fail",
-					STEP_NAMES.permissionRequest,
-					`the observer did not subscribe to the thread: ${resumed.error.message}`,
-				);
-				return;
-			}
-			const turn = await client.request("turn/start", {
-				threadId: identity.threadId,
-				approvalPolicy: APPROVAL_POLICY,
-				input: [
-					{
-						type: "text",
-						text: "Run a shell command that writes APPROVED to approval.txt.",
-					},
-				],
-			});
-			if (turn.error) {
-				report(
-					state,
-					"fail",
-					STEP_NAMES.permissionRequest,
-					`the turn that asks for an approval failed: ${turn.error.message}`,
-				);
-				return;
-			}
-			const deadline = Date.now() + 120_000;
+			const identity = identityOf(state.stateDir, ids.workerId);
+			recordPanes(state, ids.paneId, identity);
+			recordThread(state, identity.threadId);
+
+			const deadline = Date.now() + DIALOG_WAIT_MS;
 			let count = 0;
-			let dialog = false;
+			let paneText = "";
+			let status = "";
 			while (Date.now() < deadline) {
-				const text = await statusText(state, ids.workerId);
-				count = eventCountOf(text, "permission_request");
-				if (count > 0) {
-					dialog = showsCommandDialog(await currentPaneText(ids.paneId));
-					break;
-				}
+				status = await statusText(state, ids.workerId);
+				count = eventCountOf(status, "permission_request");
+				paneText = await currentPaneText(ids.paneId);
+				if (count > 0 && showsCommandDialog(paneText)) break;
 				await delay(2000);
 			}
 			if (count === 0) {
@@ -120,21 +103,34 @@ export async function stepPermissionRequest(state: SmokeState): Promise<void> {
 					state,
 					"not-run",
 					STEP_NAMES.permissionRequest,
-					"the TUI of Codex asked for no approval. The turn with the policy untrusted raised no native request. " +
-						"The criterion closes with the test tests/codex-permission-event.test.ts",
+					"the TUI of Codex asked for no approval. The status lists no event with the condition " +
+						`permission_request. The text of the pane shows: ${paneText.replace(/\n/g, " | ")}. ` +
+						`The text of the status shows: ${status.replace(/\n/g, " | ")}`,
 				);
 				return;
 			}
-			await delay(3000);
+			if (!showsCommandDialog(paneText)) {
+				report(
+					state,
+					"fail",
+					STEP_NAMES.permissionRequest,
+					"the status lists an event of the request, but the TUI of Codex shows no dialog. " +
+						`The text of the pane shows: ${paneText.replace(/\n/g, " | ")}. ` +
+						`The text of the status shows: ${status.replace(/\n/g, " | ")}`,
+				);
+				return;
+			}
+
+			await delay(SECOND_POLL_WAIT_MS);
 			const second = await statusText(state, ids.workerId);
 			const countAfter = eventCountOf(second, "permission_request");
-			await sendKey(ids.paneId, "\r");
 			if (countAfter !== count) {
 				report(
 					state,
 					"fail",
 					STEP_NAMES.permissionRequest,
-					`a second poll found ${countAfter} event(s), not ${count}`,
+					`a second poll found ${countAfter} event(s), not ${count}. ` +
+						`The text of the status shows: ${second.replace(/\n/g, " | ")}`,
 				);
 				return;
 			}
@@ -143,12 +139,12 @@ export async function stepPermissionRequest(state: SmokeState): Promise<void> {
 				"pass",
 				STEP_NAMES.permissionRequest,
 				`the status lists ${count} event with the condition permission_request; the second poll lists ${countAfter}; ` +
-					`the dialog of the command showed: ${dialog}`,
+					`the TUI of Codex shows the dialog of the command: ${paneText.replace(/\n/g, " | ")}`,
 			);
 		} finally {
-			client.close();
+			await cancelWorker(state, ids.workerId);
 		}
 	} finally {
-		await cancelWorker(state, ids.workerId);
+		RUNTIME.config.codexApprovalPolicy = policy;
 	}
 }

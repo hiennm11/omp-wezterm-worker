@@ -14,7 +14,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { createHost, type TestHost } from "../tests/harness.ts";
-import { codexAuthFile, codexConfigFile, configText, hashOfFile } from "./codex-smoke-home.ts";
+import { type ApprovalPolicy } from "../extensions/lib/codex-approval.ts";
+import { loadConfig } from "../extensions/lib/config.ts";
+import { APPROVAL_POLICY, codexAuthFile, codexConfigFile, configText, hashOfFile } from "./codex-smoke-home.ts";
 import {
 	closePane,
 	codexProcessRows,
@@ -189,10 +191,32 @@ export function configFileText(): string {
  * workers than one request allows, because every step starts its own worker.
  * The file lives in the temporary state directory, so the limits of the user
  * stay as they are.
+ *
+ * The file names the policy of the approval. The step of the permission
+ * request reads the setting from this file, so the step uses the same
+ * setting that a user writes.
  */
 export function writeSmokeConfig(stateDir: string): void {
 	const file = join(stateDir, "wezterm-worker.json");
-	writeFileSync(file, JSON.stringify({ maxActiveWorkers: 0, maxLaunchesPerRequest: 0 }, null, "\t"), "utf8");
+	const config = {
+		maxActiveWorkers: 0,
+		maxLaunchesPerRequest: 0,
+		codex: { approvalPolicy: APPROVAL_POLICY },
+	};
+	writeFileSync(file, JSON.stringify(config, null, "\t"), "utf8");
+}
+
+/**
+ * The policy of the approval that the step of the permission request uses.
+ *
+ * The policy comes from the config file of the smoke test. The step reads it
+ * with the reader of the configuration file, so the step uses the same
+ * setting that a user writes.
+ */
+export function approvalPolicyOf(stateDir: string): ApprovalPolicy | null {
+	const file = join(stateDir, "wezterm-worker.json");
+	const config = loadConfig(file, {});
+	return config.codexApprovalPolicy;
 }
 
 /**
