@@ -1,4 +1,4 @@
-import { pendingEvents, recordHandling, type EventCondition, type WorkerEvent } from "./events.ts";
+import { type EventCondition, pendingEvents, recordHandling, type WorkerEvent } from "./events.ts";
 import { isActive, type Job } from "./job.ts";
 import { generationOf } from "./owner.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -12,7 +12,12 @@ const EXPIRABLE_CONDITIONS: Record<EventCondition, true> | Partial<Record<EventC
 };
 
 /** Return no-action events whose run and event both exceed the expiry limit. */
-export function expirableEvents(events: WorkerEvent[], jobs: Job[], now: number, limitMs: number): WorkerEvent[] {
+export function expirableEvents(
+	events: WorkerEvent[],
+	jobs: Job[],
+	now: number,
+	limitMs: number,
+): WorkerEvent[] {
 	if (limitMs <= 0) return [];
 	const byId = new Map(jobs.map((job) => [job.id, job]));
 	return events.filter((event) => {
@@ -26,7 +31,9 @@ export function expirableEvents(events: WorkerEvent[], jobs: Job[], now: number,
 
 /** Close old no-action events for the runs this session owns. */
 export function expireStaleEvents(rt: WorkerRuntime, jobs: Job[], now: number): string[] {
-	const ownedEvents = pendingEvents(rt.openDb()).filter((event) => event.runId !== null && generationOf(rt, event.runId) !== null);
+	const ownedEvents = pendingEvents(rt.openDb()).filter(
+		(event) => event.runId !== null && generationOf(rt, event.runId) !== null,
+	);
 	const expired: string[] = [];
 	for (const event of expirableEvents(ownedEvents, jobs, now, rt.config.eventExpiryMs)) {
 		const runId = event.runId;
@@ -39,8 +46,8 @@ export function expireStaleEvents(rt: WorkerRuntime, jobs: Job[], now: number): 
 		const hours = Math.floor((now - endedAt) / (60 * 60 * 1000));
 		const note = `The run ended ${hours} h ago. The event needed no action after that.`;
 		const outcome = recordHandling(rt.openDb(), event.id, "expired", note, rt.sessionId, generation, now);
-		if (outcome.ok && outcome.handling.disposition === "expired" && outcome.handling.createdAt === now) expired.push(event.id);
+		if (outcome.ok && outcome.handling.disposition === "expired" && outcome.handling.createdAt === now)
+			expired.push(event.id);
 	}
 	return expired;
 }
-
