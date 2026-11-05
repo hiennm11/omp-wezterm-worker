@@ -193,6 +193,10 @@ _Avoid_: Task, turn, notification text
 The actionable event that represents a completed or failed worker result. The delivery carries its id, and the main session must acknowledge it.
 _See also_: Handling acknowledgement
 
+**Expired event**:
+A no-action event that the owner closes after its run and event exceed the expiry limit. The system records `expired`. It does not delete the event row.
+_Avoid_: Accepted event, discarded event
+
 **Handling acknowledgement**:
 The main session's record that it handled a worker event and chose a
 disposition. Receipt or inspection alone does not count as handling
