@@ -1,10 +1,10 @@
 /**
  * The step of the Codex smoke test that proves the approval of a command.
  *
- * The step starts a Codex worker whose configuration names the policy
- * `untrusted`. The extension sends that policy in the request `turn/start`,
- * so the core of Codex asks the person for every command that it does not
- * know. The TUI of the worker shows that dialog.
+ * The step starts a Codex worker with the policy `untrusted`. The extension
+ * sends that policy in the request `turn/start`, so the core of Codex asks
+ * the person for every command that it does not know. The TUI of the worker
+ * shows that dialog.
  *
  * The step never answers the dialog. The person owns that answer. The step
  * only shows that the status tool lists one event of the request, and that
@@ -12,9 +12,9 @@
  */
 
 import { RUNTIME } from "../tests/harness.ts";
+import { APPROVAL_POLICY } from "./codex-smoke-home.ts";
 import { identityOf, spawnIds, statusText } from "./codex-smoke-ledger.ts";
 import {
-	approvalPolicyOf,
 	cancelWorker,
 	currentPaneText,
 	delay,
@@ -44,25 +44,18 @@ const SECOND_POLL_WAIT_MS = 3000;
  * the person for the command. The TUI shows the dialog, and the extension
  * records the event of the request.
  *
+ * The policy applies to this worker only. The step restores the old value
+ * before it ends, so the other steps of the smoke test keep the policy of
+ * the user.
+ *
  * The step never sends a key to the pane. The person owns that answer. The
  * step ends the worker with a cancel.
  */
 export async function stepPermissionRequest(state: SmokeState): Promise<void> {
-	/* The policy comes from the config file of the smoke test. It applies to
-	   the worker of this step only. The other steps of the smoke test need
-	   the policy of the user. */
+	/* The policy applies to the worker of this step only. The other steps
+	   of the smoke test need the policy of the user. */
 	const policy = RUNTIME.config.codexApprovalPolicy;
-	const configured = approvalPolicyOf(state.stateDir);
-	if (configured === null) {
-		report(
-			state,
-			"fail",
-			STEP_NAMES.permissionRequest,
-			"the config file of the smoke test names no policy of the approval",
-		);
-		return;
-	}
-	RUNTIME.config.codexApprovalPolicy = configured;
+	RUNTIME.config.codexApprovalPolicy = APPROVAL_POLICY;
 	try {
 		const spawned = await state.host.call("wezterm_spawn_worker", {
 			task: APPROVAL_TASK,

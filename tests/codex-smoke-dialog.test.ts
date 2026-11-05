@@ -10,10 +10,13 @@
  */
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
+import { loadConfig } from "../extensions/lib/config.ts";
+import { writeSmokeConfig } from "../tooling/codex-smoke-shared.ts";
 import { showsCommandDialog } from "../tooling/codex-smoke-steps.ts";
 
 /** The root of the repository. */
@@ -64,4 +67,20 @@ test("an empty pane shows no dialog", () => {
 
 test("the dialog of the report server is not the dialog of a command", () => {
 	assert.equal(showsCommandDialog(MCP_PANE), false);
+});
+
+test("the config file of the smoke names no policy of the approval", () => {
+	const dir = mkdtempSync(join(tmpdir(), "wt-smoke-config-"));
+	writeSmokeConfig(dir);
+	const file = join(dir, "wezterm-worker.json");
+	const config = loadConfig(file, {});
+	assert.equal(config.codexApprovalPolicy, null);
+});
+
+test("the config file of the smoke holds only the two limits", () => {
+	const dir = mkdtempSync(join(tmpdir(), "wt-smoke-config-"));
+	writeSmokeConfig(dir);
+	const file = join(dir, "wezterm-worker.json");
+	const raw = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+	assert.deepEqual(Object.keys(raw).sort(), ["maxActiveWorkers", "maxLaunchesPerRequest"]);
 });

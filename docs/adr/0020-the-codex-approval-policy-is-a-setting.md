@@ -21,8 +21,8 @@ The extension never answers a native dialog.
 The person answers the approval in the pane of the TUI.
 The extension records the event `permission_request` for the owner, and the owner sees the request in the status.
 
-The smoke test writes the policy `untrusted` into the setting of its config file.
-The step of the permission request reads that setting, and it starts its worker with that policy.
+The smoke test starts the worker of the step of the permission request with the policy `untrusted`.
+That policy applies to that worker only. The other workers of the smoke test keep the policy of the user.
 The step starts no second turn on the thread of the worker.
 The step never sends a key to the pane.
 The step shows that the status tool lists one event of the request, and that a second poll creates no second event.
