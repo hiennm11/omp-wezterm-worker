@@ -297,6 +297,14 @@ _Avoid_: Cancel, stop, close
 The wait for the external actions that a release started before it gives the authority away.
 _Avoid_: Wait, flush, cleanup
 
+**Closing release**:
+The release that a main session makes when its session closes. It gives back
+the tasks that the session still supervises. The next program of the same
+session takes over the running worker through the released row. The answer of
+the lease is not evidence that the old owner is alive, because the new program
+holds the lease itself.
+_Avoid_: Session end, disposal, shutdown
+
 **Native bridge**:
 The link that connects a native worker to the main session. It carries the
 observations of the worker and the commands of the owner. A new owner starts a

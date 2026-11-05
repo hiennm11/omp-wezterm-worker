@@ -293,6 +293,8 @@ The second process can inspect records but cannot control those tasks or replay 
 
 The lease of the session is the evidence that the first owner is gone. The first owner keeps the authority while a process holds the lease. It also keeps the authority while the probe gives no answer. The second process takes the task when the lease is free. A process takes the lease of a session at the first write of that session.
 
+A closing session releases the tasks that it still supervises. See ADR 0019.
+
 Apply the active worker limit across the shared state directory. Reserve launches atomically.
 
 Keep the per-request launch limit local to its main session.
