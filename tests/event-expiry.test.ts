@@ -9,7 +9,7 @@ import { recoverTask } from "../extensions/lib/recover-task.ts";
 import type { WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { registerAckTool } from "../extensions/worker-tools/ack.ts";
 import { cleanupTool, fakeWezterm, jobOf, runtimeFor } from "./group-holder-helpers.ts";
-import { fakeZod, toolOf } from "./native-run-helpers.ts";
+import { toolOf } from "./native-run-helpers.ts";
 
 const HOUR = 60 * 60 * 1000;
 const NOW = 100 * HOUR;
