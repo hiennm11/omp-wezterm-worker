@@ -19,8 +19,9 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { openDatabase } from "../extensions/lib/db.ts";
 
@@ -31,6 +32,9 @@ function hasProgram(name: string): boolean {
 }
 
 const CAN_RUN = hasProgram("omp") && hasProgram("wezterm");
+
+/** The root of the repository that holds the extension under test. */
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The task of the worker. The worker runs long enough to survive the close. */
 const WORKER_TASK =
@@ -44,8 +48,8 @@ const WORKER_TASK =
  * The helper loads the extension of this repository and starts one worker.
  * The marker file stops the second process from starting a second worker.
  */
-function helperSource(repo: string, stateDir: string): string {
-	return `import worker from "file:///${repo.replace(/\\/g, "/")}/extensions/wezterm-worker.ts";
+function helperSource(stateDir: string): string {
+	return `import worker from ${JSON.stringify(pathToFileURL(join(REPO_ROOT, "extensions", "wezterm-worker.ts")).href)};
 import { existsSync, writeFileSync } from "node:fs";
 
 const STATE_DIR = ${JSON.stringify(stateDir)};
@@ -72,6 +76,10 @@ export default function helper(pi: any) {
 			undefined,
 			{ cwd: ctx.cwd, sessionManager: ctx.sessionManager },
 		);
+		/* A session with no assistant message stays in memory, and the
+		   restart gives it a new id. The call puts the session on the disk,
+		   so the restart resumes the same id. */
+		await ctx.sessionManager.ensureOnDisk();
 		writeFileSync(MARKER, "1", "utf8");
 	});
 }
@@ -132,7 +140,7 @@ test("a new OMP process adopts the worker of a closed session", {
 	const repo = mkdtempSync(join(tmpdir(), "wt-adopt-repo-"));
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-adopt-state-"));
 	const helper = join(repo, "helper.ts");
-	writeFileSync(helper, helperSource(repo, stateDir), "utf8");
+	writeFileSync(helper, helperSource(stateDir), "utf8");
 
 	try {
 		const paneId = startFirstProcess(repo, helper);
