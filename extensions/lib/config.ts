@@ -11,8 +11,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import type { CommsSettings } from "./comms-check.ts";
+import { type Preset, readPresets } from "./preset.ts";
 import { readThinkingLevel, type ThinkingLevel } from "./thinking.ts";
-import { readPresets, type Preset } from "./preset.ts";
 
 export type Placement = "split" | "tab";
 

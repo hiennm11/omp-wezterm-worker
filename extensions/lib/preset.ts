@@ -1,5 +1,4 @@
 import type { WorkerBackend } from "./backend.ts";
-import type { Placement } from "./config.ts";
 import { isThinkingLevel, type ThinkingLevel } from "./thinking.ts";
 
 export interface Preset {
@@ -76,7 +75,10 @@ export function resolveSpawn<T extends SpawnPresetValues>(
 	if (name === undefined) return params;
 	if (!Object.hasOwn(presets, name)) {
 		const names = Object.keys(presets).sort();
-		const available = names.length > 0 ? `Use one of: ${names.join(", ")}.` : "No preset is defined in the configuration file.";
+		const available =
+			names.length > 0
+				? `Use one of: ${names.join(", ")}.`
+				: "No preset is defined in the configuration file.";
 		return `Unknown preset '${name}'. ${available}`;
 	}
 	const preset = presets[name] ?? {};
