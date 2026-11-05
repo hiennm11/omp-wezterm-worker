@@ -11,7 +11,7 @@
  */
 
 import { REPORTING_CONTRACT } from "./bootstrap-prompt.ts";
-import { type ApprovalPolicy } from "./codex-approval.ts";
+import type { ApprovalPolicy } from "./codex-approval.ts";
 import { type CodexClient, threadIdOf } from "./codex-client.ts";
 import type { Job } from "./job.ts";
 
