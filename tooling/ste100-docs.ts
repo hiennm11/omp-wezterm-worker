@@ -42,6 +42,7 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0017-expire-the-stale-events-of-a-run-that-ended.md",
 	"docs/adr/0018-spawn-presets-from-the-configuration-file.md",
 	"docs/adr/0019-a-closing-session-releases-its-running-tasks.md",
+	"docs/adr/0020-the-codex-approval-policy-is-a-setting.md",
 	"docs/plans/recoverable-omp-supervision.md",
 ];
 
