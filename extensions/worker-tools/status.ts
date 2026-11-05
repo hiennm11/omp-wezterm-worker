@@ -17,7 +17,7 @@ import { snapshotNotice, turnsLabel } from "../lib/restored-run.ts";
 import type { WorkerRuntime } from "../lib/runtime.ts";
 import { selectStatusJobs } from "../lib/status-list.ts";
 import { pendingStopIntentOf } from "../lib/stop-reconcile.ts";
-import { supervisionLine } from "../lib/supervision.ts";
+import { type LeaseAnswer, supervisionLine } from "../lib/supervision.ts";
 import { listSessionFiles, summarizeSession } from "../lib/transcript.ts";
 import { formatUsage, jobUsage, requestWorkerIds, type UsageReport } from "../lib/usage.ts";
 import { reply, type ToolDeps } from "./kit.ts";
@@ -85,7 +85,7 @@ interface StatusRow {
 	supervision: string | null;
 }
 
-function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime): StatusRow {
+function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime, lease: LeaseAnswer): StatusRow {
 	const backend = readBackend(j);
 	/* A native worker reports its usage through its bridge. The OMP reader
 	   finds no transcript, so the native totals are the measured ones. */
@@ -103,6 +103,7 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime): Status
 		rt.processId,
 		rt.processStartedAt,
 		rt.monitors.has(j.id),
+		lease,
 	);
 	return {
 		workerId: j.id,
@@ -278,7 +279,10 @@ export function registerStatusTool({ pi, rt }: ToolDeps): void {
 			}
 			const now = Date.now();
 			for (const job of jobs) refreshActivity(job, now);
-			const rows = jobs.map((j) => row(j, now, jobUsage(j), rt));
+			/* The lease of the session explains why a task stays read-only.
+			   The probe answers once for the whole list. */
+			const lease = rt.sessionId === null ? null : await rt.sessionLeaseHeld(rt.sessionId);
+			const rows = jobs.map((j) => row(j, now, jobUsage(j), rt, lease));
 			const request = requestUsageOf(rt.jobs, rt.requestLaunches, rt.claudeStates);
 			const count = requestWorkerIds(rt.jobs, rt.requestLaunches).length;
 			const events = pending.filter((event) => jobs.some((job) => job.id === event.runId));
