@@ -11,6 +11,7 @@ import type { SessionView } from "./host.ts";
 import { acquireOwnership, type Ownership, readOwnership } from "./ownership.ts";
 import { readProcessStart } from "./process-table.ts";
 import type { WorkerRuntime } from "./runtime.ts";
+import { leaseAnswerText } from "./supervision.ts";
 
 /**
  * The result of an acquisition.
@@ -18,10 +19,18 @@ import type { WorkerRuntime } from "./runtime.ts";
  * `no-identity`: the host gives the session no identity, so no owner exists.
  * `owned`: another session, or another live process of this session, owns the task.
  * `unknown`: the process table cannot confirm that the previous process exited.
+ *
+ * The `lease` field names the answer of the host about the lease of the
+ * session. It is null when the acquisition did not ask the host.
  */
 export type Acquisition =
 	| { acquired: true; generation: number }
-	| { acquired: false; kind: "no-identity" | "owned" | "unknown"; reason: string };
+	| {
+			acquired: false;
+			kind: "no-identity" | "owned" | "unknown";
+			reason: string;
+			lease?: boolean | null;
+	  };
 
 /** The key of the ownership row of a worker. */
 export function taskKey(jobId: string): string {
@@ -168,8 +177,19 @@ export async function acquireTask(rt: WorkerRuntime, jobId: string): Promise<Acq
 					   task back. A held lease and an unanswered probe keep
 					   the task with the first owner. */
 					const lease = await rt.sessionLeaseHeld(sessionId);
+					/* The answer explains the decision, so it reaches the log.
+					   The log names the answer, the process and the session. */
+					rt.errors.push(
+						`The lease of session ${sessionId} is ${leaseAnswerText(lease)}. ` +
+							`Process ${held.processId ?? "unknown"} still owns the task ${jobId}.`,
+					);
 					if (lease !== false) {
-						return { acquired: false, kind: "owned", reason: previous.reason };
+						return {
+							acquired: false,
+							kind: "owned",
+							reason: `${previous.reason} The lease of the session is ${leaseAnswerText(lease)}.`,
+							lease,
+						};
 					}
 				}
 			}
