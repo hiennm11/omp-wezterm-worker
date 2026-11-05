@@ -41,8 +41,8 @@ import { createRuntime } from "./lib/runtime.ts";
 import { createLeaseProbe } from "./lib/session-lease.ts";
 import { releaseSessionTasks } from "./lib/session-release.ts";
 import { reconcileStopIntents } from "./lib/stop-reconcile.ts";
-import { leaseAnswerText } from "./lib/supervision.ts";
 import { isSubagent, sessionStartLine } from "./lib/subagent.ts";
+import { leaseAnswerText } from "./lib/supervision.ts";
 import { registerWorkerBootstrap } from "./lib/worker-bootstrap.ts";
 import { registerAckTool } from "./worker-tools/ack.ts";
 import { registerCancelTool } from "./worker-tools/cancel.ts";
@@ -233,7 +233,9 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		try {
 			rt.persist();
 		} catch (e) {
-			rt.errors.push(`The state of the session could not be saved: ${e instanceof Error ? e.message : String(e)}`);
+			rt.errors.push(
+				`The state of the session could not be saved: ${e instanceof Error ? e.message : String(e)}`,
+			);
 		}
 		try {
 			const released = await releaseSessionTasks(rt);
@@ -243,7 +245,9 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 				);
 			}
 		} catch (e) {
-			rt.errors.push(`The release of the running tasks failed: ${e instanceof Error ? e.message : String(e)}`);
+			rt.errors.push(
+				`The release of the running tasks failed: ${e instanceof Error ? e.message : String(e)}`,
+			);
 		}
 
 		// The last errors of the session must reach the logger before the
@@ -251,20 +255,26 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		try {
 			drainErrors();
 		} catch (e) {
-			rt.errors.push(`The errors of the session could not be reported: ${e instanceof Error ? e.message : String(e)}`);
+			rt.errors.push(
+				`The errors of the session could not be reported: ${e instanceof Error ? e.message : String(e)}`,
+			);
 		}
 		try {
 			for (const timer of rt.monitors.values()) clearInterval(timer);
 			rt.monitors.clear();
 		} catch (e) {
-			rt.errors.push(`The monitors of the session could not be stopped: ${e instanceof Error ? e.message : String(e)}`);
+			rt.errors.push(
+				`The monitors of the session could not be stopped: ${e instanceof Error ? e.message : String(e)}`,
+			);
 		}
 		// The database holds a file lock. The handle must close, or the state
 		// directory cannot be removed while the process lives.
 		try {
 			rt.closeDb();
 		} catch (e) {
-			rt.errors.push(`The database of the session could not close: ${e instanceof Error ? e.message : String(e)}`);
+			rt.errors.push(
+				`The database of the session could not close: ${e instanceof Error ? e.message : String(e)}`,
+			);
 		}
 	});
 
