@@ -98,6 +98,9 @@ test("the row of this process belongs to this process", () => {
 	assert.equal(belongsToThisProcess(owner(), SESSION, PROCESS, START), true);
 	assert.equal(belongsToThisProcess(owner({ sessionId: OTHER_SESSION }), SESSION, PROCESS, START), false);
 	assert.equal(belongsToThisProcess(owner({ processId: 900 }), SESSION, PROCESS, START), false);
-	assert.equal(belongsToThisProcess(owner({ processStartedAt: OTHER_START }), SESSION, PROCESS, START), false);
+	assert.equal(
+		belongsToThisProcess(owner({ processStartedAt: OTHER_START }), SESSION, PROCESS, START),
+		false,
+	);
 	assert.equal(belongsToThisProcess(owner({ phase: "releasing" }), SESSION, PROCESS, START), false);
 });
