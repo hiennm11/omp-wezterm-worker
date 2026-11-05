@@ -127,9 +127,9 @@ export function rolloutTurnCount(threadId: string): number {
  * The config of the user sets the policy of the approval to `never`, so a
  * turn without a policy runs every command without a question. The policy
  * `untrusted` makes the core of Codex ask the person for every command that
- * it does not know. The smoke test writes that policy into the setting
- * `codex.approvalPolicy` of its config file, so the TUI shows its dialog
- * and the extension records the event of the request.
+ * it does not know. The step of the permission request sets that policy for
+ * its own worker only, so the TUI shows its dialog and the extension records
+ * the event of the request.
  */
 export const APPROVAL_POLICY = "untrusted";
 
