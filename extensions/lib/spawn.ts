@@ -22,11 +22,11 @@ import {
 import { freshRunState, type Job } from "./job.ts";
 import { finalizeJob } from "./lifecycle.ts";
 import { launchPane } from "./pane.ts";
+import { withReportTool } from "./preset.ts";
 import { describeFailure } from "./process.ts";
 import { checkSourcePane } from "./resume-guard.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import type { ThinkingLevel } from "./thinking.ts";
-import { withReportTool } from "./preset.ts";
 import { listSessionFiles, summarizeSession } from "./transcript.ts";
 import { readUsageTotals } from "./usage.ts";
 import { writeRunContext } from "./worker-context.ts";

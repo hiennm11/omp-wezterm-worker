@@ -17,12 +17,12 @@ import type { ToolCtx } from "../lib/host.ts";
 import { admitLaunch } from "../lib/limits.ts";
 import { monitorJob, monitorNativeJob } from "../lib/monitor.ts";
 import { acquireTask, bindSession, maySupervise } from "../lib/owner.ts";
+import { resolveSpawn, type SpawnPresetValues } from "../lib/preset.ts";
 import { spawnWorker } from "../lib/spawn.ts";
 import { spawnClaudeWorker } from "../lib/spawn-claude.ts";
 import { spawnCodexWorker } from "../lib/spawn-codex.ts";
 import { isSubagent } from "../lib/subagent.ts";
 import { isThinkingLevel, THINKING_LEVELS, type ThinkingLevel, thinkingRefusal } from "../lib/thinking.ts";
-import { resolveSpawn, type SpawnPresetValues } from "../lib/preset.ts";
 import {
 	commsDetails,
 	commsNoticeLine,
@@ -89,7 +89,9 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 			preset: z
 				.string()
 				.optional()
-				.describe("Named preset from the presets in the configuration file. A parameter of this call wins over a preset."),
+				.describe(
+					"Named preset from the presets in the configuration file. A parameter of this call wins over a preset.",
+				),
 			tools: z
 				.array(z.string())
 				.optional()
@@ -141,7 +143,9 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 			if (typeof resolved === "string") return reply(resolved, { preset: params.preset }, true);
 			const spawnParams = resolved;
 			const placement: Placement =
-				spawnParams.placement === "tab" || spawnParams.placement === "split" ? spawnParams.placement : rt.config.placement;
+				spawnParams.placement === "tab" || spawnParams.placement === "split"
+					? spawnParams.placement
+					: rt.config.placement;
 			const backend = readBackendParam(spawnParams.backend);
 			if (!backend) {
 				return reply(
