@@ -7,7 +7,7 @@ description: Use when driving an OMP session from a WezTerm pane on Windows, or 
 
 ## Acknowledging a worker result
 
-A finished result carries an event id. Read the result, then acknowledge that id with `wezterm_worker_ack`. Cleanup keeps the worker files until the main session handles the event.
+A result needs acknowledgement after it is read. A stale no-action event expires after 24 hours by default. Set `eventExpiryMs` in the config file to change the limit, or set `0` to disable expiry. The current task owner closes the event when it loads the task. Results and events that need a decision stay pending. The system records `expired` and keeps the event row.
 
 Operating OMP from WezTerm panes on Windows native. No WSL: WSL holds a
 different `omp` build, and every command here would touch the wrong install.

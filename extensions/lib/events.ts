@@ -33,7 +33,7 @@ export interface WorkerEvent {
 }
 
 /** The disposition that the owner recorded for an event. */
-export type Disposition = "accepted" | "follow_up" | "discarded";
+export type Disposition = "accepted" | "follow_up" | "discarded" | "expired";
 
 /** The record of how the owner handled an event. */
 export interface EventHandling {

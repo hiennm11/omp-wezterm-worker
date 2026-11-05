@@ -251,6 +251,10 @@ Event id: <id>. Acknowledge it with wezterm_worker_ack after you read the result
 
 The delivery wakes the main session. The result event itself is silent. Call `wezterm_worker_ack` with the event id after you read the result. Cleanup refuses while the event remains unhandled, so reading the result alone does not release the transcript or worktree.
 
+### Expiring stale events
+
+The owner closes no-action events after the event reaches the configured age. The expiry clock starts at the later of event creation and run end. The default limit is 24 hours. Set `eventExpiryMs` in the config file to change the limit. Set it to `0` to disable expiry. Only the current owner closes events when it loads the task. Results and events that need a decision stay pending. The system records `expired`, not `accepted`, and it does not delete the event.
+
 ### Steering a running worker
 
 `wezterm_worker_steer` sends text into a running worker's composer and

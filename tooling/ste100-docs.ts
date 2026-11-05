@@ -39,6 +39,7 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0014-a-subagent-does-not-take-the-authority-of-the-main-session.md",
 	"docs/adr/0015-spawn-thinking-level.md",
 	"docs/adr/0016-wake-the-main-session-for-an-event.md",
+	"docs/adr/0017-expire-the-stale-events-of-a-run-that-ended.md",
 	"docs/plans/recoverable-omp-supervision.md",
 ];
 

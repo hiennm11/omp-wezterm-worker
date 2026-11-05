@@ -13,6 +13,7 @@
  * that ended at or after that time.
  */
 
+import { expireStaleEvents } from "./event-expiry.ts";
 import { deliveriesOfEvent } from "./delivery.ts";
 import { findEventByKey, resultEventId, resultEventKey } from "./events.ts";
 import type { Job } from "./job.ts";
@@ -92,5 +93,7 @@ export function recoverTask(rt: WorkerRuntime, jobs: Job[], notify: (job: Job) =
 		const stored = Number(mark);
 		since = Number.isFinite(stored) ? stored : now;
 	}
-	return replayUndelivered(rt, jobs, notify, since);
+	const replayed = replayUndelivered(rt, jobs, notify, since);
+	expireStaleEvents(rt, jobs, now);
+	return replayed;
 }

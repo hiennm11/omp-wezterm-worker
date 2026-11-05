@@ -33,6 +33,8 @@ export interface WorkerConfig {
 	timeoutMs: number;
 	/** Fail a worker that produced no transcript activity for this long. 0 disables. */
 	idleTimeoutMs: number;
+	/** Close no-action events this long after the event or run ends. 0 disables. */
+	eventExpiryMs: number;
 	isolated: boolean;
 	/** Close the worker pane when the worker finishes. */
 	closePaneOnFinish: boolean;
@@ -60,6 +62,7 @@ export const DEFAULT_CONFIG: WorkerConfig = {
 	pollMs: 2000,
 	timeoutMs: 30 * 60 * 1000,
 	idleTimeoutMs: 0,
+	eventExpiryMs: 24 * 60 * 60 * 1000,
 	isolated: false,
 	closePaneOnFinish: true,
 	maxActiveWorkers: 3,
@@ -81,6 +84,7 @@ const CONFIG_NUMBER_KEYS = [
 	"pollMs",
 	"timeoutMs",
 	"idleTimeoutMs",
+	"eventExpiryMs",
 	"maxActiveWorkers",
 	"maxLaunchesPerRequest",
 ] as const;
