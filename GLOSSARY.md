@@ -19,6 +19,10 @@ _Avoid_: Parent session, host session
 The CLI that runs the worker: OMP, Claude Code CLI, or Codex CLI.
 _Avoid_: Model, provider, agent type
 
+**Mod validation**:
+The check that Claude Code accepts the session-scoped mod before a worker starts or resumes. Warnings do not refuse the worker.
+_Avoid_: Plugin check
+
 **Task**:
 The self-contained instruction that a worker receives. It is the full input of
 the worker. The worker never sees the main conversation.

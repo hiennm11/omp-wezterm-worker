@@ -156,6 +156,7 @@ report tool and the command bridge.
 | The permission | A permission request raises an event for the owner. The person answers it in the pane. A steering instruction is refused while the request is open. |
 | The events | The status tool lists the events that wait for the owner. The owner acknowledges each one with its event id. The conditions are `result`, `needs_input`, `missing_report`, `thinking_stall`, `idle_after_working`, `execution_loss`, `unresolved_launch`, `unknown_outcome`, `permission_request` and `startup_blocked`. OMP raises `thinking_stall` after 600 seconds without a transcript entry. |
 | The startup | A Claude worker in a new repository raises `startup_blocked`, because the session waits at the trust dialog of Claude Code. The person accepts the dialog in the pane. |
+| The mod validation | The extension refuses a Claude spawn when the installed Claude Code rejects the session mod or cannot validate it. This check adds about 1.5 seconds. |
 | The usage | The native CLI reports the usage of a turn when the turn ends. A run waits for the end of its turn, so the measured counts survive the end of the run. The usage of a request adds the native workers to the OMP ones. |
 | The activity | A native worker writes no OMP transcript. Its activity comes from the native observations, so the idle deadline never stops a worker that is still working. |
 | The resume | A resume reuses the native session id. The worker comes back with its history and a new run id. |

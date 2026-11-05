@@ -15,7 +15,7 @@ import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempt
 import { handoverFile, writeHandover } from "./bridge-handover.ts";
 import { startBridge } from "./claude-bridge.ts";
 import { createClaudeRunState } from "./claude-run-state.ts";
-import { checkClaude, claudeArgv, preparePlugin } from "./claude-session.ts";
+import { checkClaude, claudeArgv, preparePlugin, validatePlugin } from "./claude-session.ts";
 import { createGroup, setGroupWorktree } from "./groups.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { finalizeJob } from "./lifecycle.ts";
@@ -84,6 +84,11 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 
 	mkdirSync(job.sessionDir, { recursive: true });
 	const pluginDir = preparePlugin(job.sessionDir);
+	const refusal = await validatePlugin(rt, config.claudeBin, pluginDir);
+	if (refusal) {
+		await finalizeJob(rt, job, "failed", refusal, null);
+		return job;
+	}
 
 	/* The bridge holds the observations of the run and the commands of the
 	   owner. It binds to the loopback interface with a random token. */
