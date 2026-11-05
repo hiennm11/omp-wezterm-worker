@@ -42,29 +42,22 @@ test("cancelling a run creates no result event", async (t) => {
 	assert.deepEqual(eventsOfRun(rt.openDb(), job.id), []);
 });
 
-test("a result event that cannot be written rolls back the final status of the run", async (t) => {
+test("a reader that sees the finished status of a run finds its result event", async (t) => {
 	const { rt } = runtimeFor(t, fakeWezterm().exec);
-	const job = jobOf("result-rollback", { status: "running", paneId: null });
+	const job = jobOf("result-status-gap", { status: "running", paneId: 7, closePaneOnFinish: true });
 	rt.jobs.set(job.id, job);
-	rt.persist();
-	/* A row with the id of the result event and another key makes the insert of
-	   the event fail. The write of the run runs first in the same transaction. */
-	createEvent(
-		rt.openDb(),
-		`ev-${job.id}-result`,
-		"taken-by-another-key",
-		job.id,
-		"result",
-		"result",
-		null,
-		true,
-		1,
-	);
-	await assert.rejects(finalizeJob(rt, job, "completed", null, "done"));
-	const row = rt.openDb().handle.prepare("SELECT status FROM runs WHERE id = ?").get(job.id) as
-		| { status: string }
-		| undefined;
-	assert.equal(row?.status, "running", "the final status of the run was written without its result event");
+	/* The pane kill is the first await of finalizeJob. A cleanup that runs
+	   there must already find the event. */
+	let seenAtKill: { status: string; events: string[] } | null = null;
+	rt.wezterm = async (args) => {
+		if (args.includes("kill-pane") && seenAtKill === null) {
+			seenAtKill = { status: job.status, events: eventsOfRun(rt.openDb(), job.id).map((event) => event.id) };
+		}
+		return { code: 0, stdout: "", stderr: "" };
+	};
+	await finalizeJob(rt, job, "completed", null, "done");
+	assert.ok(seenAtKill, "finalizeJob did not reach the pane kill");
+	assert.deepEqual(seenAtKill, { status: "completed", events: [`ev-${job.id}-result`] });
 });
 
 test("a run that finished through finalizeJob blocks cleanup until its result event is acknowledged", async (t) => {

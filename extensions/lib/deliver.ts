@@ -8,7 +8,7 @@
 
 import { backendLabel, readBackend } from "./backend.ts";
 import { beginDelivery, markSent, markUncertain } from "./delivery.ts";
-import { createEvent, eventKey, findEventByKey } from "./events.ts";
+import { findEventByKey, recordResultEvent, resultEventKey } from "./events.ts";
 import type { Job } from "./job.ts";
 import { nativeJobUsageReport, requestUsageOf } from "./native-usage-report.ts";
 import { generationOf } from "./owner.ts";
@@ -90,28 +90,16 @@ export function createDeliver(rt: WorkerRuntime): (job: Job) => void {
 			typeof (rt.claudeStates.get(job.id)?.usage.restoredAt ?? job.nativeUsage?.restoredAt) === "number";
 		const db = rt.openDb();
 		const attemptId = `del-${job.id}-${Date.now()}`;
-		const resultKey = eventKey(job.id, "result", "result");
+		const resultKey = resultEventKey(job.id);
 		/* The authority check and both writes share one transaction. Only a
 		   run that ended on its own has a result event. A cancelled run and a
 		   run whose stop is not confirmed have none, and their delivery keeps
-		   the id of the job. */
+		   the id of the job. The event exists already when the run ended
+		   through finalizeJob. A run that ended on another path gets it here. */
 		const delivery = writeUnderAuthority(db, rt.sessionId, job.id, () => {
 			const ended = job.status === "completed" || job.status === "failed";
 			const event =
-				findEventByKey(db, resultKey) ??
-				(ended
-					? createEvent(
-							db,
-							`ev-${job.id}-result`,
-							resultKey,
-							job.id,
-							"result",
-							"result",
-							null,
-							true,
-							Date.now(),
-						).event
-					: null);
+				findEventByKey(db, resultKey) ?? (ended ? recordResultEvent(db, job.id, Date.now()) : null);
 			const text = formatDelivery(
 				job,
 				{

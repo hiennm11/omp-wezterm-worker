@@ -184,7 +184,9 @@ Each event keeps one ID through replay. Deliver at least once and make repeated 
 
 Each run that ends as completed or failed creates one actionable result event. The event id is `ev-<run id>-result`.
 The event key is `eventKey(runId, "result", "result")`. A repeated finalization returns the same event.
-The final run row and its result event commit in one database transaction. A cancelled run creates no result event.
+The finalization writes the result event in the same step that sets the final status, before its first wait. So a reader that sees a finished run finds its event. A cleanup cannot pass in the gap between the status and the event.
+The run row is saved later in the finalization. A crash between the two writes leaves an event for a run that the database still holds as running. The event key is stable, so the next finalization finds that event. The owner accepts this limit.
+A cancelled run creates no result event.
 The event condition `result` is silent. The result delivery wakes the session and carries the event id.
 The owner acknowledges that id after it reads the result. Cleanup refuses while the event remains unhandled.
 Delivery attempts use the event id. Recovery also checks the run id for deliveries written before this rule.

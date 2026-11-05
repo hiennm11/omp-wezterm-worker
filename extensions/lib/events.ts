@@ -89,6 +89,36 @@ export function createEvent(
 	});
 }
 
+/** The key of the result event of one run. */
+export function resultEventKey(runId: string): string {
+	return eventKey(runId, "result", "result");
+}
+
+/** The id of the result event of one run. */
+export function resultEventId(runId: string): string {
+	return `ev-${runId}-result`;
+}
+
+/**
+ * Create the result event of a run that ended, or return the one that exists.
+ *
+ * The event is actionable and silent. The delivery of the result is the wake,
+ * and the cleanup refuses while nobody acknowledged the event.
+ */
+export function recordResultEvent(db: LifecycleDb, runId: string, now: number): WorkerEvent {
+	return createEvent(
+		db,
+		resultEventId(runId),
+		resultEventKey(runId),
+		runId,
+		"result",
+		"result",
+		null,
+		true,
+		now,
+	).event;
+}
+
 /** The event of one key, or null. */
 export function findEventByKey(db: LifecycleDb, key: string): WorkerEvent | null {
 	const row = db.handle.prepare("SELECT value FROM meta WHERE key = ?").get(`event_key:${key}`) as

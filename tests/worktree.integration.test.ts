@@ -107,6 +107,30 @@ test("the worktree survives the worker and cleanup keeps the changes", {
 			changedPaths(worktreePath).length > 0,
 			`The worktree has no changes, so the dirty check has nothing to find\n${diagnostics}`,
 		);
+		// --- cleanup is refused while nobody acknowledged the result ---
+		const eventId = `ev-${workerId}-result`;
+		const refused = await host.call("wezterm_worker_cleanup", { workerId });
+		assert.equal(refused.isError, true, `Cleanup passed before the result was acknowledged\n${diagnostics}`);
+		assert.match(
+			host.text(refused),
+			new RegExp(eventId),
+			`Cleanup did not name the result event\n${diagnostics}`,
+		);
+		assert.ok(
+			existsSync(worktreePath),
+			`Cleanup removed a worktree before the result was read\n${diagnostics}`,
+		);
+		const acknowledged = await host.call("wezterm_worker_ack", {
+			workerId,
+			eventId,
+			disposition: "accepted",
+		});
+		assert.notEqual(
+			acknowledged.isError,
+			true,
+			`The acknowledgement was refused: ${host.text(acknowledged)}`,
+		);
+
 		// --- cleanup without force keeps the dirty worktree ---
 		const kept = await host.call("wezterm_worker_cleanup", { workerId });
 		assert.ok(existsSync(worktreePath), `Cleanup removed a worktree that holds changes\n${diagnostics}`);

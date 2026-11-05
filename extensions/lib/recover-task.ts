@@ -14,7 +14,7 @@
  */
 
 import { deliveriesOfEvent } from "./delivery.ts";
-import { eventKey, findEventByKey } from "./events.ts";
+import { findEventByKey, resultEventId, resultEventKey } from "./events.ts";
 import type { Job } from "./job.ts";
 import { generationOf } from "./owner.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -55,8 +55,8 @@ export function replayUndelivered(
 	const sent = new Set<string>();
 	const owned = jobs.filter((job) => generationOf(rt, job.id) !== null);
 	for (const job of owned) {
-		const resultEvent = findEventByKey(db, eventKey(job.id, "result", "result"));
-		for (const key of [job.id, resultEvent?.id ?? `ev-${job.id}-result`]) {
+		const resultEvent = findEventByKey(db, resultEventKey(job.id));
+		for (const key of [job.id, resultEvent?.id ?? resultEventId(job.id)]) {
 			for (const attempt of deliveriesOfEvent(db, key)) {
 				if (attempt.state === "sent") sent.add(job.id);
 			}
