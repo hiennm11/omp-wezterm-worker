@@ -15,6 +15,8 @@ import { rmSync } from "node:fs";
 import { test } from "node:test";
 
 import type { Job } from "../extensions/lib/job.ts";
+import { endCodexProcesses } from "../extensions/lib/codex-process.ts";
+import { resumeCodexWorker } from "../extensions/lib/resume-codex.ts";
 import { spawnCodexWorker } from "../extensions/lib/spawn-codex.ts";
 import { type CodexFake, codexFake } from "./codex-spawn-helpers.ts";
 
@@ -24,9 +26,9 @@ import { type CodexFake, codexFake } from "./codex-spawn-helpers.ts";
  * The helper runs the real function with the fake runtime. It returns the
  * job and the fake, so a test can read both.
  */
-async function launch(policy: string | null): Promise<{ job: Job; fake: CodexFake }> {
+async function launch(policy: "untrusted" | null): Promise<{ job: Job; fake: CodexFake }> {
 	const fake = codexFake();
-	fake.rt.config.codexApprovalPolicy = policy as never;
+	fake.rt.config.codexApprovalPolicy = policy;
 	try {
 		const job = await spawnCodexWorker(
 			fake.rt,
@@ -34,6 +36,41 @@ async function launch(policy: string | null): Promise<{ job: Job; fake: CodexFak
 			{ connect: fake.connect, serverWaitMs: 100 },
 		);
 		return { job, fake };
+	} finally {
+		await fake.closeBridges();
+		fake.rt.closeDb();
+	}
+}
+
+/**
+ * The resume of one Codex worker.
+ *
+ * The helper starts a source run, ends it, and then resumes its thread. It
+ * returns the fake, so a test can read the requests of the resume.
+ */
+async function resume(policy: "untrusted" | null): Promise<CodexFake> {
+	const fake = codexFake();
+	fake.rt.config.codexApprovalPolicy = policy;
+	try {
+		const source = await spawnCodexWorker(
+			fake.rt,
+			{ jobId: "wz-codex-source", task: "Reply with the single word OK.", cwd: fake.dir },
+			{ connect: fake.connect, serverWaitMs: 100 },
+		);
+		assert.equal(source.status, "running", `the source run failed: ${source.error}`);
+		await endCodexProcesses(fake.rt, source.codex ?? null);
+		source.status = "completed";
+		source.finishedAt = Date.now();
+		source.paneClosed = true;
+		fake.rt.persist();
+
+		const resumed = await resumeCodexWorker(
+			fake.rt,
+			{ jobId: "wz-codex-resumed", source, threadId: "thread-1", message: "Reply with OK." },
+			{ connect: fake.connect, serverWaitMs: 100 },
+		);
+		assert.equal(resumed.status, "running", `the resume failed: ${resumed.error}`);
+		return fake;
 	} finally {
 		await fake.closeBridges();
 		fake.rt.closeDb();
@@ -81,20 +118,14 @@ test("only the thread request and the turn request carry the policy", async () =
 	);
 });
 
-test("the launch fails when the setting names no policy", async () => {
-	const fake = codexFake();
+test("the turn of a resume carries the policy of the setting", async () => {
+	const fake = await resume("untrusted");
 	try {
-		const job = await spawnCodexWorker(
-			fake.rt,
-			{ jobId: "wz-codex-bad-policy", task: "Reply with the single word OK.", cwd: fake.dir },
-			{ connect: fake.connect, serverWaitMs: 100 },
-		);
-		assert.equal(job.status, "failed", "the launch accepted an unknown policy");
-		assert.match(job.error ?? "", /approvalPolicy/);
-		assert.equal(fake.panes.size, 0, "a pane stayed open");
+		const turn = callOf(fake, "turn/start");
+		assert.equal(turn.params.approvalPolicy, "untrusted");
+		const resumed = callOf(fake, "thread/resume");
+		assert.equal("approvalPolicy" in resumed.params, false);
 	} finally {
-		await fake.closeBridges();
-		fake.rt.closeDb();
 		rmSync(fake.dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
 	}
 });

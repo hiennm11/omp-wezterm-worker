@@ -17,7 +17,7 @@ import {
 } from "./codex-process.ts";
 import type { CodexReportLaunch } from "./codex-report.ts";
 import { attachCodexEvents } from "./codex-session.ts";
-import { resumeThread, startThread } from "./codex-thread.ts";
+import { resumeThread, startThread, turnStartParams } from "./codex-thread.ts";
 import type { CodexIdentity, Job } from "./job.ts";
 import { launchProgram } from "./pane.ts";
 import { delay } from "./process.ts";
@@ -115,7 +115,7 @@ export async function launchCodex(
 
 	const prepared = options.resume
 		? await resumeThread(client, options.resume.threadId)
-		: await startThread(client, job);
+		: await startThread(client, job, rt.config.codexApprovalPolicy);
 	if (prepared.error) {
 		client.close();
 		await endCodexProcesses(rt, identity);
@@ -144,10 +144,10 @@ export async function launchCodex(
 	if (options.resume) {
 		const message = options.resume.message;
 		if (!message) return { error: null, threadId: prepared.threadId };
-		const turn = await client.request("turn/start", {
-			threadId: prepared.threadId,
-			input: [{ type: "text", text: message }],
-		});
+		const turn = await client.request(
+			"turn/start",
+			turnStartParams(prepared.threadId, message, rt.config.codexApprovalPolicy),
+		);
 		if (turn.error) {
 			client.close();
 			await endCodexProcesses(rt, identity);
@@ -159,10 +159,10 @@ export async function launchCodex(
 		return { error: null, threadId: prepared.threadId };
 	}
 
-	const turn = await client.request("turn/start", {
-		threadId: prepared.threadId,
-		input: [{ type: "text", text: job.task }],
-	});
+	const turn = await client.request(
+		"turn/start",
+		turnStartParams(prepared.threadId, job.task, rt.config.codexApprovalPolicy),
+	);
 	if (turn.error) {
 		client.close();
 		await endCodexProcesses(rt, identity);

@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import { type ApprovalPolicy, approvalPolicyRefusal, readApprovalPolicy } from "./codex-approval.ts";
 import type { CommsSettings } from "./comms-check.ts";
 import { type Preset, readPresets } from "./preset.ts";
 import { readThinkingLevel, type ThinkingLevel } from "./thinking.ts";
@@ -48,6 +49,13 @@ export interface WorkerConfig {
 	commsStandard: CommsSettings;
 	/** The folder of the ste100 skill. The checker of the skill scores every text. */
 	ste100Skill: string;
+	/**
+	 * The policy of the approval of a Codex worker.
+	 *
+	 * Null means that the extension sends no field, and the worker keeps the
+	 * policy of the user.
+	 */
+	codexApprovalPolicy: ApprovalPolicy | null;
 }
 
 export const DEFAULT_CONFIG: WorkerConfig = {
@@ -72,6 +80,7 @@ export const DEFAULT_CONFIG: WorkerConfig = {
 	maxLaunchesPerRequest: 3,
 	commsStandard: { mode: "warn", minScore: 80 },
 	ste100Skill: join(homedir(), ".claude", "skills", "ste100"),
+	codexApprovalPolicy: null,
 };
 
 /** Static string-keyed table: config key -> the config field it overrides. */
@@ -127,6 +136,24 @@ export function readCommsStandard(value: unknown, guidance: string[]): CommsSett
 		mode: mode === "off" || mode === "warn" || mode === "enforce" ? mode : fallback.mode,
 		minScore: score,
 	};
+}
+
+/**
+ * The policy of the approval of a Codex worker, read from the section
+ * `codex`.
+ *
+ * A missing section gives null, and the worker keeps the policy of the user.
+ * An unknown policy is refused with guidance, because a policy that the
+ * protocol does not accept would fail in the app server.
+ */
+export function readCodexSection(value: unknown, guidance: string[]): ApprovalPolicy | null {
+	if (typeof value !== "object" || value === null) return null;
+	const raw = value as Record<string, unknown>;
+	if (!Object.hasOwn(raw, "approvalPolicy")) return null;
+	const policy = readApprovalPolicy(raw.approvalPolicy);
+	if (policy !== null) return policy;
+	guidance.push(approvalPolicyRefusal(raw.approvalPolicy));
+	return null;
 }
 
 /**
@@ -186,6 +213,7 @@ export function loadConfig(file?: string, env: NodeJS.ProcessEnv = process.env):
 			if (Array.isArray(raw.tools)) cfg.tools = raw.tools.map(String);
 			if (raw.presets !== undefined) cfg.presets = readPresets(raw.presets, guidance);
 			cfg.thinking = readThinkingLevel(raw.thinking);
+			cfg.codexApprovalPolicy = readCodexSection(raw.codex, guidance);
 			cfg.ste100Skill = readSkillFolder(raw.ste100Skill, cfg.ste100Skill);
 			cfg.commsStandard = readCommsStandard(raw.commsStandard, guidance);
 			// The idle deadline is gone. A worker is stopped by its reports
