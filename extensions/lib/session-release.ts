@@ -11,6 +11,14 @@
  * database and starts no program, so a test can prove it without a pane.
  */
 
+import { taskKey } from "./owner.ts";
+import { beginRelease, commitRelease, readOwnership } from "./ownership.ts";
+import { releaseRunState } from "./release-state.ts";
+import type { WorkerRuntime } from "./runtime.ts";
+
+/** The longest wait for the external actions that already started. */
+export const RELEASE_WAIT_MS = 1000;
+
 /** The state of a worker that the runtime holds. */
 export interface ReleaseJob {
 	/** The id of the worker. */
@@ -77,6 +85,81 @@ export function releaseableJobIds(
 		const owner = owners[job.id];
 		if (!belongsToThisProcess(owner, sessionId, processId, processStartedAt)) continue;
 		released.push(job.id);
+	}
+	return released;
+}
+
+/**
+ * Wait for the external actions that already started.
+ *
+ * The wait ends when every action settled or when the limit passed. The
+ * names of the actions that did not settle are returned, so the caller can
+ * report them.
+ */
+export async function awaitSettledActions(rt: WorkerRuntime, limitMs: number): Promise<string[]> {
+	const deadline = Date.now() + limitMs;
+	while (rt.pendingActions.size > 0 && Date.now() < deadline) {
+		const { promise, resolve } = Promise.withResolvers<void>();
+		setTimeout(resolve, 25);
+		await promise;
+	}
+	return [...rt.pendingActions];
+}
+
+/**
+ * Release the running tasks of this session.
+ *
+ * The rows of the workers that this session still supervises move to the
+ * released phase. The next process of the same session adopts them through
+ * the existing path of a released row.
+ *
+ * A row of a run that ended stays as it is. A row of another process stays as
+ * it is. The row of another session stays as it is.
+ */
+export async function releaseSessionTasks(rt: WorkerRuntime): Promise<string[]> {
+	const db = rt.openDb();
+	const jobs = [...rt.jobs.values()];
+	const owners: ReleaseOwners = {};
+	for (const job of jobs) {
+		const owner = readOwnership(db, taskKey(job.id)).owner;
+		if (!owner) continue;
+		owners[job.id] = {
+			sessionId: owner.sessionId,
+			processId: owner.processId,
+			processStartedAt: owner.processStartedAt,
+			phase: owner.phase,
+		};
+	}
+	const ids = releaseableJobIds(owners, jobs, rt.sessionId, rt.processId, rt.processStartedAt);
+	if (ids.length === 0) return [];
+
+	// The external actions that started before the release must settle, or
+	// the new owner would meet a half finished action.
+	const unsettled = await awaitSettledActions(rt, RELEASE_WAIT_MS);
+	if (unsettled.length > 0) {
+		rt.errors.push(
+			`The release of ${ids.length} task(s) went on with ${unsettled.length} action(s) that did not settle: ${unsettled.join(", ")}.`,
+		);
+	}
+
+	const released: string[] = [];
+	for (const id of ids) {
+		const owner = readOwnership(db, taskKey(id)).owner;
+		if (!owner) continue;
+		const key = taskKey(id);
+		const begin = beginRelease(db, key, owner.sessionId, owner.generation, Date.now());
+		if (!begin.ok) {
+			rt.errors.push(`The release of worker ${id} failed: ${begin.reason}`);
+			continue;
+		}
+		const commit = commitRelease(db, key, owner.sessionId, owner.generation, Date.now());
+		if (!commit.ok) {
+			rt.errors.push(`The release of worker ${id} failed: ${commit.reason}`);
+			continue;
+		}
+		const job = rt.jobs.get(id);
+		if (job) await releaseRunState(rt, job);
+		released.push(id);
 	}
 	return released;
 }
