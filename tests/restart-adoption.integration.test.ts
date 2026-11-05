@@ -152,21 +152,23 @@ test("a new OMP process adopts the worker of a closed session", {
 
 		// The first process closes its session. The process stays alive as
 		// the parent of the second process.
-		execFileSync(
-			"wezterm",
-			["cli", "send-text", "--no-paste", "--pane-id", String(paneId), "/restart\r"],
-			{ stdio: "ignore" },
-		);
+		execFileSync("wezterm", ["cli", "send-text", "--no-paste", "--pane-id", String(paneId), "/restart\r"], {
+			stdio: "ignore",
+		});
 
 		// The closing session releases the row of the task.
 		const released = await waitFor(() => workerState(stateDir).phase === "released", 120_000, 500);
 		assert.ok(released, "The closing session released no task");
 
 		// The second process takes the task over.
-		const adopted = await waitFor(() => {
-			const owner = workerState(stateDir).ownerPid;
-			return owner !== null && owner !== firstPid;
-		}, 240_000, 1000);
+		const adopted = await waitFor(
+			() => {
+				const owner = workerState(stateDir).ownerPid;
+				return owner !== null && owner !== firstPid;
+			},
+			240_000,
+			1000,
+		);
 		assert.ok(adopted, "The second process took no task over");
 
 		// The second process delivers the result of the worker.
