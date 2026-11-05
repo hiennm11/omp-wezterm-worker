@@ -184,7 +184,7 @@ export function loadConfig(file?: string, env: NodeJS.ProcessEnv = process.env):
 			if (raw.placement === "split" || raw.placement === "tab") cfg.placement = raw.placement;
 			if (typeof raw.model === "string") cfg.model = raw.model;
 			if (Array.isArray(raw.tools)) cfg.tools = raw.tools.map(String);
-			cfg.presets = readPresets(raw.presets, guidance);
+			if (raw.presets !== undefined) cfg.presets = readPresets(raw.presets, guidance);
 			cfg.thinking = readThinkingLevel(raw.thinking);
 			cfg.ste100Skill = readSkillFolder(raw.ste100Skill, cfg.ste100Skill);
 			cfg.commsStandard = readCommsStandard(raw.commsStandard, guidance);
