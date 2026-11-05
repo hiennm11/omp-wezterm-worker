@@ -328,6 +328,12 @@ A native request that asks the person for the approval of a call. The person
 answers it in the pane.
 _Avoid_: Approval, tool check, dialog
 
+**Approval policy**:
+The setting that decides when a Codex worker asks the person for the approval
+of a command. The values are `untrusted`, `on-request` and `never`. No value
+means that the worker keeps the policy of the user.
+_Avoid_: Sandbox mode, permission, approval mode
+
 **Startup block**:
 The state of a native worker whose session did not start. The worker waits
 for the person, who accepts the trust dialog of Claude Code in the pane.

@@ -405,6 +405,9 @@ extension never reads the pane screen text to get a result.
 		"mode": "warn",
 		"minScore": 80
 	},
+	"codex": {
+		"approvalPolicy": null
+	},
 	"ste100Skill": "~/.claude/skills/ste100"
 }
 ```
@@ -448,6 +451,12 @@ The keys of the config file:
   last user prompt. The default is `3`. `0` disables the limit.
 - `commsStandard` — the settings of the communication check. The section
   "The communication check" explains them.
+- `codex.approvalPolicy` — the policy of the approval of a Codex worker.
+  The values are `untrusted`, `on-request` and `never`. The default is no
+  value, and the extension then sends no field, so the worker keeps the
+  policy of the user. The setting `untrusted` makes Codex ask the person for
+  the approval of a command. The person answers in the pane of the TUI. See
+  `docs/adr/0020-the-codex-approval-policy-is-a-setting.md`.
 - `ste100Skill` — the folder of the ste100 skill. The default is
   `~/.claude/skills/ste100`. The section "The communication check" explains
   the setting.
@@ -947,6 +956,7 @@ omp-wezterm-worker/
 │   │   ├── resume-guard.ts      the pane check of the source run of a resume
 │   │   ├── claude-session.ts    the Claude Code session of a worker
 │   │   ├── codex-binary.ts      the Codex program of the machine and its version
+│   │   ├── codex-approval.ts    the approval policy of a Codex worker
 │   │   ├── codex-client.ts      the client of one Codex app server
 │   │   ├── codex-events.ts      the events of a Codex worker
 │   │   ├── codex-session.ts     the session and the instruction queue of a Codex worker
@@ -1135,6 +1145,8 @@ omp-wezterm-worker/
 │   ├── proof-codex-binary.test.ts the search of the Codex program of the machine
 │   ├── proof-codex-scenarios.test.ts the queue, no-report and approval scenarios of the Codex proof
 │   ├── codex-binary.test.ts     the Codex program, its version and its refusal
+│   ├── codex-approval-policy.test.ts the approval policy of a Codex worker and its setting
+│   ├── codex-approval-request.test.ts the requests of the app server that carry the policy
 │   ├── codex-spawn.test.ts      the spawn of a Codex worker and its cleanup
 │   ├── codex-spawn-helpers.ts   the fakes of the tests of a Codex spawn
 │   ├── codex-stop.test.ts       the stop of a Codex worker and the close of its client
@@ -1308,6 +1320,8 @@ breaks a test.
 | `codex-takeover.test.ts` | A second session takes over a released Codex worker. It gets a client, a run state and a handover file. It starts no second app server and no second worker. A second session takes over a Codex worker of a dead first session. A takeover of a Codex worker that fails the identity check stops it as failed, and it ends no program of the user. A second session reads the report that arrived while no owner held the task. A closed client of the app server delivers no message to its handler. |
 | `codex-release.test.ts` | A release of a Codex worker leaves no client and no run state behind. The worker keeps running, and no pane closes and no program ends. The release of an OMP worker closes no bridge and ends no program. The release of a Claude worker closes its bridge and keeps the worker. The release of a worker of another session is refused. |
 | `codex-permission-event.test.ts` | A Codex approval request raises one event of a permission request. A second poll of a Codex approval request creates no second event. The completion of the command closes the request of a permission request. The decision of the person resolves the event of a permission request. |
+| `codex-approval-policy.test.ts` | The default sends no approval policy. A valid policy is kept. Every policy of the protocol is accepted. An unknown policy is refused with guidance. A missing policy gives null. A config file without the codex section gives null. A policy of the wrong type is refused with guidance. A codex section of the wrong type gives null. The reader keeps a valid policy. The reader gives null for a missing value. The reader gives null for an unknown value. The reader gives null for a value of the wrong type. The guard accepts the policies of the protocol. The list of the policies names the values of the protocol. The refusal names the valid policies. |
+| `codex-approval-request.test.ts` | The setting decides the policy of the thread request. The setting decides the policy of the turn request. Only the thread request and the turn request carry the policy. The turn of a resume carries the policy of the setting. |
 | `codex-events-ledger.test.ts` | A Codex worker that stops with an open row raises one event of an execution loss. A second stop raises no second event. A second restart of the owner raises no second event. A second poll keeps the id of the event. The event waits for the owner and leaves the list after the ack. A second ack with the same disposition changes nothing and another disposition is refused. A new owner after a takeover sees the pending event with its id and raises no second event. The event keeps its id after a restart of the host. |
 | `codex-usage-status.test.ts` | A message of the app server changes the usage that the status tool shows. A count that the message does not report stays missing in the text. The usage of two turns is the sum of the changes of the totals. A worker that ends keeps its usage and a later session shows the same counts. A turn that carries no usage shows a partial usage and not a zero. |
 | `codex-smoke-config.test.ts` | The lines of a project hold the header and the trust level. The lines of a project that the config does not name are empty. The lines without a project drop the section of that project. The config holds the same text when nothing changed. The config holds the entry of the fixture when the app server added it. The config holds a change when a line outside the entry changed. The config holds a change when the entry of the fixture is gone. |
