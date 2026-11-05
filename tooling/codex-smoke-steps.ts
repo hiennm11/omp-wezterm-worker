@@ -237,13 +237,14 @@ export function showsCodexScreen(text: string): boolean {
  * The text that the TUI shows for the dialog of a shell command.
  *
  * The dialog asks the person for the approval of a command. The TUI wraps
- * its text to the width of the pane, so the question can be split over
- * two lines. The function looks for the first option of the dialog, which
- * the TUI keeps on one line.
+ * its text to the width of the pane, so a narrow pane splits the question
+ * over many lines. The function removes every space and every `|` from the
+ * text, so it finds the question and the first option of the dialog.
  */
 export function showsCommandDialog(text: string): boolean {
-	if (text.includes("Would you like to run the following command?")) return true;
-	return text.includes("Yes, proceed");
+	const plain = text.replace(/[\s|]/g, "");
+	if (plain.includes("Wouldyouliketorunthefollowingcommand?")) return true;
+	return plain.includes("Yes,proceed(y)");
 }
 
 /**
