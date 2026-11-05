@@ -56,6 +56,14 @@ test("the file overrides the defaults", () => {
 	assert.equal(cfg.maxLaunchesPerRequest, 9);
 });
 
+test("the configuration file reads valid presets and rejects invalid ones with guidance", () => {
+	const file = configFile({ presets: { scout: { model: "model-id" }, broken: { thinkng: "low" } } });
+	const cfg = loadConfig(file, {});
+	assert.deepEqual(cfg.presets.scout, { model: "model-id" });
+	assert.equal(Object.hasOwn(cfg.presets, "broken"), false);
+	assert.match(lastGuidance ?? "", /broken.*thinkng/);
+});
+
 test("the environment variable names the config file", () => {
 	const file = configFile({ maxActiveWorkers: 7 });
 	const cfg = loadConfig(undefined, { OMP_WORKER_CONFIG_FILE: file });

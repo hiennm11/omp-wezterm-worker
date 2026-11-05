@@ -74,3 +74,18 @@ test("a resumed job keeps the thinking level of the source run", () => {
 	const args = ompArgv(jobWith("medium"), "/s/wz-1/a.jsonl", undefined);
 	assert.equal(levelOf(args), "medium");
 });
+test("a restricted tool list includes the worker report tool", () => {
+	const job = { ...jobWith(null), tools: ["read", "grep", "glob"] } as Job;
+	const args = ompArgv(job, null, "task");
+	assert.equal(args[args.indexOf("--tools") + 1], "read,grep,glob,wezterm_worker_report");
+});
+
+test("an existing report tool appears once in argv", () => {
+	const job = { ...jobWith(null), tools: ["read", "wezterm_worker_report"] } as Job;
+	const args = ompArgv(job, null, "task");
+	assert.equal(args[args.indexOf("--tools") + 1], "read,wezterm_worker_report");
+});
+
+test("a null tool list has no tools flag", () => {
+	assert.equal(ompArgv(jobWith(null), null, "task").includes("--tools"), false);
+});

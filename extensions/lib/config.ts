@@ -12,6 +12,7 @@ import { join } from "node:path";
 
 import type { CommsSettings } from "./comms-check.ts";
 import { readThinkingLevel, type ThinkingLevel } from "./thinking.ts";
+import { readPresets, type Preset } from "./preset.ts";
 
 export type Placement = "split" | "tab";
 
@@ -29,6 +30,7 @@ export interface WorkerConfig {
 	tools: string[] | null;
 	/** The thinking level that OMP runs a worker at. Null means the default of OMP. */
 	thinking: ThinkingLevel | null;
+	presets: Record<string, Preset>;
 	pollMs: number;
 	timeoutMs: number;
 	/** Fail a worker that produced no transcript activity for this long. 0 disables. */
@@ -59,6 +61,7 @@ export const DEFAULT_CONFIG: WorkerConfig = {
 	model: null,
 	tools: null,
 	thinking: null,
+	presets: Object.create(null) as Record<string, Preset>,
 	pollMs: 2000,
 	timeoutMs: 30 * 60 * 1000,
 	idleTimeoutMs: 0,
@@ -181,6 +184,7 @@ export function loadConfig(file?: string, env: NodeJS.ProcessEnv = process.env):
 			if (raw.placement === "split" || raw.placement === "tab") cfg.placement = raw.placement;
 			if (typeof raw.model === "string") cfg.model = raw.model;
 			if (Array.isArray(raw.tools)) cfg.tools = raw.tools.map(String);
+			cfg.presets = readPresets(raw.presets, guidance);
 			cfg.thinking = readThinkingLevel(raw.thinking);
 			cfg.ste100Skill = readSkillFolder(raw.ste100Skill, cfg.ste100Skill);
 			cfg.commsStandard = readCommsStandard(raw.commsStandard, guidance);

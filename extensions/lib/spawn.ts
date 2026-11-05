@@ -26,6 +26,7 @@ import { describeFailure } from "./process.ts";
 import { checkSourcePane } from "./resume-guard.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import type { ThinkingLevel } from "./thinking.ts";
+import { withReportTool } from "./preset.ts";
 import { listSessionFiles, summarizeSession } from "./transcript.ts";
 import { readUsageTotals } from "./usage.ts";
 import { writeRunContext } from "./worker-context.ts";
@@ -64,7 +65,8 @@ export function ompArgv(job: Job, resumeFile: string | null, trailing: string | 
 	if (existsSync(prompt)) args.push("--append-system-prompt", prompt);
 	if (resumeFile) args.push("--resume", resumeFile);
 	if (job.model) args.push("--model", job.model);
-	if (job.tools?.length) args.push("--tools", job.tools.join(","));
+	const tools = withReportTool(job.tools);
+	if (tools?.length) args.push("--tools", tools.join(","));
 	// A job without a level asks for no level. OMP then runs the worker at
 	// the default level of OMP.
 	if (job.thinking) args.push("--thinking", job.thinking);

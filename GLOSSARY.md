@@ -134,6 +134,13 @@ each worker. The extension asks OMP for that level and never asks for
 another. OMP maps a level that the model lacks.
 _Avoid_: Effort, budget, reasoning level
 
+**Preset**:
+A named set of worker values in the configuration file. A spawn can override each preset value.
+_Avoid_: Profile, template
+
+**Restricted tool list**:
+A non-empty list that limits the tools available to an OMP worker. The worker report tool is added when it is absent.
+_Avoid_: Tool preset
 ## Agreed supervision terms
 
 These terms describe the supervision model. The runtime enforces the acquisition, the release and the takeover of a task. It also checks the authority of the control tools `steer`, `cancel`, `cleanup` and `resume`, of the record tools `ack` and `resolve`, and of the delivery of a result. The runtime checks the authority of the automatic path of a monitor too. The end and the stop of a monitor run as counted actions, so the release waits for them.
