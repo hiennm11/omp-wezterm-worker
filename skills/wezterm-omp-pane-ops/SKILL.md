@@ -287,6 +287,7 @@ knowledge the README cannot state:
 
 Before a Claude launch, check that the spawn schema of OMP exposes `backend`.
 If it does not, restart OMP with the updated plugin. Do not claim a Claude launch through an OMP-only schema.
+Before a Claude spawn, the extension validates the session mod. A rejected mod or a failed check refuses the spawn and adds about 1.5 seconds.
 
 Set `cwd` to the target project. Claude finds the project's `.claude/skills/`
 and the user's `~/.claude/skills/` through its own configuration.

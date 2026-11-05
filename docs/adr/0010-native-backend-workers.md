@@ -78,6 +78,12 @@ An omitted model uses the default of the selected CLI. The extension passes an e
 
 The `tools` parameter is OMP-only. The extension refuses a spawn that names a native worker and gives a tool list before the launch.
 
+## Mod validation
+
+Before a Claude worker starts or resumes, the extension runs `claude plugin validate` on the mod directory that the session will load. A non-zero exit refuses the run with the command failure text. A command that cannot run or times out also refuses the run. The extension never falls back to another backend.
+
+The extension checks the copy in the session directory, not the package source. A warning does not block a run. The check runs on every spawn and every resume.
+
 ## The smoke of a native backend
 
 A smoke of a native backend runs the real extension against the real program of the user. It therefore runs beside the sessions of the user, and it must not touch them.

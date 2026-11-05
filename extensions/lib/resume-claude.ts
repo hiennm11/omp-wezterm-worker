@@ -21,6 +21,7 @@ import {
 	pluginOf,
 	preparePlugin,
 	typeFollowUp,
+	validatePlugin,
 	waitForComposer,
 } from "./claude-session.ts";
 import { freeEndedHolder } from "./group-holder.ts";
@@ -148,6 +149,16 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 	   loaded. A new plugin directory would break that link. */
 	const sourcePlugin = pluginOf(source.sessionDir);
 	const pluginDir = sourcePlugin ?? preparePlugin(job.sessionDir);
+	const refusal = await validatePlugin(rt, rt.config.claudeBin, pluginDir);
+	if (refusal) {
+		job.status = "failed";
+		job.error = refusal;
+		job.finishedAt = Date.now();
+		// The run never reached a pane, so it holds nothing. The group of the
+		// source run becomes free again.
+		releaseExecutionByHolder(db, jobId, Date.now());
+		return job;
+	}
 
 	/* The new run gets a new bridge. The native session keeps its history,
 	   but the run identity of the new run is new. */
