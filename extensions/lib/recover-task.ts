@@ -13,8 +13,8 @@
  * that ended at or after that time.
  */
 
-import { expireStaleEvents } from "./event-expiry.ts";
 import { deliveriesOfEvent } from "./delivery.ts";
+import { expireStaleEvents } from "./event-expiry.ts";
 import { findEventByKey, resultEventId, resultEventKey } from "./events.ts";
 import type { Job } from "./job.ts";
 import { generationOf } from "./owner.ts";
