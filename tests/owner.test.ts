@@ -14,6 +14,7 @@ import {
 } from "../extensions/lib/ownership.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
+import { releaseSessionTasks } from "../extensions/lib/session-release.ts";
 
 const OWN_START = "2026-10-23T01:00:00.000Z";
 const OLD_START = "2026-10-22T08:00:00.000Z";
@@ -280,6 +281,53 @@ test("a stale owner of the same session cannot write after the second process to
 	} finally {
 		first.closeDb();
 		second.closeDb();
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("a new process takes the task of a closed session while it holds the lease", async () => {
+	/* The old process stays alive and closes its session. It holds a running
+	   worker of the session. The new process of the same session holds the
+	   lease of the session, because it wrote to the session before the
+	   extension ran. The old process must release the row on the way, so the
+	   new process adopts the worker. */
+	const dir = mkdtempSync(join(tmpdir(), "wt-owner-restart-"));
+	const exec: RunFn = async () => ({ code: 0, stdout: `${OLD_START}\n`, stderr: "" });
+	const old = createRuntime(exec);
+	old.config.stateDir = dir;
+	old.processId = 900;
+	old.processStartedAt = OLD_START;
+	const fresh = createRuntime(exec);
+	fresh.config.stateDir = dir;
+	fresh.processId = 500;
+	fresh.processStartedAt = OWN_START;
+	try {
+		bindSession(old, viewOf("session-a"));
+		const oldTake = await acquireTask(old, "wz-1");
+		assert.equal(oldTake.acquired, true);
+		/* The old process holds a running worker of the session. */
+		old.jobs.set("wz-1", { id: "wz-1", status: "running" } as never);
+
+		bindSession(fresh, viewOf("session-a"));
+		withLease(fresh, true);
+
+		/* Before the close, the new process stays read-only. The old
+		   process is alive and holds the task. */
+		const before = await acquireTask(fresh, "wz-1");
+		assert.equal(before.acquired, false, "the new process took the task of a live owner");
+		assert.equal(before.acquired ? "" : before.kind, "owned");
+
+		/* The old process closes its session while it stays alive. */
+		await releaseSessionTasks(old);
+		assert.equal(readOwnership(fresh.openDb(), "task-wz-1").owner?.phase, "released");
+
+		const result = await acquireTask(fresh, "wz-1");
+		assert.equal(result.acquired, true, result.acquired ? "" : result.reason);
+		assert.equal(generationOf(fresh, "wz-1"), 2);
+		assert.equal(readOwnership(fresh.openDb(), "task-wz-1").owner?.processId, 500);
+	} finally {
+		old.closeDb();
+		fresh.closeDb();
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
