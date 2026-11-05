@@ -343,6 +343,23 @@ process table cannot see the sessions of the other processes. A closed
 session can leave a live process behind. Close that process, or restart OMP,
 to free the task.
 
+The line `read-only here` also names the answer of the lease of the session
+and the process that owns the task. The answer is `true`, `false` or `null`.
+The answer does not prove that the old owner is alive, because the new process
+holds the lease itself after its first write to the session.
+
+### A restart of OMP
+
+A session that closes gives back the tasks that it still supervises. The
+ownership rows of its running workers move to the released phase, and the
+worker keeps running. The next process of the same session takes the task
+over through the released row and delivers the result of the worker. The
+result of a worker that ended before the close is never delivered twice.
+
+A closing session waits at most 1000 ms for the external actions that already
+started. The names of the actions that did not settle reach the log. See
+[ADR 0019](docs/adr/0019-a-closing-session-releases-its-running-tasks.md).
+
 ## How it works
 
 1. `wezterm cli split-pane` (or `wezterm cli spawn`) creates the pane and runs
@@ -967,6 +984,7 @@ omp-wezterm-worker/
 │   │   ├── owner.ts             the acquisition of a task by this session
 │   │   ├── subagent.ts          the agent of a session, main or sub
 │   │   ├── session-lease.ts     the probe of the lease of a session
+│   │   ├── session-release.ts   the release of the tasks of a closing session
 │   │   ├── authority.ts         the authority rules of the control and cleanup tools
 │   │   ├── write-authority.ts   the authority check of a write for a task
 │   │   ├── attach.ts            the supervision of a worker that this session owns
@@ -1239,7 +1257,7 @@ breaks a test.
 | `monitor-authority.test.ts` | The verdict follows the owner, the session and the phase. The monitor of the owner ends an overdue worker. A released task stops its monitor and leaves the worker alone. A task that another session took stops the monitor of the old session. The releasing phase makes the monitor wait and does not stop it. A native monitor stops when the task is released. |
 | `monitor-actions.test.ts` | The release of the owner waits for the action of the monitor. An action that starts after the owner changed writes nothing. |
 | `monitor-pane-gone.test.ts` | A worker with a transcript and a gone pane leaves the active set on a tick. An unreadable pane list does not settle the worker. A finished worker is not read and not changed by the pane check. |
-| `supervision.test.ts` | An active task that this process owns and no monitor watches shows `NOT SUPERVISED`. An active task that another session or process owns shows `read-only here` with the session and the process. A watched task, a finished worker and a missing ownership row show no line. The status tool prints the line. |
+| `supervision.test.ts` | An active task that this process owns and no monitor watches shows `NOT SUPERVISED`. An active task that another session or process owns shows `read-only here` with the session and the process. A read-only row names the answer of the lease and the process id. A watched task, a finished worker and a missing ownership row show no line. The status tool prints the line. |
 | `architecture.test.ts` | No source file exceeds 350 lines. The `lib/` folder never imports the entry or `worker-tools/`. Only `lib/process.ts` starts a child process. Only the entry creates the runtime. |
 | `limits.test.ts` | One active worker blocks a launch at the default limit. A worker with an unconfirmed stop still counts. A launch that failed before its pane existed does not count. A worker session cannot launch a worker. A user prompt resets the request count. |
 | `usage.test.ts` | A number comes only from a transcript. A model call without usage makes the count partial. A transcript without usage shows unknown. A resumed worker counts only what came after the resume. The request total adds the workers of the request. |
@@ -1251,8 +1269,10 @@ breaks a test.
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
 | `result.integration.test.ts` | The result tool returns the answer of a finished worker. |
 | `live-worker.integration.test.ts` | A running worker can be steered, peeked at and cancelled. A steering message reaches the worker. A cancel closes only the pane that the extension created. A worker past its deadline is stopped and its pane is confirmed closed. A session releases the worker that it started, and the worker keeps running. |
-| `owner.test.ts` | A session that starts a worker owns it. A session without an identity acquires nothing. The same session acquires its task again after a restart only when the old process is gone. A second live process of the same session does not take the task. A reused process id does not count as the old owner. An unreadable process table refuses the acquisition. Another session never takes a task. A released task of another session waits for an explicit takeover. A session takes its task back when the lease of the session is free. A session keeps its task while a process holds the lease. A session keeps its task while the host cannot answer about the lease. Another session takes no task even when the lease is free. A stale owner of the same session cannot write after the second process took the task. |
+| `owner.test.ts` | A session that starts a worker owns it. A session without an identity acquires nothing. The same session acquires its task again after a restart only when the old process is gone. A second live process of the same session does not take the task. A reused process id does not count as the old owner. An unreadable process table refuses the acquisition. Another session never takes a task. A released task of another session waits for an explicit takeover. A session takes its task back when the lease of the session is free. A session keeps its task while a process holds the lease. A session keeps its task while the host cannot answer about the lease. Another session takes no task even when the lease is free. A stale owner of the same session cannot write after the second process took the task. A new process takes the task of a closed session while it holds the lease. |
 | `session-lease.test.ts` | The probe reports that a process holds the lease. The probe reports that the lease is free. The probe awaits a promise of the host. The probe gives no answer when the host has no lease API. The probe gives no answer when the lease function is missing. The probe gives no answer when the call throws. The probe gives no answer when the call rejects. The probe gives no answer for a value that is not a boolean. |
+| `session-release.test.ts` | A running job of this process is released. A queued job of this process is released. A row of an ended run stays as it is. A row of another session stays as it is. A row of another process stays as it is. A row of another incarnation of this process stays as it is. A row that is not active stays as it is. A job without an ownership row stays as it is. A session without an identity releases nothing. |
+| `session-shutdown-release.test.ts` | A closing session releases the running worker and keeps the ended run. A closing session clears the monitors and closes the database. The shutdown of a subagent releases no task of the main session. A new process of the same session adopts the worker of a closed session. |
 | `process-probe.test.ts` | The probe reads the start time of a live process. Two reads of one process give the same start time. The probe reports a gone process as gone. |
 | `trial-report.test.ts` | The report names a failing check. A check detail stays on one line. The report holds no path of the machine. |
 | `trial-paths.test.ts` | A path under the project becomes a relative path. A path outside it becomes a placeholder. The name of the user never appears. |
