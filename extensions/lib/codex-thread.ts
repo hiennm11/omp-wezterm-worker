@@ -11,6 +11,7 @@
  */
 
 import { REPORTING_CONTRACT } from "./bootstrap-prompt.ts";
+import { type ApprovalPolicy } from "./codex-approval.ts";
 import { type CodexClient, threadIdOf } from "./codex-client.ts";
 import type { Job } from "./job.ts";
 
@@ -28,8 +29,12 @@ export interface CodexThreadResult {
  * The order of the calls is fixed. The request `thread/name/set` writes the
  * rollout file, and the request `thread/resume` makes the server load it.
  */
-export async function startThread(client: CodexClient, job: Job): Promise<CodexThreadResult> {
-	const started = await client.request("thread/start", threadStartParams(job));
+export async function startThread(
+	client: CodexClient,
+	job: Job,
+	approvalPolicy: ApprovalPolicy | null = null,
+): Promise<CodexThreadResult> {
+	const started = await client.request("thread/start", threadStartParams(job, approvalPolicy));
 	if (started.error) return { error: `the thread of Codex failed: ${started.error.message}`, threadId: "" };
 	const threadId = threadIdOf(started);
 	if (!threadId) return { error: "the thread of Codex holds no id.", threadId: "" };
@@ -64,9 +69,32 @@ export async function resumeThread(client: CodexClient, threadId: string): Promi
  * The model goes to the request only when the job names one. An omitted
  * model uses the default of Codex. The field `developerInstructions` carries
  * the reporting contract, so the worker knows how to report its task state.
+ *
+ * The policy of the approval goes to the request only when the setting names
+ * one. An omitted policy keeps the policy of the user.
  */
-function threadStartParams(job: Job): Record<string, unknown> {
+function threadStartParams(job: Job, approvalPolicy: ApprovalPolicy | null): Record<string, unknown> {
 	const params: Record<string, unknown> = { cwd: job.cwd, developerInstructions: REPORTING_CONTRACT };
 	if (job.model) params.model = job.model;
+	if (approvalPolicy) params.approvalPolicy = approvalPolicy;
+	return params;
+}
+
+/**
+ * The parameters of the request `turn/start`.
+ *
+ * The policy of the approval goes to the request only when the setting names
+ * one. An omitted policy keeps the policy of the user.
+ */
+export function turnStartParams(
+	threadId: string,
+	text: string,
+	approvalPolicy: ApprovalPolicy | null,
+): Record<string, unknown> {
+	const params: Record<string, unknown> = {
+		threadId,
+		input: [{ type: "text", text }],
+	};
+	if (approvalPolicy) params.approvalPolicy = approvalPolicy;
 	return params;
 }
