@@ -118,7 +118,11 @@ export async function checkClaude(rt: WorkerRuntime, bin: string): Promise<strin
 }
 
 /** The reason Claude Code refuses the session-scoped mod, or null when it accepts it. */
-export async function validatePlugin(rt: WorkerRuntime, bin: string, pluginDir: string): Promise<string | null> {
+export async function validatePlugin(
+	rt: WorkerRuntime,
+	bin: string,
+	pluginDir: string,
+): Promise<string | null> {
 	try {
 		const result = await rt.exec(bin, ["plugin", "validate", pluginDir]);
 		if (result.code === 0) return null;
