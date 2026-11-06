@@ -1,7 +1,7 @@
 ---
 name: wezterm-omp-pane-ops
 description: Use when driving an OMP session from a WezTerm pane on Windows, or when moving an OMP session between projects. Covers spawning a worker into a pane, sending text into a live pane (the Enter-key problem), reading live worker status, the worker lifecycle (result delivery, pane closing, registry across restarts, resuming a finished worker), relocating a session transcript, and the Windows shell traps (WSL on PATH, path forms, plugin linking). Triggers on WezTerm pane, pane worker, send text to a pane, steer a running worker, worker status, resume a finished worker, move an OMP session, resume a session elsewhere, pack a session, omp plugin link, Git Bash vs WSL.
-
+---
 
 # WezTerm + OMP pane operations (Windows)
 
