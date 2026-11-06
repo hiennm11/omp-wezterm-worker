@@ -277,13 +277,13 @@ export function claudeCompletionBlocker(state: ClaudeRunState): string | null {
 /**
  * The report that the run may act on, or null when it has none.
  *
- * A report qualifies only for the current cycle. A report of an earlier
- * cycle proves nothing about the work that runs now. A report that names no
- * cycle qualifies for no cycle at all, so it never ends a worker.
+ * After takeback, the last report qualifies when the run has observed no
+ * cycle. A new cycle restores the normal cycle-id match.
  */
 export function claudeBoundReport(
 	state: ClaudeRunState,
 ): { cycleId: string | null; state: string; result: string | null } | null {
+	if (state.cycles.length === 0) return state.reports.at(-1) ?? null;
 	for (const report of state.reports) {
 		if (report.cycleId !== null && report.cycleId === state.currentCycleId) return report;
 	}

@@ -11,9 +11,9 @@ import {
 	type ModOn,
 	register,
 } from "../extensions/claude-mod/hooks/register.js";
+import { applyObservation, claudeBoundReport } from "../extensions/lib/claude-run-state.ts";
 import { restoreRunState } from "../extensions/lib/reattach-native.ts";
-import { reportState } from "../extensions/lib/report-decision.ts";
-import { readReports, reportFile } from "../extensions/lib/report-store.ts";
+import { reportFile } from "../extensions/lib/report-store.ts";
 import { cleanup, fakeRuntime, nativeJob } from "./reattach-native-helpers.ts";
 
 const SESSION_DIR = "/sessions/session-1";
@@ -123,12 +123,43 @@ test("the restored run reads and accepts the report saved during release", async
 		const job = nativeJob(sessionDir, { id: "run-1" });
 		rt.jobs.set(job.id, job);
 		await fake.handler("wezterm_worker_report")(fake.dollar, report(), () => undefined);
-		writeFileSync(reportFile(sessionDir, job.id), fake.lines[0]);
-		const reports = readReports(sessionDir, job.id);
-		assert.equal(reports.length, 1);
+		const saved = JSON.parse(fake.lines[0]);
+		saved.cycleId = "turn-123";
+		writeFileSync(reportFile(sessionDir, job.id), `${JSON.stringify(saved)}\n`);
 		const state = restoreRunState(rt, job);
-		assert.deepEqual(state.reports, [{ cycleId: null, state: "completed", result: "REPORT-SAVED" }]);
-		assert.deepEqual(reportState(reports), { state: "completed", result: "REPORT-SAVED" });
+		assert.equal(state.currentCycleId, null);
+		assert.deepEqual(claudeBoundReport(state), {
+			cycleId: "turn-123",
+			state: "completed",
+			result: "REPORT-SAVED",
+		});
+	} finally {
+		await cleanup(rt, dir);
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("the restored report does not match after the run observes a new cycle", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "claude-report-cycle-"));
+	const sessionDir = join(dir, "session");
+	const { rt } = fakeRuntime(dir, [7]);
+	try {
+		mkdirSync(sessionDir, { recursive: true });
+		const job = nativeJob(sessionDir, { id: "run-1" });
+		rt.jobs.set(job.id, job);
+		writeFileSync(
+			reportFile(sessionDir, job.id),
+			`${JSON.stringify({ runId: "run-1", cycleId: "turn-old", state: "completed", result: "OLD" })}\n`,
+		);
+		const state = restoreRunState(rt, job);
+		applyObservation(state, {
+			backend: "claude",
+			runId: job.id,
+			sessionId: job.nativeSessionId ?? null,
+			source: "turn.start",
+			payload: { turnId: "turn-new" },
+		});
+		assert.equal(claudeBoundReport(state), null);
 	} finally {
 		await cleanup(rt, dir);
 		rmSync(dir, { recursive: true, force: true });
