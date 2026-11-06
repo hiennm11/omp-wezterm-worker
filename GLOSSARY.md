@@ -231,7 +231,9 @@ A saved answer whose completion used the earlier text-only rule and remains unve
 _Avoid_: Explicit completion, accepted result
 
 **Report**:
-The state that a worker declares through its own tool. It is the only evidence that the owner accepts.
+The state that a worker declares through its own tool. Claude saves the report
+in the run's JSONL file before it posts to the bridge. The owner reads that file
+when it restores a released run. The report is the only evidence that the owner accepts.
 _Avoid_: Answer, message, result
 
 **Execution condition**:

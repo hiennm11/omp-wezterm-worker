@@ -169,9 +169,10 @@ report tool and the command bridge.
 | The tool list | A spawn with `tools` and a native backend is refused before the launch. |
 | The thinking level | A spawn with `thinking` and a native backend is refused before the launch. A native worker uses the thinking level of its own CLI. |
 | The deadline | A native worker takes the `timeoutMs` and the `closePaneOnFinish` of its spawn, the same way an OMP worker does. |
-| The report | The mod binds the report to the run id and to the native turn id. A report of an earlier turn cannot finish newer work. |
+| The report | The mod binds the report to the run id and to the native turn id. It saves each report before it posts to the bridge. A report of an earlier turn cannot finish newer work. |
 | The steering | A steering instruction goes through the bridge. The native session queues it, and a running tool is not interrupted. |
 | The permission | A permission request raises an event for the owner. The person answers it in the pane. A steering instruction is refused while the request is open. |
+
 | The events | The status tool lists the events that wait for the owner. The owner acknowledges each one with its event id. The conditions are `result`, `needs_input`, `missing_report`, `thinking_stall`, `idle_after_working`, `execution_loss`, `unresolved_launch`, `unknown_outcome`, `permission_request` and `startup_blocked`. OMP raises `thinking_stall` after 600 seconds without a transcript entry. |
 | The startup | A Claude worker in a new repository raises `startup_blocked`, because the session waits at the trust dialog of Claude Code. The person accepts the dialog in the pane. |
 | The mod validation | The extension refuses a Claude spawn when the installed Claude Code rejects the session mod or cannot validate it. This check adds about 1.5 seconds. |
@@ -179,6 +180,9 @@ report tool and the command bridge.
 | The activity | A native worker writes no OMP transcript. Its activity comes from the native observations, so the idle deadline never stops a worker that is still working. |
 | The resume | A resume reuses the native session id. The worker comes back with its history and a new run id. |
 | The stop | The stop closes the pane of the worker only, and it confirms that the pane is gone. |
+
+The next owner reads the saved Claude report when it restores a released run.
+The report remains bound to its original run.
 
 ### The Codex backend
 

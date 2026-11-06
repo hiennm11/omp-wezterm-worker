@@ -106,9 +106,8 @@ async function readHandover($) {
 /**
  * Send one observation to the owner.
  *
- * The mod never writes to the transcript about its own observations. A log
- * line is a transcript row, and a row raises `session.append`, which would
- * start the same loop again.
+ * A report is saved before this call. Other observations have no file fallback,
+ * so a failed post loses that observation without breaking the session.
  */
 async function observe($, source, payload) {
 	if (state.closed) return;
@@ -129,10 +128,31 @@ async function observe($, source, payload) {
 			}),
 		});
 	} catch {
-		/* the owner records the loss; the mod must not break the session */
+		/* the report file preserves reports; the session keeps running */
 	}
 }
 
+/** The report file of the current run, beside the handover file. */
+function reportFilePath() {
+	const path = state.handoverPath;
+	if (!path || !state.runId) throw new Error("the report file path is unavailable");
+	const separator = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+	const directory = separator < 0 ? "." : path.slice(0, separator);
+	return `${directory}/.wezterm-worker-reports-${state.runId}.jsonl`;
+}
+
+/** Save one report in the JSONL format that the owner reads. */
+async function saveReport($, report) {
+	const path = reportFilePath();
+	let previous = "";
+	try {
+		const text = await $.fs.read(path);
+		if (typeof text === "string") previous = text;
+	} catch {
+		/* the first report creates the file */
+	}
+	await $.fs.write(path, `${previous}${JSON.stringify({ ...report, at: Date.now() })}\n`);
+}
 /**
  * Send the snapshot of the run to the current owner.
  *
@@ -572,6 +592,11 @@ export function register(on) {
 			await observe($, "report.rejected", { reason: problem, callId: report.callId });
 			return { result: problem, isError: true };
 		}
+		try {
+			await saveReport($, report);
+		} catch (error) {
+			return { result: `the report was not saved: ${String(error?.message ?? error)}`, isError: true };
+		}
 		await observe($, "report", report);
 		return { result: `The task state is now ${report.state}.` };
 	});
@@ -585,6 +610,11 @@ export function register(on) {
 		if (problem) {
 			await observe($, "report.rejected", { reason: problem, callId: report.callId });
 			return { result: problem, isError: true };
+		}
+		try {
+			await saveReport($, report);
+		} catch (error) {
+			return { result: `the report was not saved: ${String(error?.message ?? error)}`, isError: true };
 		}
 		await observe($, "report", report);
 		return { result: `The task state is now ${report.state}.` };
