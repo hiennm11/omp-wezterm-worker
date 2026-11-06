@@ -230,6 +230,16 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			drainErrors();
 		}
 	});
+	pi.on("session_branch", async (_event, ctx) => {
+		try {
+			await switchSession(rt, ctx, deps.deliver);
+		} catch (e) {
+			rt.errors.push(
+				`The session branch could not restore worker supervision: ${e instanceof Error ? e.message : String(e)}`,
+			);
+			drainErrors();
+		}
+	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {
 		/* The runtime is shared by every session of the process. The end of

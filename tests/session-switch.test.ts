@@ -11,8 +11,10 @@ import { monitorJob } from "../extensions/lib/monitor.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
 import { acquireOwnership, type OwnerPhase } from "../extensions/lib/ownership.ts";
 import type { RunResult } from "../extensions/lib/process.ts";
+import { persistRuns } from "../extensions/lib/runs.ts";
 import { createRuntime } from "../extensions/lib/runtime.ts";
 import { switchSession } from "../extensions/lib/session-switch.ts";
+import { createHost, RUNTIME, sessionContext } from "./harness.ts";
 
 const OLD_SESSION = "session-switch-old";
 const NEW_SESSION = "session-switch-new";
@@ -74,24 +76,34 @@ function phaseOf(stateDir: string): OwnerPhase | null {
 	return (row?.phase as OwnerPhase | undefined) ?? null;
 }
 
-function context(sessionId: string, kind: "main" | "sub" = "main", reason?: string): EventCtx {
+function context(sessionId: string, kind: "main" | "sub" = "main"): EventCtx {
 	return {
 		sessionManager: { getSessionId: () => sessionId },
 		setInterval: () => ({ fake: true }) as unknown as NodeJS.Timeout,
 		agent: { kind, id: kind === "sub" ? "sub-1" : "main", name: "test" },
-		...(reason ? { reason } : {}),
 	};
 }
 
-for (const reason of ["new", "fork", "resume"]) {
-	test(`${reason} releases old tasks and binds the new id`, async (t) => {
-		const { rt, stateDir } = setup(t);
-		rt.sessionId = OLD_SESSION;
-		await switchSession(rt, context(NEW_SESSION, "main", reason), () => {});
-		assert.equal(rt.sessionId, NEW_SESSION);
-		assert.equal(phaseOf(stateDir), "released");
-	});
-}
+test("a session branch releases old tasks and binds the new id", async (t) => {
+	const { rt, stateDir, job } = setup(t);
+	RUNTIME.closeDb();
+	RUNTIME.config.stateDir = stateDir;
+	RUNTIME.processStartedAt = PROCESS_START;
+	RUNTIME.exec = rt.exec;
+	RUNTIME.wezterm = rt.wezterm;
+	RUNTIME.sessionLeaseHeld = async () => false;
+	const db = openDatabase(join(stateDir, "lifecycle.db"));
+	persistRuns(db, OLD_SESSION, [job]);
+	db.close();
+	const host = createHost({ stateDir, cwd: stateDir, sessionId: OLD_SESSION });
+	await host.fire("session_start", sessionContext(stateDir, OLD_SESSION));
+	await host.fire("session_branch", sessionContext(stateDir, NEW_SESSION));
+	assert.equal(RUNTIME.sessionId, NEW_SESSION);
+	assert.equal(phaseOf(stateDir), "released");
+	RUNTIME.closeDb();
+	RUNTIME.jobs.clear();
+	RUNTIME.monitors.clear();
+});
 
 test("the switch acquires and attaches tasks owned by the new session", async (t) => {
 	const { rt, stateDir } = setup(t, NEW_SESSION);
