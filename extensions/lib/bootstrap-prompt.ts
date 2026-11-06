@@ -52,6 +52,8 @@ export const REPORTING_CONTRACT = [
 	"- you finished every task-owned work.",
 	"- you saw the result of every background execution you started.",
 	"- you have the result of the task.",
+	"Before you start a long-running command, call `wezterm_worker_background` with `declare` and its label. Call it with `settle` and the status after you see the result.",
+	"This tool exists for the Codex backend only. The Claude backend has a native signal for a background command.",
 	"",
 	"Do not report `completed` while any tool call or background execution is",
 	"still outstanding. A result that you did not see is not a finished task.",
