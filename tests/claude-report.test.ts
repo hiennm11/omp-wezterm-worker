@@ -11,7 +11,11 @@ import {
 	type ModOn,
 	register,
 } from "../extensions/claude-mod/hooks/register.js";
-import { applyObservation, claudeBoundReport } from "../extensions/lib/claude-run-state.ts";
+import {
+	applyObservation,
+	claudeBoundReport,
+	createClaudeRunState,
+} from "../extensions/lib/claude-run-state.ts";
 import { restoreRunState } from "../extensions/lib/reattach-native.ts";
 import { reportFile } from "../extensions/lib/report-store.ts";
 import { cleanup, fakeRuntime, nativeJob } from "./reattach-native-helpers.ts";
@@ -111,6 +115,30 @@ test("a report returns an error when both file write and bridge post fail", asyn
 	const result = await fake.handler("wezterm_worker_report")(fake.dollar, report(), () => undefined);
 	assert.equal(isErrorResult(result), true);
 	assert.match(resultText(result), /report was not saved/i);
+});
+
+test("a fresh run does not accept a completed report without a cycle", () => {
+	const state = createClaudeRunState("run-fresh");
+	applyObservation(state, {
+		backend: "claude",
+		runId: "run-fresh",
+		sessionId: "session-1",
+		source: "report",
+		payload: { cycleId: null, state: "completed", result: "UNBOUND" },
+	});
+	assert.equal(claudeBoundReport(state), null);
+});
+
+test("a fresh run does not accept a completed report before its first cycle", () => {
+	const state = createClaudeRunState("run-fresh");
+	applyObservation(state, {
+		backend: "claude",
+		runId: "run-fresh",
+		sessionId: "session-1",
+		source: "report",
+		payload: { cycleId: "turn-123", state: "completed", result: "UNSTARTED" },
+	});
+	assert.equal(claudeBoundReport(state), null);
 });
 
 test("the restored run reads and accepts the report saved during release", async () => {

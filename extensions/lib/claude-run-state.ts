@@ -277,13 +277,16 @@ export function claudeCompletionBlocker(state: ClaudeRunState): string | null {
 /**
  * The report that the run may act on, or null when it has none.
  *
- * After takeback, the last report qualifies when the run has observed no
- * cycle. A new cycle restores the normal cycle-id match.
+ * A restored run accepts its last saved report only before it observes a new
+ * cycle. Fresh runs use the current-cycle match and reject reports without one.
  */
 export function claudeBoundReport(
 	state: ClaudeRunState,
 ): { cycleId: string | null; state: string; result: string | null } | null {
-	if (state.cycles.length === 0) return state.reports.at(-1) ?? null;
+	if (state.usage.restoredAt !== undefined && state.cycles.length === 0) {
+		const report = state.reports.at(-1);
+		return report?.cycleId !== null && report !== undefined ? report : null;
+	}
 	for (const report of state.reports) {
 		if (report.cycleId !== null && report.cycleId === state.currentCycleId) return report;
 	}
