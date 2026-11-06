@@ -1,21 +1,41 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { type TestContext, test } from "node:test";
 
 import { openDatabase } from "../extensions/lib/db.ts";
+import type { EventCtx } from "../extensions/lib/host.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
+import { monitorJob } from "../extensions/lib/monitor.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
 import { acquireOwnership, type OwnerPhase } from "../extensions/lib/ownership.ts";
-import { persistRuns } from "../extensions/lib/runs.ts";
-import { RUNTIME, createHost, removeDir, sessionContext } from "./harness.ts";
+import type { RunResult } from "../extensions/lib/process.ts";
+import { createRuntime } from "../extensions/lib/runtime.ts";
+import { switchSession } from "../extensions/lib/session-switch.ts";
 
 const OLD_SESSION = "session-switch-old";
 const NEW_SESSION = "session-switch-new";
 const WORKER = "wz-session-switch-1";
+const PROCESS_START = "2026-11-05T01:00:00.000Z";
 
-function seedWorker(stateDir: string): void {
+function setup(t: TestContext, ownerId = OLD_SESSION) {
+	const stateDir = mkdtempSync(join(tmpdir(), "wt-session-switch-"));
+	const rt = createRuntime(async (_bin, args) => {
+		if (args.join(" ").includes("Get-CimInstance")) return { code: 0, stdout: "[]", stderr: "" };
+		return { code: 0, stdout: PROCESS_START, stderr: "" };
+	});
+	t.after(() => {
+		rt.closeDb();
+		rmSync(stateDir, { recursive: true, force: true });
+	});
+	rt.config.stateDir = stateDir;
+	rt.processStartedAt = PROCESS_START;
+	rt.wezterm = async (args): Promise<RunResult> =>
+		args[0] === "list"
+			? { code: 0, stdout: JSON.stringify([{ pane_id: 21, tab_id: 1, window_id: 1 }]), stderr: "" }
+			: { code: 0, stdout: "", stderr: "" };
+	rt.sessionLeaseHeld = async () => false;
 	const job: Job = {
 		id: WORKER,
 		label: "session-switch",
@@ -38,10 +58,11 @@ function seedWorker(stateDir: string): void {
 		startedAt: Date.now(),
 		finishedAt: null,
 	};
+	rt.jobs.set(WORKER, job);
 	const db = openDatabase(join(stateDir, "lifecycle.db"));
-	acquireOwnership(db, taskKey(WORKER), OLD_SESSION, process.pid, new Date().toISOString(), Date.now());
-	persistRuns(db, OLD_SESSION, [job]);
+	acquireOwnership(db, taskKey(WORKER), ownerId, rt.processId, PROCESS_START, Date.now());
 	db.close();
+	return { rt, stateDir, job };
 }
 
 function phaseOf(stateDir: string): OwnerPhase | null {
@@ -53,20 +74,61 @@ function phaseOf(stateDir: string): OwnerPhase | null {
 	return (row?.phase as OwnerPhase | undefined) ?? null;
 }
 
-test("a session switch releases the old session task and binds the new session", async () => {
-	const stateDir = mkdtempSync(join(tmpdir(), "wt-session-switch-"));
-	const host = createHost({ stateDir, cwd: stateDir, sessionId: OLD_SESSION });
-	try {
-		seedWorker(stateDir);
-		await host.fire("session_start", sessionContext(stateDir, OLD_SESSION));
-		assert.equal(phaseOf(stateDir), "active");
+function context(sessionId: string, kind: "main" | "sub" = "main", reason?: string): EventCtx {
+	return {
+		sessionManager: { getSessionId: () => sessionId },
+		setInterval: () => ({ fake: true }) as unknown as NodeJS.Timeout,
+		agent: { kind, id: kind === "sub" ? "sub-1" : "main", name: "test" },
+		...(reason ? { reason } : {}),
+	};
+}
 
-		await host.fire("session_switch", sessionContext(stateDir, NEW_SESSION));
+for (const reason of ["new", "fork", "resume"]) {
+	test(`${reason} releases old tasks and binds the new id`, async (t) => {
+		const { rt, stateDir } = setup(t);
+		rt.sessionId = OLD_SESSION;
+		await switchSession(rt, context(NEW_SESSION, "main", reason), () => {});
+		assert.equal(rt.sessionId, NEW_SESSION);
+		assert.equal(phaseOf(stateDir), "released");
+	});
+}
 
-		assert.equal(RUNTIME.sessionId, NEW_SESSION, "the runtime keeps the old session id");
-		assert.equal(phaseOf(stateDir), "released", "the old session task stays active");
-	} finally {
-		RUNTIME.closeDb();
-		removeDir(stateDir);
-	}
+test("the switch acquires and attaches tasks owned by the new session", async (t) => {
+	const { rt, stateDir } = setup(t, NEW_SESSION);
+	rt.sessionId = OLD_SESSION;
+	await switchSession(rt, context(NEW_SESSION), () => {});
+	assert.equal(rt.sessionId, NEW_SESSION);
+	assert.equal(phaseOf(stateDir), "active");
+	assert.ok(rt.monitors.has(WORKER));
+});
+
+test("a subagent switch does nothing", async (t) => {
+	const { rt, stateDir } = setup(t);
+	rt.sessionId = OLD_SESSION;
+	await switchSession(rt, context(NEW_SESSION, "sub"), () => {});
+	assert.equal(rt.sessionId, OLD_SESSION);
+	assert.equal(phaseOf(stateDir), "active");
+});
+
+test("a monitor poll before session_switch keeps old ownership authority", (t) => {
+	const { rt, stateDir, job } = setup(t);
+	rt.sessionId = OLD_SESSION;
+	const ticks: (() => void)[] = [];
+	rt.timers = {
+		setInterval: (fn) => {
+			ticks.push(fn);
+			return { fake: true } as unknown as NodeJS.Timeout;
+		},
+	};
+	monitorJob(rt, job, () => {});
+	const owner = rt
+		.openDb()
+		.handle.prepare("SELECT session_id, phase FROM ownership WHERE task_key = ?")
+		.get(taskKey(WORKER)) as { session_id: string; phase: string };
+	assert.equal(owner.session_id, OLD_SESSION);
+	assert.equal(owner.phase, "active");
+	ticks[0]?.();
+	assert.equal(rt.sessionId, OLD_SESSION);
+	assert.equal(phaseOf(stateDir), "active");
+	assert.equal(job.status, "running");
 });

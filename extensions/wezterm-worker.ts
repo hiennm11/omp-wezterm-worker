@@ -40,6 +40,7 @@ import { detectRole, ownSessionDir } from "./lib/role.ts";
 import { createRuntime } from "./lib/runtime.ts";
 import { createLeaseProbe } from "./lib/session-lease.ts";
 import { releaseSessionTasks } from "./lib/session-release.ts";
+import { switchSession } from "./lib/session-switch.ts";
 import { reconcileStopIntents } from "./lib/stop-reconcile.ts";
 import { isSubagent, sessionStartLine } from "./lib/subagent.ts";
 import { leaseAnswerText } from "./lib/supervision.ts";
@@ -219,6 +220,16 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 			pi.logger?.error?.(`[wezterm-worker] ${message}`);
 		}
 	};
+	pi.on("session_switch", async (_event, ctx) => {
+		try {
+			await switchSession(rt, ctx, deps.deliver);
+		} catch (e) {
+			rt.errors.push(
+				`The session switch could not restore worker supervision: ${e instanceof Error ? e.message : String(e)}`,
+			);
+			drainErrors();
+		}
+	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {
 		/* The runtime is shared by every session of the process. The end of

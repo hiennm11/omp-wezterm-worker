@@ -309,6 +309,12 @@ the lease is not evidence that the old owner is alive, because the new program
 holds the lease itself.
 _Avoid_: Session end, disposal, shutdown
 
+**Session switch**:
+The host event that confirms a move to another session. The extension releases
+the tasks of the old session, binds the new session id, and attaches tasks that
+the new session already owns. See ADR 0022.
+_Avoid_: Session start, shutdown
+
 **Native bridge**:
 The link that connects a native worker to the main session. It carries the
 observations of the worker and the commands of the owner. A new owner starts a
