@@ -83,7 +83,10 @@ test("the arguments approve the background execution tool", () => {
 		sessionDir: "/sessions/wz-1",
 	});
 	assert.equal(
-		configValue(launch.args, "mcp_servers.wezterm_worker_report.tools.wezterm_worker_background.approval_mode"),
+		configValue(
+			launch.args,
+			"mcp_servers.wezterm_worker_report.tools.wezterm_worker_background.approval_mode",
+		),
 		'"approve"',
 	);
 });

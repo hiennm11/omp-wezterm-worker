@@ -16,13 +16,18 @@
  * line.
  */
 
-
 import { createInterface } from "node:readline";
 
 import { readHandover } from "../lib/bridge-handover.ts";
 import type { ReportState } from "../lib/report-model.ts";
 import { appendReport } from "../lib/report-store.ts";
-import { BACKGROUND_TOOL, BACKGROUND_TOOL_DESCRIPTION, BACKGROUND_TOOL_SCHEMA, backgroundProblem, postBackground } from "./background-tool.ts";
+import {
+	BACKGROUND_TOOL,
+	BACKGROUND_TOOL_DESCRIPTION,
+	BACKGROUND_TOOL_SCHEMA,
+	backgroundProblem,
+	postBackground,
+} from "./background-tool.ts";
 
 /** The name of the MCP server and of its report tool. */
 const REPORT_TOOL = "wezterm_worker_report";
@@ -175,7 +180,6 @@ const REPORT_TOOL_SCHEMA = {
 	required: ["state"],
 };
 
-
 /**
  * Write the report to the report file of the run.
  *
@@ -258,8 +262,12 @@ export async function handleMessage(
 			const problem = backgroundProblem(args);
 			if (problem) return jsonRpc(id, { content: [{ type: "text", text: problem }], isError: true });
 			const recorded = await postBackground(resolveTarget(env), args);
-			if (!recorded) return jsonRpcError(id, -32000, "The bridge of the run did not record the background execution.");
-			return jsonRpc(id, { content: [{ type: "text", text: "The background execution was recorded." }], isError: false });
+			if (!recorded)
+				return jsonRpcError(id, -32000, "The bridge of the run did not record the background execution.");
+			return jsonRpc(id, {
+				content: [{ type: "text", text: "The background execution was recorded." }],
+				isError: false,
+			});
 		}
 		if (params.name !== REPORT_TOOL) return jsonRpcError(id, -32602, `unknown tool ${String(params.name)}`);
 		const args = (params.arguments ?? {}) as Record<string, unknown>;
