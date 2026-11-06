@@ -84,4 +84,7 @@ test("the list of documents holds existing files and leaves out the evidence of 
 	assert.ok(!CHECKED_DOCUMENTS.includes("docs/trials/windows-trial.md"));
 	assert.ok(!CHECKED_DOCUMENTS.includes("docs/backend-proof-evidence.md"));
 	assert.ok(CHECKED_DOCUMENTS.includes("AGENTS.md"));
+	assert.ok(
+		CHECKED_DOCUMENTS.includes("docs/adr/0022-a-session-switch-releases-the-tasks-of-the-old-session.md"),
+	);
 });

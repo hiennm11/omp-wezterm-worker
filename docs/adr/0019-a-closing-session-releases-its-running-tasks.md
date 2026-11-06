@@ -88,9 +88,8 @@ This change does not prove that the cause of the real run was the lease
 answer. A reader of the log must infer the cause from the order of the
 events. The code did not log the answer at that time.
 
-This change does not handle a session switch. The host emits no
-`session_shutdown` for `/new`, `fork` or `resume`. Issue 148 holds that work.
+A session switch also releases the tasks of the old session. ADR 0022 records
+that decision.
 
-This change does not change the rule of ADR 0009 for two live programs that
 open the same session without a close. The first owner keeps the authority
 while it holds the task.
