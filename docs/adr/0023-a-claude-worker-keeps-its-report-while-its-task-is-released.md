@@ -49,6 +49,30 @@ The hook returns the completion message when the file write succeeds. A failed
 bridge post does not lose a saved report. If the file write fails, the hook
 returns an error that says it did not save the report.
 
+## Background observation loss
+
+The report file did not preserve the end of a background command. On
+2026-11-06, the owner released the task at 14:22:17 while a Claude worker ran
+`sleep 90`. The release closed the bridge and removed the handover file. The
+command ended at 14:22:22. Its hook posted `background.settled` to the closed
+bridge and ignored the error. The worker saved its `completed` report at
+14:22:32. The owner resumed the old session at 14:22:43 and found the report.
+The run still stayed `running`. Its `background` execution row stayed `open`,
+with job id `bevf4v66g` and no settlement evidence. A later `sleep 240` ended
+after resume, and its live observation settled the row and completed the run.
+
+The hook saves `background.started`, `background.settled` and
+`background.stopped` in `.wezterm-worker-observations-<run id>.jsonl` beside
+the report file. It saves each observation before it posts to the bridge. A
+failed save does not stop the session. A post failure keeps its current
+behavior.
+
+`restoreRunState` loads open rows, then replays saved observations through
+`observeNative`. A replay must name the restored run. Repeated settlement
+observations do not settle a row twice or change the background settlement
+count twice.
+
+
 ## Rejected options
 
 The first rejected alternative is to block `/new` while a worker runs. This
