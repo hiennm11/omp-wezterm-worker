@@ -22,7 +22,6 @@ async function callBackground(args: Record<string, unknown>, observations: unkno
 	try {
 		return await handleMessage(
 			{
-				jsonrpc: "2.0",
 				id: 1,
 				method: "tools/call",
 				params: { name: "wezterm_worker_background", arguments: args },
@@ -48,11 +47,12 @@ test("a declared background execution blocks completion until its result is sett
 		const item = observations.at(-1)!;
 		recordNativeCall(db, "run-1", { backend: "codex", runId: "run-1", sessionId: null, ...item }, 2000);
 		assert.equal(completionBlockerOf(db, "run-1"), null);
-		assert.equal(executionsOfRun(db, "run-1")[0].evidence, "background task completed");
+		assert.equal(executionsOfRun(db, "run-1")[0].settlementEvidence, "background task completed");
 	} finally {
 		db.close();
 	}
 });
+
 
 test("a repeated background declaration keeps one open execution", async () => {
 	const { db } = freshDb();
@@ -88,7 +88,7 @@ test("settling an unknown background label does not create an execution", async 
 });
 
 test("the report server lists the report and background tools", async () => {
-	const response = await handleMessage({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+	const response = await handleMessage({ id: 1, method: "tools/list" });
 	const tools = (response?.result as { tools: Array<{ name: string }> }).tools;
 	assert.deepEqual(tools.map((tool) => tool.name), [
 		"wezterm_worker_report",

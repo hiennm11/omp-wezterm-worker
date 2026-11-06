@@ -75,6 +75,31 @@ test("the arguments approve the report tool", () => {
 	);
 });
 
+test("the arguments approve the background execution tool", () => {
+	const launch = codexReportLaunch({
+		url: "http://127.0.0.1:1234",
+		token: TOKEN,
+		runId: "wz-1",
+		sessionDir: "/sessions/wz-1",
+	});
+	assert.equal(
+		configValue(launch.args, "mcp_servers.wezterm_worker_report.tools.wezterm_worker_background.approval_mode"),
+		'"approve"',
+	);
+});
+
+test("every Codex configuration value follows its -c argument", () => {
+	const launch = codexReportLaunch({
+		url: "http://127.0.0.1:1234",
+		token: TOKEN,
+		runId: "wz-1",
+		sessionDir: "/sessions/wz-1",
+	});
+	for (let index = 0; index < launch.args.length; index += 1) {
+		if (launch.args[index] !== "-c") assert.equal(launch.args[index - 1], "-c", launch.args[index]);
+	}
+});
+
 test("no argument carries the text of the token", () => {
 	const launch = codexReportLaunch({
 		url: "http://127.0.0.1:1234",

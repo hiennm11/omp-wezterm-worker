@@ -256,6 +256,10 @@ _Avoid_: Tool call, task, background job
 The end of a background job as the transcript shows it. It is an entry of the type async-result or the result of the tool wait. One job ends through one of them. Only an OMP worker has a job result today.
 _Avoid_: Completion, callback
 
+
+**Declared background command**:
+A Codex command that outlives its turn and that the worker declares with `wezterm_worker_background`. Its open execution record blocks a completed report until the worker settles it.
+_Avoid_: Background job
 **Outstanding execution**:
 An execution record that is open or unknown. It blocks a completion report.
 _Avoid_: pending call

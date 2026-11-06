@@ -208,6 +208,9 @@ metadata of the call, and it sends that id as the cycle id of the report. A
 report that names no cycle never ends a worker, and it raises one event with
 the condition `missing_report` for the owner.
 
+
+The worker declares a Codex command that outlives its turn with `wezterm_worker_background` and the action `declare`. After it sees the result, the worker calls the tool with `settle` and the status `completed` or `failed`. An open declared command blocks a completed report. Claude workers use the native background signal instead.
+
 The events and the instruction queue of a Codex worker exist. The extension
 reads the messages of the app server and turns them into the observations of
 a native run. A Codex worker therefore fills the same run state as a Claude

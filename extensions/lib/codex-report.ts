@@ -20,6 +20,9 @@ import { join } from "node:path";
 /** The name of the MCP server and of its report tool. */
 export const CODEX_REPORT_NAME = "wezterm_worker_report";
 
+/** The name of the background execution tool. */
+export const CODEX_BACKGROUND_TOOL = "wezterm_worker_background";
+
 /** The variables that the report server inherits from the app server. */
 const REPORT_ENV_VARS = [
 	"WEZTERM_WORKER_URL",
@@ -73,6 +76,8 @@ export function codexReportLaunch(target: CodexReportTarget): CodexReportLaunch 
 			`mcp_servers.${CODEX_REPORT_NAME}.env_vars=[${REPORT_ENV_VARS.map((name) => `"${name}"`).join(",")}]`,
 			"-c",
 			`mcp_servers.${CODEX_REPORT_NAME}.tools.${CODEX_REPORT_NAME}.approval_mode="approve"`,
+			"-c",
+			`mcp_servers.${CODEX_REPORT_NAME}.tools.${CODEX_BACKGROUND_TOOL}.approval_mode="approve"`,
 		],
 		env: {
 			WEZTERM_WORKER_URL: target.url,
