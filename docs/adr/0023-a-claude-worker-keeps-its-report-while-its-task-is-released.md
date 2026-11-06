@@ -33,9 +33,14 @@ the bridge. The writer uses the same JSONL format as `appendReport`. The file
 uses the session directory and the run id, so reports stay with their source
 run.
 
-The next owner reads the report file through `restoreRunState`. The report
-remains in the file for the old run. It does not move to a new run after the
+The next owner reads the report file through `restoreRunState`. The saved
+reports remain in the old run. A report does not move to a new run after the
 worker resumes.
+
+After takeback, the last report qualifies when the run has observed no cycle.
+The run state has an empty `cycles` list then. When the worker starts a new
+cycle, the list grows and the report must match the current cycle id. This
+prevents an old report from completing work that started after takeback.
 
 The hook returns the completion message when the file write succeeds. A failed
 bridge post does not lose a saved report. If the file write fails, the hook
