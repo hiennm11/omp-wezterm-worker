@@ -37,10 +37,13 @@ The next owner reads the report file through `restoreRunState`. The saved
 reports remain in the old run. A report does not move to a new run after the
 worker resumes.
 
-After takeback, the last report qualifies when the run has observed no cycle.
-The run state has an empty `cycles` list then. When the worker starts a new
-cycle, the list grows and the report must match the current cycle id. This
-prevents an old report from completing work that started after takeback.
+The restored state has `usage.restoredAt`. The last saved report qualifies
+only when this field exists and the run has observed no cycle. The report must
+also name a cycle. A report without a cycle never completes a worker.
+
+When the worker starts a new cycle, the `cycles` list grows. The report must
+then match the current cycle id. A fresh run has no `usage.restoredAt`, so it
+uses the current-cycle rule from its first turn.
 
 The hook returns the completion message when the file write succeeds. A failed
 bridge post does not lose a saved report. If the file write fails, the hook
