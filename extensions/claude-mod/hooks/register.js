@@ -106,10 +106,17 @@ async function readHandover($) {
 /**
  * Send one observation to the owner.
  *
- * A report is saved before this call. Other observations have no file fallback,
- * so a failed post loses that observation without breaking the session.
+ * Background observations are saved before the post. File errors do not stop
+ * the session, and every other observation keeps its previous behavior.
  */
 async function observe($, source, payload) {
+	if (["background.started", "background.settled", "background.stopped"].includes(source)) {
+		try {
+			await saveObservation($, source, payload);
+		} catch {
+			/* the session keeps running when observation evidence cannot be saved */
+		}
+	}
 	if (state.closed) return;
 	if (!state.baseUrl || !state.token) return;
 	try {
@@ -128,7 +135,7 @@ async function observe($, source, payload) {
 			}),
 		});
 	} catch {
-		/* the report file preserves reports; the session keeps running */
+		/* saved reports and background observations survive a closed bridge */
 	}
 }
 
@@ -139,6 +146,24 @@ function reportFilePath() {
 	const separator = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
 	const directory = separator < 0 ? "." : path.slice(0, separator);
 	return `${directory}/.wezterm-worker-reports-${state.runId}.jsonl`;
+}
+
+/** The observation file of the current run, beside the report file. */
+function observationFilePath() {
+	return reportFilePath().replace(".wezterm-worker-reports-", ".wezterm-worker-observations-");
+}
+
+/** Save a run-ending background observation in JSONL format. */
+async function saveObservation($, source, payload) {
+	const path = observationFilePath();
+	let previous = "";
+	try {
+		const text = await $.fs.read(path);
+		if (typeof text === "string") previous = text;
+	} catch {
+		/* the first observation creates the file */
+	}
+	await $.fs.write(path, `${previous}${JSON.stringify({ backend: "claude", runId: state.runId, sessionId: state.sessionId, source, payload, at: Date.now() })}\n`);
 }
 
 /** Save one report in the JSONL format that the owner reads. */
@@ -153,6 +178,7 @@ async function saveReport($, report) {
 	}
 	await $.fs.write(path, `${previous}${JSON.stringify({ ...report, at: Date.now() })}\n`);
 }
+
 /**
  * Send the snapshot of the run to the current owner.
  *

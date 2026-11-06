@@ -159,7 +159,8 @@ function snapshotCallIds(value: unknown): string[] {
  * Apply one native observation to the state and the ledger of a run.
  *
  * The bridge calls this function for every observation of the run. A
- * database error must not reach the bridge, because the bridge serves the
+ * repeated background settlement is ignored so replay cannot count it twice.
+ * A database error must not reach the bridge, because the bridge serves the
  * worker that reports. The error goes to the error list of the runtime.
  */
 export function observeNative(
@@ -168,6 +169,14 @@ export function observeNative(
 	runId: string,
 	observation: BridgeObservation,
 ): void {
+	if (observation.source === BACKGROUND_SETTLED) {
+		const payload = (observation.payload ?? {}) as Record<string, unknown>;
+		const identity =
+			payload.uuid ?? `${payload.callId ?? ""}:${payload.taskId ?? ""}:${payload.status ?? ""}`;
+		const key = `${observation.runId}:${observation.source}:${String(identity)}`;
+		if (state.seenObservations.has(key)) return;
+		state.seenObservations.add(key);
+	}
 	try {
 		applyObservation(state, observation);
 		recordNativeCall(rt.openDb(), runId, observation, Date.now());

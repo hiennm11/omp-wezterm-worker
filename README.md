@@ -661,7 +661,10 @@ releases the task, and the next owner starts a new bridge. The report file
 of the session directory is the durable channel. The report server of Codex
 writes every report to that file before it posts to the bridge. A report
 that arrives while no owner holds the task is therefore not lost. The new
-owner reads the file when it builds the run state of the worker.
+owner reads the report file and the observation file when it builds the run
+state. The hook saves background observations before it posts to the bridge.
+The owner replays saved observations when it restores a released Claude run.
+The observation file uses the run id and keeps other runs separate.
 
 **A new session takes over a released Codex worker.** The takeover of a Codex
 worker runs the same identity check as the recovery after a restart of OMP.

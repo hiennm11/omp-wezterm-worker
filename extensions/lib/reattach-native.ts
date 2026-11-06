@@ -9,9 +9,8 @@
  * cycle of the run, the instruction that waits, the calls that run and the
  * permission requests that wait.
  *
- * The new owner keeps the rows of the run. An open row blocks the completion
- * of the run until a settlement arrives, so the state of the run names the
- * calls that still run.
+ * The new owner loads open rows and then replays saved background observations.
+ * These observations settle only rows with matching run and call evidence.
  *
  * The counts of the usage start at the restart. The usage of a restored run
  * is partial, because the turns before the restart stay unmeasured.
@@ -23,6 +22,7 @@ import { type ClaudeRunState, createClaudeRunState } from "./claude-run-state.ts
 import { outstandingExecutions } from "./executions.ts";
 import type { Job } from "./job.ts";
 import { observeNative } from "./native-ledger.ts";
+import { readObservations } from "./observation-store.ts";
 import { readReports } from "./report-store.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 
@@ -56,8 +56,8 @@ export async function reattachNative(rt: WorkerRuntime, job: Job): Promise<void>
  * Build the run state of a restored run.
  *
  * The rows of the run survive the restart. An open row names a call that
- * still runs, so the new state must hold it as an open call. A row that
- * never settled stays unknown, and the owner resolves it.
+ * still runs, so the new state must hold it as an open call. Saved observations
+ * then settle the state and ledger from durable evidence.
  */
 export function restoreRunState(rt: WorkerRuntime, job: Job): ClaudeRunState {
 	const state = createClaudeRunState(job.id);
@@ -67,6 +67,9 @@ export function restoreRunState(rt: WorkerRuntime, job: Job): ClaudeRunState {
 		if (row.state !== "open") continue;
 		if (row.callId === null || row.toolName === null) continue;
 		state.openCalls.set(row.callId, row.toolName);
+	}
+	for (const observation of readObservations(job.sessionDir, job.id)) {
+		observeNative(rt, state, job.id, observation);
 	}
 	/* A report that arrived while no owner held the task is in the report
 	   file. The new owner reads it, so the report of the worker is not

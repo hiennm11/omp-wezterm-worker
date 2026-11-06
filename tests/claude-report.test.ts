@@ -22,11 +22,12 @@ import { cleanup, fakeRuntime, nativeJob } from "./reattach-native-helpers.ts";
 
 const SESSION_DIR = "/sessions/session-1";
 const REPORT_FILE = `${SESSION_DIR}/.wezterm-worker-reports-run-1.jsonl`;
+const OBSERVATION_FILE = `${SESSION_DIR}/.wezterm-worker-observations-run-1.jsonl`;
 
 type Handler = ModHandler;
-
 interface Fake {
 	handler(tool: string): Handler;
+	eventHandler(event: string): Handler;
 	dollar: ModDollar;
 	lines: string[];
 }
@@ -34,12 +35,11 @@ interface Fake {
 async function startFake(options: { postFails?: boolean; writeFails?: boolean } = {}): Promise<Fake> {
 	const handlers = new Map<string, Handler>();
 	const lines: string[] = [];
-	let sessionStart: Handler | undefined;
 	const on: ModOn = (event: string, matcher: ModMatcher | Handler | undefined, handler?: Handler) => {
 		if (event === "tool.call" && typeof matcher === "object") {
 			handlers.set(matcher.tool ?? "", handler as Handler);
 		}
-		if (event === "session.start" && typeof matcher === "function") sessionStart = matcher;
+		if (typeof matcher === "function") handlers.set(`event:${event}`, matcher);
 	};
 	register(on);
 	const env: Record<string, string> = {
@@ -52,9 +52,12 @@ async function startFake(options: { postFails?: boolean; writeFails?: boolean } 
 		env: { get: async (name: string) => env[name] ?? null },
 		session: { id: async () => "session-1" },
 		fs: {
-			read: async () => null,
+			read: async (path: string) => {
+				assert.ok(path === REPORT_FILE || path === OBSERVATION_FILE);
+				return null;
+			},
 			write: async (path: string, text: string) => {
-				assert.equal(path, REPORT_FILE);
+				assert.ok(path === REPORT_FILE || path === OBSERVATION_FILE);
 				if (options.writeFails) throw new Error("disk full");
 				lines.push(text);
 			},
@@ -69,6 +72,7 @@ async function startFake(options: { postFails?: boolean; writeFails?: boolean } 
 		clock: { every: async () => undefined },
 		prompt: { submit: async () => ({}) },
 	};
+	const sessionStart = handlers.get("event:session.start");
 	assert.ok(sessionStart);
 	await sessionStart(dollar, { cwd: SESSION_DIR, isInteractive: true }, () => undefined);
 	return {
@@ -77,11 +81,15 @@ async function startFake(options: { postFails?: boolean; writeFails?: boolean } 
 			assert.ok(handler, `missing handler for ${tool}`);
 			return handler;
 		},
+		eventHandler(event) {
+			const handler = handlers.get(`event:${event}`);
+			assert.ok(handler, `missing handler for ${event}`);
+			return handler;
+		},
 		dollar,
 		lines,
 	};
 }
-
 function report(): Record<string, string> {
 	return { tool_use_id: "call-1", state: "completed", result: "REPORT-SAVED" };
 }
@@ -95,6 +103,44 @@ function resultText(value: unknown): string {
 	if (!value || typeof value !== "object" || !("result" in value)) return "";
 	return typeof value.result === "string" ? value.result : "";
 }
+
+test("a background settlement is saved when its bridge post fails", async () => {
+	const fake = await startFake({ postFails: true });
+	await fake.eventHandler("session.append")(
+		fake.dollar,
+		{
+			uuid: "notice-1",
+			origin: { kind: "task-notification" },
+			message: {
+				role: "user",
+				content: "<tool-use-id>call-1</tool-use-id><task-id>task-1</task-id><status>completed</status>",
+			},
+		},
+		() => undefined,
+	);
+	assert.equal(fake.lines.length, 1);
+	const stored = JSON.parse(fake.lines[0]);
+	assert.equal(stored.runId, "run-1");
+	assert.equal(stored.source, "background.settled");
+	assert.equal(stored.payload.callId, "call-1");
+});
+
+test("a background observation write failure does not stop the session append", async () => {
+	const fake = await startFake({ postFails: true, writeFails: true });
+	const result = await fake.eventHandler("session.append")(
+		fake.dollar,
+		{
+			uuid: "notice-1",
+			origin: { kind: "task-notification" },
+			message: {
+				role: "user",
+				content: "<tool-use-id>call-1</tool-use-id><task-id>task-1</task-id><status>completed</status>",
+			},
+		},
+		() => "next-result",
+	);
+	assert.equal(result, "next-result");
+});
 
 test("a report remains recoverable when its bridge post fails", async () => {
 	for (const tool of ["wezterm_worker_report", "mcp__wezterm-worker__wezterm_worker_report"]) {
