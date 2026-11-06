@@ -33,10 +33,7 @@ export function backgroundProblem(args: Record<string, unknown>): string | null 
 }
 
 /** Post one background execution observation to the bridge. */
-export async function postBackground(
-	target: ReportTarget,
-	args: Record<string, unknown>,
-): Promise<boolean> {
+export async function postBackground(target: ReportTarget, args: Record<string, unknown>): Promise<boolean> {
 	const label = args.label as string;
 	const callId = `codex-background-${createHash("sha256").update(label).digest("hex")}`;
 	const declaring = args.action === "declare";

@@ -44,15 +44,15 @@ test("a declared background execution blocks completion until its result is sett
 		assert.ok(completionBlockerOf(db, "run-1"));
 
 		await callBackground({ action: "settle", label: "build", status: "completed" }, observations);
-		const item = observations.at(-1)!;
+		const item = observations[observations.length - 1];
+		assert.ok(item, "the settle call posted no observation");
 		recordNativeCall(db, "run-1", { backend: "codex", runId: "run-1", sessionId: null, ...item }, 2000);
 		assert.equal(completionBlockerOf(db, "run-1"), null);
-		assert.equal(executionsOfRun(db, "run-1")[0].settlementEvidence, "background task completed");
+		assert.equal(executionsOfRun(db, "run-1")[0]?.settlementEvidence, "background task completed");
 	} finally {
 		db.close();
 	}
 });
-
 
 test("a repeated background declaration keeps one open execution", async () => {
 	const { db } = freshDb();
@@ -77,7 +77,7 @@ test("settling an unknown background label does not create an execution", async 
 			{ action: "settle", label: "unknown", status: "failed" },
 			observations,
 		);
-		assert.equal((response?.result as { isError: boolean }).isError, false);
+		assert.equal((response?.result as { isError: boolean } | undefined)?.isError, false);
 		for (const item of observations) {
 			recordNativeCall(db, "run-1", { backend: "codex", runId: "run-1", sessionId: null, ...item }, 1000);
 		}
@@ -89,9 +89,9 @@ test("settling an unknown background label does not create an execution", async 
 
 test("the report server lists the report and background tools", async () => {
 	const response = await handleMessage({ id: 1, method: "tools/list" });
-	const tools = (response?.result as { tools: Array<{ name: string }> }).tools;
-	assert.deepEqual(tools.map((tool) => tool.name), [
-		"wezterm_worker_report",
-		"wezterm_worker_background",
-	]);
+	const tools = (response?.result as { tools: Array<{ name: string }> } | undefined)?.tools ?? [];
+	assert.deepEqual(
+		tools.map((tool) => tool.name),
+		["wezterm_worker_report", "wezterm_worker_background"],
+	);
 });
