@@ -122,6 +122,32 @@ test("a subagent switch does nothing", async (t) => {
 	assert.equal(phaseOf(stateDir), "active");
 });
 
+test("a switch logs release and acquisition details", async (t) => {
+	const { rt } = setup(t, NEW_SESSION);
+	rt.sessionId = OLD_SESSION;
+	const logs: string[] = [];
+	await switchSession(rt, context(NEW_SESSION), () => {}, (message) => logs.push(message));
+	assert.ok(logs.some((message) => message.includes(OLD_SESSION) && message.includes(NEW_SESSION)));
+	assert.ok(logs.some((message) => message.includes(WORKER) && message.includes("released")));
+	assert.ok(logs.some((message) => message.includes(WORKER) && message.includes("generation")));
+});
+
+test("a subagent switch logs nothing", async (t) => {
+	const { rt } = setup(t);
+	const logs: string[] = [];
+	await switchSession(rt, context(NEW_SESSION, "sub"), () => {}, (message) => logs.push(message));
+	assert.deepEqual(logs, []);
+});
+
+test("a switch without a new owner logs releases without acquisition", async (t) => {
+	const { rt } = setup(t);
+	rt.sessionId = OLD_SESSION;
+	const logs: string[] = [];
+	await switchSession(rt, context(NEW_SESSION), () => {}, (message) => logs.push(message));
+	assert.ok(logs.some((message) => message.includes(WORKER) && message.includes("released")));
+	assert.ok(!logs.some((message) => message.includes("acquired")));
+});
+
 test("a monitor poll before session_switch keeps old ownership authority", (t) => {
 	const { rt, stateDir, job } = setup(t);
 	rt.sessionId = OLD_SESSION;
