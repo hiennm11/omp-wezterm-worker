@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 
 import {
@@ -8,6 +11,10 @@ import {
 	type ModOn,
 	register,
 } from "../extensions/claude-mod/hooks/register.js";
+import { restoreRunState } from "../extensions/lib/reattach-native.ts";
+import { reportState } from "../extensions/lib/report-decision.ts";
+import { readReports, reportFile } from "../extensions/lib/report-store.ts";
+import { cleanup, fakeRuntime, nativeJob } from "./reattach-native-helpers.ts";
 
 const SESSION_DIR = "/sessions/session-1";
 const REPORT_FILE = `${SESSION_DIR}/.wezterm-worker-reports-run-1.jsonl`;
@@ -25,7 +32,9 @@ async function startFake(options: { postFails?: boolean; writeFails?: boolean } 
 	const lines: string[] = [];
 	let sessionStart: Handler | undefined;
 	const on: ModOn = (event: string, matcher: ModMatcher | Handler | undefined, handler?: Handler) => {
-		if (event === "tool.call" && typeof matcher === "object") handlers.set(matcher.tool ?? "", handler as Handler);
+		if (event === "tool.call" && typeof matcher === "object") {
+			handlers.set(matcher.tool ?? "", handler as Handler);
+		}
 		if (event === "session.start" && typeof matcher === "function") sessionStart = matcher;
 	};
 	register(on);
@@ -73,6 +82,16 @@ function report(): Record<string, string> {
 	return { tool_use_id: "call-1", state: "completed", result: "REPORT-SAVED" };
 }
 
+function isErrorResult(value: unknown): boolean | undefined {
+	if (!value || typeof value !== "object" || !("isError" in value)) return undefined;
+	return typeof value.isError === "boolean" ? value.isError : undefined;
+}
+
+function resultText(value: unknown): string {
+	if (!value || typeof value !== "object" || !("result" in value)) return "";
+	return typeof value.result === "string" ? value.result : "";
+}
+
 test("a report remains recoverable when its bridge post fails", async () => {
 	for (const tool of ["wezterm_worker_report", "mcp__wezterm-worker__wezterm_worker_report"]) {
 		const fake = await startFake({ postFails: true });
@@ -83,13 +102,35 @@ test("a report remains recoverable when its bridge post fails", async () => {
 		assert.equal(stored.state, "completed");
 		assert.equal(stored.result, "REPORT-SAVED");
 		assert.equal(typeof stored.at, "number");
-		assert.equal(result.isError, undefined);
+		assert.equal(isErrorResult(result), undefined);
 	}
 });
 
 test("a report returns an error when both file write and bridge post fail", async () => {
 	const fake = await startFake({ postFails: true, writeFails: true });
 	const result = await fake.handler("wezterm_worker_report")(fake.dollar, report(), () => undefined);
-	assert.equal(result.isError, true);
-	assert.match(result.result, /report was not saved/i);
+	assert.equal(isErrorResult(result), true);
+	assert.match(resultText(result), /report was not saved/i);
+});
+
+test("the restored run reads and accepts the report saved during release", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "claude-report-restore-"));
+	const sessionDir = join(dir, "session");
+	const { rt } = fakeRuntime(dir, [7]);
+	const fake = await startFake({ postFails: true });
+	try {
+		mkdirSync(sessionDir, { recursive: true });
+		const job = nativeJob(sessionDir, { id: "run-1" });
+		rt.jobs.set(job.id, job);
+		await fake.handler("wezterm_worker_report")(fake.dollar, report(), () => undefined);
+		writeFileSync(reportFile(sessionDir, job.id), fake.lines[0]);
+		const reports = readReports(sessionDir, job.id);
+		assert.equal(reports.length, 1);
+		const state = restoreRunState(rt, job);
+		assert.deepEqual(state.reports, [{ cycleId: null, state: "completed", result: "REPORT-SAVED" }]);
+		assert.deepEqual(reportState(reports), { state: "completed", result: "REPORT-SAVED" });
+	} finally {
+		await cleanup(rt, dir);
+		rmSync(dir, { recursive: true, force: true });
+	}
 });

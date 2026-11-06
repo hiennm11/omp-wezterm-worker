@@ -43,7 +43,10 @@ type FakeDollar = ModDollar & {
 		fetch: (url: string, options?: { body?: string }) => Promise<FetchResponse>;
 	};
 	env: { get: (name: string) => Promise<string | null> };
-	fs: { read: (path: string) => Promise<string | null> };
+	fs: {
+		read: (path: string) => Promise<string | null>;
+		write: (path: string, text: string) => Promise<void>;
+	};
 	session: { id: () => Promise<string | null> };
 	tool: { register: () => Promise<void> };
 	clock: { every: (ms: number, fn: () => Promise<void>) => Promise<void> };
@@ -104,6 +107,7 @@ async function startMod(fake: FakeState): Promise<Mod> {
 		WEZTERM_WORKER_HANDOVER: HANDOVER_PATH,
 	};
 	const dollar: FakeDollar = {
+		env: { get: async (name: string) => env[name] ?? null },
 		http: {
 			fetch: async (url: string, options?: { body?: string }) => {
 				if (url.includes("/commands")) {
@@ -119,8 +123,10 @@ async function startMod(fake: FakeState): Promise<Mod> {
 				return { ok: true, status: fake.postStatus, text: "{}" };
 			},
 		},
-		env: { get: async (name: string) => env[name] ?? null },
-		fs: { read: async () => fake.handover },
+		fs: {
+			read: async () => fake.handover,
+			write: async () => undefined,
+		},
 		session: { id: async () => "session-1" },
 		tool: { register: async () => undefined },
 		clock: {
