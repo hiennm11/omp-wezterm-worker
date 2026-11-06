@@ -367,10 +367,9 @@ started. The names of the actions that did not settle reach the log. See
 ## Session switches
 
 The host confirms a switch after `/new`, `fork` without an entry id, or
-`resume` to another session. The extension releases the tasks of the old
-session, binds the new session id, and attaches tasks that the new session
-already owns. A worker of the old session waits for that session to resume.
-The extension does not handle `session_branch`. See
+`resume` to another session. It uses `session_branch` for `branch` and `fork`
+with an entry id. Both events release the tasks of the old session, bind the
+new session id, and attach tasks that the new session already owns. See
 [ADR 0022](docs/adr/0022-a-session-switch-releases-the-tasks-of-the-old-session.md).
 
 ## How it works

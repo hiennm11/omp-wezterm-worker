@@ -43,8 +43,12 @@ The extension could cancel a switch while a worker runs. That blocks normal
 session changes and keeps supervision tied to the old session. The extension
 instead releases the tasks and lets the workers continue.
 
-The host facts in the task file state that `fork` without an entry id uses
-`session_before_switch` and `session_switch`. They state that `fork` with an
-entry id and `branch` use `session_before_branch` and `session_branch`.
-The extension does not handle `session_branch`. The host source was not
-available in this worktree, so this decision uses the supplied host facts.
+In `packages/coding-agent/src/session/agent-session.ts`, `#branchIntoNewSession`
+starts at line 13947. The method calls `#syncAgentSessionId()` and then
+`this.#memory.rekeyForCurrentSessionId()` at lines 14022-14023. It emits
+`session_branch` at lines 14029-14034. It does not emit `session_switch`.
+The call at line 13935 handles `branch`. The entry-based `fork` path also
+calls `#branchIntoNewSession` at line 11912. Both operations change the session id.
+The branch path uses the same release, bind, acquire, and attach sequence as
+the `session_switch` path. The extension handles `session_branch` because the
+host emits it after changing the session id.
