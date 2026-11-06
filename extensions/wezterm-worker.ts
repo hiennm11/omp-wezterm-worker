@@ -222,7 +222,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	};
 	pi.on("session_switch", async (_event, ctx) => {
 		try {
-			await switchSession(rt, ctx, deps.deliver);
+			await switchSession(rt, ctx, deps.deliver, (message) => pi.logger?.info?.(message), "session_switch");
 		} catch (e) {
 			rt.errors.push(
 				`The session switch could not restore worker supervision: ${e instanceof Error ? e.message : String(e)}`,
@@ -232,7 +232,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	});
 	pi.on("session_branch", async (_event, ctx) => {
 		try {
-			await switchSession(rt, ctx, deps.deliver);
+			await switchSession(rt, ctx, deps.deliver, (message) => pi.logger?.info?.(message), "session_branch");
 		} catch (e) {
 			rt.errors.push(
 				`The session branch could not restore worker supervision: ${e instanceof Error ? e.message : String(e)}`,

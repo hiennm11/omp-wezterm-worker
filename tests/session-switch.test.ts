@@ -123,19 +123,34 @@ test("a subagent switch does nothing", async (t) => {
 });
 
 test("a switch logs release and acquisition details", async (t) => {
-	const { rt } = setup(t, NEW_SESSION);
+	const { rt, stateDir, job } = setup(t);
 	rt.sessionId = OLD_SESSION;
+	const acquiredJob = { ...job, id: "wz-session-switch-2" };
+	rt.jobs.set(acquiredJob.id, acquiredJob);
+	const db = openDatabase(join(stateDir, "lifecycle.db"));
+	acquireOwnership(db, taskKey(acquiredJob.id), NEW_SESSION, rt.processId, PROCESS_START, Date.now());
+	db.close();
 	const logs: string[] = [];
-	await switchSession(rt, context(NEW_SESSION), () => {}, (message) => logs.push(message));
+	await switchSession(
+		rt,
+		context(NEW_SESSION),
+		() => {},
+		(message) => logs.push(message),
+	);
 	assert.ok(logs.some((message) => message.includes(OLD_SESSION) && message.includes(NEW_SESSION)));
 	assert.ok(logs.some((message) => message.includes(WORKER) && message.includes("released")));
-	assert.ok(logs.some((message) => message.includes(WORKER) && message.includes("generation")));
+	assert.ok(logs.some((message) => message.includes(acquiredJob.id) && message.includes("generation")));
 });
 
 test("a subagent switch logs nothing", async (t) => {
 	const { rt } = setup(t);
 	const logs: string[] = [];
-	await switchSession(rt, context(NEW_SESSION, "sub"), () => {}, (message) => logs.push(message));
+	await switchSession(
+		rt,
+		context(NEW_SESSION, "sub"),
+		() => {},
+		(message) => logs.push(message),
+	);
 	assert.deepEqual(logs, []);
 });
 
@@ -143,7 +158,12 @@ test("a switch without a new owner logs releases without acquisition", async (t)
 	const { rt } = setup(t);
 	rt.sessionId = OLD_SESSION;
 	const logs: string[] = [];
-	await switchSession(rt, context(NEW_SESSION), () => {}, (message) => logs.push(message));
+	await switchSession(
+		rt,
+		context(NEW_SESSION),
+		() => {},
+		(message) => logs.push(message),
+	);
 	assert.ok(logs.some((message) => message.includes(WORKER) && message.includes("released")));
 	assert.ok(!logs.some((message) => message.includes("acquired")));
 });
