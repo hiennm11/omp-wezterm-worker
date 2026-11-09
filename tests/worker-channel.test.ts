@@ -11,109 +11,25 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { taskKey } from "../extensions/lib/owner.ts";
-import { acquireOwnership } from "../extensions/lib/ownership.ts";
-import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { writeRunContext } from "../extensions/lib/worker-context.ts";
-import type { ToolDeps } from "../extensions/worker-tools/kit.ts";
+import extension from "../extensions/wezterm-worker.ts";
 import { registerNoteToMainTool } from "../extensions/worker-tools/note-to-main.ts";
 import { registerNoteToWorkerTool } from "../extensions/worker-tools/note-to-worker.ts";
 import { registerNotesFromMainTool } from "../extensions/worker-tools/notes-from-main.ts";
 import { registerNotesFromWorkerTool } from "../extensions/worker-tools/notes-from-worker.ts";
 import { makeJob } from "./takeover-helpers.ts";
-
-/** The session that calls the tool. */
-const OWN = "session-new";
-
-/** A tool that the extension registers. */
-interface FakeTool {
-	execute: (
-		id: string,
-		params: Record<string, unknown>,
-		signal?: unknown,
-		onUpdate?: unknown,
-		ctx?: unknown,
-	) => Promise<{ content: { text: string }[]; details: Record<string, unknown>; isError?: boolean }>;
-}
-
-/** A zod stub that accepts every parameter object. */
-function fakeZod(): never {
-	const chain = {
-		optional: () => chain,
-		describe: () => chain,
-	};
-	return { string: () => chain, number: () => chain, boolean: () => chain, object: () => chain } as never;
-}
-
-/** A runtime whose communication check is off. */
-function fakeRuntime(): { rt: WorkerRuntime; dir: string } {
-	const dir = mkdtempSync(join(tmpdir(), "wt-channel-"));
-	const rt = createRuntime(async () => ({ code: 0, stdout: "", stderr: "" }));
-	rt.config.stateDir = dir;
-	rt.config.commsStandard = { mode: "off", minScore: 80 };
-	rt.sessionId = OWN;
-	return { rt, dir };
-}
-
-/** The session directory of a worker, with the context of its run. */
-function workerSession(dir: string, id: string, backend: "omp" | "claude" | "codex" = "omp"): string {
-	const sessionDir = join(dir, "sessions", id);
-	mkdirSync(sessionDir, { recursive: true });
-	writeRunContext(sessionDir, {
-		runId: id,
-		sourceRunId: null,
-		resourceGroup: `grp-${id}`,
-		backend,
-	});
-	return sessionDir;
-}
-
-/** The owner of the task of a worker. */
-function seedOwner(rt: WorkerRuntime, jobId: string, sessionId: string): void {
-	acquireOwnership(rt.openDb(), taskKey(jobId), sessionId, 900, "2026-11-09T08:00:00.000Z", 1000);
-}
-
-/** The worker tool that the extension registers. */
-function workerToolOf(rt: WorkerRuntime, register: (deps: ToolDeps) => void, name: string): FakeTool {
-	register({ pi: { zod: fakeZod() } as never, rt, deliver: () => undefined });
-	const tool = rt.workerTools.get(name);
-	assert.ok(tool, `the ${name} tool was not registered`);
-	return tool as unknown as FakeTool;
-}
-
-/** The main tool that the extension registers. */
-function mainToolOf(rt: WorkerRuntime, register: (deps: ToolDeps) => void, name: string): FakeTool {
-	const tools = new Map<string, FakeTool>();
-	register({
-		pi: {
-			zod: fakeZod(),
-			registerTool: (tool: FakeTool) => tools.set(name, tool),
-		} as never,
-		rt,
-		deliver: () => undefined,
-	});
-	const tool = tools.get(name);
-	assert.ok(tool, `the ${name} tool was not registered`);
-	return tool;
-}
-
-/** Run a function with the environment of a worker. */
-async function asWorker<T>(sessionDir: string, fn: () => Promise<T>): Promise<T> {
-	const previous = process.env.OMP_WORKER_SESSION_DIR;
-	process.env.OMP_WORKER_SESSION_DIR = sessionDir;
-	try {
-		return await fn();
-	} finally {
-		if (previous === undefined) delete process.env.OMP_WORKER_SESSION_DIR;
-		else process.env.OMP_WORKER_SESSION_DIR = previous;
-	}
-}
-
-/** Close the runtime and remove the state directory of a test. */
-function finish(rt: WorkerRuntime, dir: string): void {
-	rt.closeDb();
-	rmSync(dir, { recursive: true, force: true });
-}
+import {
+	asWorker,
+	fakeRuntime,
+	fakeZod,
+	finish,
+	mainToolOf,
+	OWN,
+	seedOwner,
+	workerSession,
+	workerToolOf,
+	type FakeTool,
+} from "./worker-channel-helpers.ts";
 
 test("a worker note reaches the main session", async () => {
 	const { rt, dir } = fakeRuntime();
@@ -283,5 +199,65 @@ test("a Claude worker and a Codex worker have no channel", async () => {
 		}
 	} finally {
 		finish(rt, dir);
+	}
+});
+
+test("the channel survives a resume", async () => {
+	const { rt, dir } = fakeRuntime();
+	try {
+		const job = makeJob(dir, "wz-1");
+		rt.jobs.set(job.id, job);
+		seedOwner(rt, job.id, OWN);
+		const sessionDir = workerSession(dir, job.id);
+		const write = workerToolOf(rt, registerNoteToMainTool, "wezterm_worker_note_to_main");
+		await asWorker(sessionDir, () => write.execute("t1", { text: "a note before the resume" }));
+
+		/* A resume shares the session directory of its source run, so the
+		   channel of the task stays in the same place. */
+		const resumed = { ...job, id: "wz-2", sessionDir };
+		rt.jobs.set(resumed.id, resumed);
+		seedOwner(rt, resumed.id, OWN);
+
+		const read = await mainToolOf(
+			rt,
+			registerNotesFromWorkerTool,
+			"wezterm_worker_notes_from_worker",
+		).execute("t2", { workerId: resumed.id });
+		assert.equal(read.details.count, 1);
+		assert.match(read.content[0]?.text ?? "", /a note before the resume/);
+	} finally {
+		finish(rt, dir);
+	}
+});
+
+test("a worker process gets the two channel tools", async () => {
+	const cwd = mkdtempSync(join(tmpdir(), "wt-channel-worker-"));
+	const sessionDir = join(cwd, "session");
+	mkdirSync(sessionDir, { recursive: true });
+	writeRunContext(sessionDir, { runId: "wz-1", sourceRunId: null, resourceGroup: "grp-wz-1" });
+	const previous = process.env.OMP_WORKER_SESSION_DIR;
+	process.env.OMP_WORKER_SESSION_DIR = sessionDir;
+	try {
+		const tools = new Map<string, FakeTool>();
+		const pi = {
+			zod: fakeZod(),
+			registerTool: (tool: FakeTool) => tools.set(tool.name, tool),
+			registerCommand: () => undefined,
+			on: () => undefined,
+			logger: { info: () => undefined, warn: () => undefined, error: () => undefined },
+			sendMessage: () => undefined,
+		};
+		extension(pi as never);
+		assert.ok(tools.has("wezterm_worker_note_to_main"), "the worker did not get the note tool");
+		assert.ok(tools.has("wezterm_worker_notes_from_main"), "the worker did not get the notes tool");
+		assert.equal(
+			tools.has("wezterm_worker_note_to_worker"),
+			false,
+			"a worker must not get the tools of the main session",
+		);
+	} finally {
+		if (previous === undefined) delete process.env.OMP_WORKER_SESSION_DIR;
+		else process.env.OMP_WORKER_SESSION_DIR = previous;
+		rmSync(cwd, { recursive: true, force: true });
 	}
 });

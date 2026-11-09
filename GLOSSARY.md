@@ -467,3 +467,18 @@ _Avoid_: Proof, trial, integration test
 **Direct input**:
 A task text that the person types into the pane of a running native worker. It joins the same run and opens a new instruction cycle. The arrival of the input and its native delivery are separate evidence.
 _Avoid_: Steering input, manual prompt
+
+**Worker channel**:
+The shared space where the main session and one worker exchange channel notes.
+It belongs to one task. Each side writes its own file in the session
+directory, and a resume of the task finds the same files. A note never steers
+a worker and never wakes the main session.
+_Avoid_: Board, message, agent
+
+**Channel note**:
+A short piece of free text that travels over a worker channel. It changes no
+state of the task. A note of the worker names the run that wrote it, and a
+note of the main session names no run. The text holds 4000 characters at
+most.
+_Avoid_: Board, message, agent
+

@@ -107,6 +107,7 @@ test("a resume of a resumed run takes the group of the first run", async () => {
 			runId: "wz-c",
 			sourceRunId: "wz-b",
 			resourceGroup: "grp-wz-a",
+			backend: "omp",
 		});
 		assert.equal(launchedPane(calls), true);
 	} finally {
@@ -143,6 +144,7 @@ test("a native resume of a resumed run takes the group of the first run", async 
 			runId: "wz-nc",
 			sourceRunId: "wz-nb",
 			resourceGroup: "grp-wz-na",
+			backend: "claude",
 		});
 	} finally {
 		for (const bridge of rt.bridges.values()) await bridge.close();

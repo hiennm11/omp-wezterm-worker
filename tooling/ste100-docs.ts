@@ -45,6 +45,7 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0020-the-codex-approval-policy-is-a-setting.md",
 	"docs/adr/0023-a-claude-worker-keeps-its-report-while-its-task-is-released.md",
 	"docs/adr/0022-a-session-switch-releases-the-tasks-of-the-old-session.md",
+	"docs/adr/0024-the-main-session-and-a-worker-exchange-notes-on-a-channel.md",
 	"docs/plans/recoverable-omp-supervision.md",
 ];
 
