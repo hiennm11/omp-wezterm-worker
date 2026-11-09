@@ -20,9 +20,9 @@ The job holds the resolved values, not the name of the set.
 The registry format does not change. The database schema does not change.
 Existing job readers keep the same contract.
 
-The OMP backend adds `wezterm_worker_report` to each non-empty restricted tool list that omits it.
+The OMP backend adds `wezterm_worker_report`, `wezterm_worker_note_to_main` and `wezterm_worker_notes_from_main` to each non-empty restricted tool list that omits them.
 The same rule applies to a resume. An empty list stays empty.
-This lets a worker report its state without changing the stored job tools.
+This lets a worker report its state and use the worker channel without changing the stored job tools.
 
 The existing backend and thinking refusals run after the set resolution.
 A set cannot bypass these checks. A native backend still refuses a tools list or a thinking level.

@@ -69,7 +69,7 @@ A native backend refuses it. OMP can lower a level that the model lacks, and the
 transcript does not record the level that ran. The spawn reply names the level
 that the plugin asked for.
 
-The spawn tool also accepts the optional parameter `preset`. Presets come from the `presets` key in the configuration file. A call parameter wins over its preset. The preset wins over the global configuration, which wins over the default. The OMP worker always receives `wezterm_worker_report` when a non-empty restricted tool list omits it.
+The spawn tool also accepts the optional parameter `preset`. Presets come from the `presets` key in the configuration file. A call parameter wins over its preset. The preset wins over the global configuration, which wins over the default. The OMP worker always receives `wezterm_worker_report`, `wezterm_worker_note_to_main` and `wezterm_worker_notes_from_main` when a non-empty restricted tool list omits them.
 
 `wezterm cli list --format json` reports `pane_id`, `tab_id`, `window_id`,
 `title`, `cwd` and `workspace` per pane. Use it to check a pane is still

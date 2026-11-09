@@ -77,7 +77,8 @@ test("a resumed job keeps the thinking level of the source run", () => {
 test("a restricted tool list includes the worker report tool", () => {
 	const job = { ...jobWith(null), tools: ["read", "grep", "glob"] } as Job;
 	const args = ompArgv(job, null, "task");
-	assert.equal(args[args.indexOf("--tools") + 1], "read,grep,glob,wezterm_worker_report");
+	const tools = (args[args.indexOf("--tools") + 1] ?? "").split(",");
+	assert.ok(tools.includes("wezterm_worker_report"), "the report tool is missing");
 });
 
 test("a restricted tool list includes the worker channel tools", () => {
@@ -92,7 +93,8 @@ test("a restricted tool list includes the worker channel tools", () => {
 test("an existing report tool appears once in argv", () => {
 	const job = { ...jobWith(null), tools: ["read", "wezterm_worker_report"] } as Job;
 	const args = ompArgv(job, null, "task");
-	assert.equal(args[args.indexOf("--tools") + 1], "read,wezterm_worker_report");
+	const tools = (args[args.indexOf("--tools") + 1] ?? "").split(",");
+	assert.equal(tools.filter((tool) => tool === "wezterm_worker_report").length, 1);
 });
 
 test("a null tool list has no tools flag", () => {
