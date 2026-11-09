@@ -92,6 +92,7 @@ export async function resumeCodexWorker(
 		runId: jobId,
 		sourceRunId: source.id,
 		resourceGroup: groupId,
+		backend: "codex",
 	});
 	rt.jobs.set(jobId, job);
 

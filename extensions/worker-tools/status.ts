@@ -5,6 +5,7 @@
 import { statSync } from "node:fs";
 
 import { backendLabel, readBackend } from "../lib/backend.ts";
+import { readChannelNotes } from "../lib/channel-store.ts";
 import { pendingEvents, type WorkerEvent } from "../lib/events.ts";
 import { isActive, type Job, type JobStatus } from "../lib/job.ts";
 import { completionBlockerOf } from "../lib/ledger-sync.ts";
@@ -83,6 +84,8 @@ interface StatusRow {
 	/** The reason that the completion of the run cannot be accepted. */
 	blocked: string | null;
 	supervision: string | null;
+	/** The count of the notes of each side of the channel. */
+	notes: string;
 }
 
 function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime, lease: LeaseAnswer): StatusRow {
@@ -138,7 +141,20 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime, lease: 
 		native: nativeSummary(rt, j),
 		blocked: completionBlocker(rt, j),
 		supervision,
+		notes: noteCounts(j),
 	};
+}
+
+/**
+ * The count of the notes of each side of the channel of a worker.
+ *
+ * The line holds no note text. The counts tell the owner that the channel
+ * holds something to read.
+ */
+function noteCounts(j: Job): string {
+	const fromWorker = readChannelNotes(j.sessionDir, "worker").length;
+	const toWorker = readChannelNotes(j.sessionDir, "main").length;
+	return `notes: ${fromWorker} from worker, ${toWorker} to worker`;
 }
 
 /**
@@ -230,6 +246,7 @@ function formatRow(r: StatusRow): string {
 		r.error ? `  error     : ${r.error}` : null,
 		r.blocked ? `  Completion blocked: ${r.blocked}` : null,
 		r.supervision ? `  supervision: ${r.supervision}` : null,
+		`  ${r.notes}`,
 	]
 		.filter((line): line is string => line !== null)
 		.join("\n");

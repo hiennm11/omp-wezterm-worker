@@ -9,6 +9,7 @@
 import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
+import { readBackend } from "./backend.ts";
 import { bootstrapPromptFile, writeBootstrapPrompt } from "./bootstrap-prompt.ts";
 import type { Placement } from "./config.ts";
 import { freeEndedHolder } from "./group-holder.ts";
@@ -119,7 +120,12 @@ export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promi
 	// The run context binds the worker to its run. The worker bootstrap reads
 	// this file, so a report from the worker names the run that produced it.
 	const groupId = `grp-${jobId}`;
-	writeRunContext(job.sessionDir, { runId: jobId, sourceRunId: null, resourceGroup: groupId });
+	writeRunContext(job.sessionDir, {
+		runId: jobId,
+		sourceRunId: null,
+		resourceGroup: groupId,
+		backend: "omp",
+	});
 	// The worker gets the reporting contract. The file stays as the evidence
 	// of the contract that the worker received.
 	writeBootstrapPrompt(job.sessionDir);
@@ -279,6 +285,7 @@ export async function resumeWorker(
 		runId: jobId,
 		sourceRunId: source.id,
 		resourceGroup: groupId,
+		backend: readBackend(job),
 	});
 	rt.jobs.set(jobId, job);
 

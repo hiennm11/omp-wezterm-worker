@@ -24,6 +24,13 @@ export interface RunContext {
 	sourceRunId: string | null;
 	/** The id of the resource group that holds the shared resources. */
 	resourceGroup: string;
+	/**
+	 * The backend that runs the worker.
+	 *
+	 * A missing value means OMP. The worker refuses a feature that its
+	 * backend does not have, so the context must name the backend.
+	 */
+	backend?: string;
 }
 
 /** The path of the context file of a session directory. */
@@ -62,5 +69,6 @@ export function readRunContext(sessionDir: string): RunContext | null {
 		runId: value.runId,
 		sourceRunId: typeof value.sourceRunId === "string" ? value.sourceRunId : null,
 		resourceGroup: typeof value.resourceGroup === "string" ? value.resourceGroup : "",
+		backend: typeof value.backend === "string" ? value.backend : "omp",
 	};
 }
