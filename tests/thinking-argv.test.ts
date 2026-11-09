@@ -80,6 +80,15 @@ test("a restricted tool list includes the worker report tool", () => {
 	assert.equal(args[args.indexOf("--tools") + 1], "read,grep,glob,wezterm_worker_report");
 });
 
+test("a restricted tool list includes the worker channel tools", () => {
+	const job = { ...jobWith(null), tools: ["read"] } as Job;
+	const args = ompArgv(job, null, "task");
+	const tools = (args[args.indexOf("--tools") + 1] ?? "").split(",");
+	assert.ok(tools.includes("wezterm_worker_report"), "the report tool is missing");
+	assert.ok(tools.includes("wezterm_worker_note_to_main"), "the note tool of the worker is missing");
+	assert.ok(tools.includes("wezterm_worker_notes_from_main"), "the read tool of the worker is missing");
+});
+
 test("an existing report tool appears once in argv", () => {
 	const job = { ...jobWith(null), tools: ["read", "wezterm_worker_report"] } as Job;
 	const args = ompArgv(job, null, "task");
