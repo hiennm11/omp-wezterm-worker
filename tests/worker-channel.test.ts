@@ -20,6 +20,7 @@ import { registerNotesFromWorkerTool } from "../extensions/worker-tools/notes-fr
 import { makeJob } from "./takeover-helpers.ts";
 import {
 	asWorker,
+	type FakeTool,
 	fakeRuntime,
 	fakeZod,
 	finish,
@@ -28,7 +29,6 @@ import {
 	seedOwner,
 	workerSession,
 	workerToolOf,
-	type FakeTool,
 } from "./worker-channel-helpers.ts";
 
 test("a worker note reaches the main session", async () => {
@@ -230,6 +230,25 @@ test("the channel survives a resume", async () => {
 	}
 });
 
+test("a note to a worker that does not run names the resume", async () => {
+	const { rt, dir } = fakeRuntime();
+	try {
+		const job = makeJob(dir, "wz-1", { status: "completed" });
+		rt.jobs.set(job.id, job);
+		seedOwner(rt, job.id, OWN);
+		workerSession(dir, job.id);
+
+		const written = await mainToolOf(rt, registerNoteToWorkerTool, "wezterm_worker_note_to_worker").execute(
+			"t1",
+			{ workerId: job.id, text: "a note for a worker that ended" },
+		);
+		assert.equal(written.isError, undefined);
+		assert.match(written.content[0]?.text ?? "", /reads the note after a resume/);
+	} finally {
+		finish(rt, dir);
+	}
+});
+
 test("a worker process gets the two channel tools", async () => {
 	const cwd = mkdtempSync(join(tmpdir(), "wt-channel-worker-"));
 	const sessionDir = join(cwd, "session");
@@ -241,7 +260,7 @@ test("a worker process gets the two channel tools", async () => {
 		const tools = new Map<string, FakeTool>();
 		const pi = {
 			zod: fakeZod(),
-			registerTool: (tool: FakeTool) => tools.set(tool.name, tool),
+			registerTool: (tool: FakeTool & { name: string }) => tools.set(tool.name, tool),
 			registerCommand: () => undefined,
 			on: () => undefined,
 			logger: { info: () => undefined, warn: () => undefined, error: () => undefined },
