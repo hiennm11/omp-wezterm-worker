@@ -7,6 +7,9 @@
  */
 
 import { backendLabel, readBackend } from "./backend.ts";
+import { formatDeliveryNotes } from "./channel-delivery.ts";
+import type { ChannelNote } from "./channel-model.ts";
+import { readChannelNotes } from "./channel-store.ts";
 import { beginDelivery, markSent, markUncertain } from "./delivery.ts";
 import { findEventByKey, recordResultEvent, resultEventKey } from "./events.ts";
 import type { Job } from "./job.ts";
@@ -28,6 +31,7 @@ export function formatDelivery(
 	nativeCycles = 0,
 	restored = false,
 	eventId?: string,
+	workerNotes: ChannelNote[] = [],
 ): string {
 	const pending = job.pendingStop;
 	/* A restart cut the counts of a restored run. The delivery says that the
@@ -66,8 +70,12 @@ export function formatDelivery(
 	const eventLine = eventId
 		? `Event id: ${eventId}. Acknowledge it with wezterm_worker_ack after you read the result.\n\n`
 		: "";
+	/* The worker notes travel with the result. The main session sees the
+	   newest ones without another call. */
+	const notes = formatDeliveryNotes(workerNotes);
+	const notesBlock = notes ? `${notes}\n\n` : "";
 	const request = `\n\nThis request so far: ${formatUsage(usage.request)}. The main session is not counted.`;
-	return `${header}\n\n${body}\n\n(${meta})\n\n${eventLine}${request}`;
+	return `${header}\n\n${body}\n\n(${meta})\n\n${notesBlock}${eventLine}${request}`;
 }
 
 export function createDeliver(rt: WorkerRuntime): (job: Job) => void {
@@ -109,6 +117,7 @@ export function createDeliver(rt: WorkerRuntime): (job: Job) => void {
 				nativeCycles,
 				restored,
 				event && job.pendingStop === null ? event.id : undefined,
+				readChannelNotes(job.sessionDir, "worker"),
 			);
 			const attempt = beginDelivery(
 				db,

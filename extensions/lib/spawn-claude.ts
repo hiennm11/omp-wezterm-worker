@@ -103,7 +103,12 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 	writeHandover(job.sessionDir, { url: bridge.baseUrl, token: bridge.token });
 
 	const groupId = `grp-${jobId}`;
-	writeRunContext(job.sessionDir, { runId: jobId, sourceRunId: null, resourceGroup: groupId });
+	writeRunContext(job.sessionDir, {
+		runId: jobId,
+		sourceRunId: null,
+		resourceGroup: groupId,
+		backend: "claude",
+	});
 	const db = rt.openDb();
 	createGroup(db, groupId, job.sessionDir, Date.now());
 	const attemptId = `att-${jobId}`;

@@ -115,6 +115,7 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 		runId: jobId,
 		sourceRunId: source.id,
 		resourceGroup: groupId,
+		backend: "claude",
 	});
 	rt.jobs.set(jobId, job);
 

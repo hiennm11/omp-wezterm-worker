@@ -14,6 +14,7 @@ import type { ClaudeRunState } from "./claude-run-state.ts";
 import { type CodexClient, connectCodexServer } from "./codex-client.ts";
 import { DEFAULT_CONFIG, type WorkerConfig } from "./config.ts";
 import { databaseFile, type LifecycleDb, openDatabase } from "./db.ts";
+import type { ToolCtx } from "./host.ts";
 import type { Job } from "./job.ts";
 import { type RunFn, type RunResult, run } from "./process.ts";
 import { loadRuns, persistRuns } from "./runs.ts";
@@ -41,10 +42,16 @@ export interface WorkerToolDefinition {
 	name: string;
 	label: string;
 	description: string;
-	parameters: Record<string, unknown>;
+	/** The schema of the parameters. The host builds it, so the type is unknown. */
+	parameters: unknown;
+	/** When the host loads the tool. */
+	loadMode?: "essential" | "discoverable";
 	execute: (
 		id: string,
 		params: Record<string, unknown>,
+		signal?: unknown,
+		onUpdate?: unknown,
+		ctx?: ToolCtx,
 	) => Promise<{
 		content: Array<{ type: string; text: string }>;
 		details: Record<string, unknown>;
@@ -61,10 +68,14 @@ export interface OwnerToolDefinition {
 	name: string;
 	label: string;
 	description: string;
-	parameters: Record<string, unknown>;
+	/** The schema of the parameters. The host builds it, so the type is unknown. */
+	parameters: unknown;
 	execute: (
 		id: string,
 		params: Record<string, unknown>,
+		signal?: unknown,
+		onUpdate?: unknown,
+		ctx?: ToolCtx,
 	) => Promise<{
 		content: Array<{ type: string; text: string }>;
 		details: Record<string, unknown>;
