@@ -261,11 +261,12 @@ it as the result and you deliver the preamble instead of the answer.
 
 The mechanics of this skill run as an OMP extension at
 `D:\repos\omp-wezterm-worker` (public: `github.com/hiennm11/omp-wezterm-worker`).
-It registers twelve tools for the main session: `wezterm_spawn_worker`,
+It registers fourteen tools for the main session: `wezterm_spawn_worker`,
 `wezterm_worker_status`, `wezterm_worker_ack`, `wezterm_worker_steer`,
 `wezterm_worker_peek`, `wezterm_worker_result`, `wezterm_worker_resume`,
 `wezterm_worker_cancel`, `wezterm_worker_cleanup`, `wezterm_worker_release`,
-`wezterm_worker_takeover` and `wezterm_worker_resolve`.
+`wezterm_worker_takeover`, `wezterm_worker_resolve`,
+`wezterm_worker_note_to_worker` and `wezterm_worker_notes_from_worker`.
 
 **The extension's README is the source of truth for its tools and parameters.**
 Read it. Do not recall them. What belongs here is only the operating
@@ -534,16 +535,48 @@ From the official extension docs (`can1357/oh-my-pi` → `docs/extensions.md`):
   clean up or resume a worker. Each control tool refuses before it reads worker
   state or accesses a pane.
 
+## The worker channel
+
+The main session and one worker share a worker channel. A channel note is a
+short piece of free text. A note changes no state of the task. A note never
+steers a worker, and the extension never wakes the main session for a note.
+
+The main session writes a note with `wezterm_worker_note_to_worker`. It reads
+the notes of the worker with `wezterm_worker_notes_from_worker`. The worker
+writes a note with `wezterm_worker_note_to_main`. It reads the notes of the
+main session with `wezterm_worker_notes_from_main`. The last two tools are
+worker-only. A main session never gets them.
+
+A read is stateless. Pass the number of the last note that you read, or 0 for
+the first read. The reply names the highest number of the channel. A note
+holds 4000 characters at most, and an empty note is refused.
+
+The worker reads the channel at the start of each instruction cycle and
+before it reports `completed`. The bootstrap prompt tells it that rule. A
+main session that wants the worker to read a note soon must steer it. A note
+alone does not start a turn of the worker.
+
+The delivery of a finished worker carries the 10 newest worker notes. One
+line names the older notes and the tool that reads them. The status tool shows
+one count line per worker, for example `notes: 3 from worker, 1 to worker`.
+It shows no note text.
+
+A Claude Code worker and a Codex worker have no channel today. The four tools
+refuse with a reply that says that the backend does not support the channel
+yet. Do not report a note to a native worker as if it arrived.
+
 ## The domain vocabulary
 
 The repository holds a glossary at `GLOSSARY.md`. It names the terms of
 this domain: **worker**, **result**, **preamble**, **turn**, **steering
 message**, **resume**, **transcript**, **delivery**, **registry**,
-**worktree**. It also names the supervision terms: **report**, **task
-state**, **execution condition**, **instruction cycle**, **execution
-record**, **resource group**, **launch attempt**, **unresolved launch**,
-**owner resolution**, **release**, **drain**. Use these words. A term with a
-second name makes the next reader guess.
+**worktree**, **worker channel**, **channel note**. It also names the
+supervision terms: **report**, **task state**, **execution condition**,
+**instruction cycle**, **execution record**, **resource group**,
+**launch attempt**, **unresolved launch**, **owner resolution**, **release**,
+**drain**. Use these words. A term with a second name makes the next reader
+guess. The words board, message and agent name other things, so they stay out
+of the name of the channel.
 
 Two terms cause the most confusion:
 

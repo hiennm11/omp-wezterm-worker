@@ -96,20 +96,56 @@ confirm the picker.
 | `wezterm_worker_release` | Stop the supervision of a worker and give the authority away. The worker keeps running. |
 | `wezterm_worker_takeover` | Take the supervision of a worker that another session owned. The previous owner must have released the task, or its process must be confirmed gone. A live owner keeps the task. A session can take back a task that it released itself. The takeover does not replay pending events. |
 | `wezterm_worker_resolve` | Settle an unknown worker outcome. It records what you confirmed. It does not create a worker completion report. The resolutions `abandoned` and `incomplete` free an unresolved launch attempt. The resolution `recorded_result` is refused for an unresolved launch. |
+| `wezterm_worker_note_to_worker` | Write a short note to a worker. The note changes no state of the task, and it never steers the worker. The worker reads the note at the start of its next instruction cycle. A worker that does not run reads the note after a resume. |
+| `wezterm_worker_notes_from_worker` | Read the notes that a worker wrote for the main session. The read is stateless. Pass the number of the last note that you read, or 0 for the first read. |
 
 `/wezterm-workers` prints the roster in the TUI.
 
 The tools `wezterm_worker_steer`, `wezterm_worker_cancel`,
-`wezterm_worker_cleanup`, `wezterm_worker_resume`, `wezterm_worker_ack` and
-`wezterm_worker_resolve` check the authority of the task before they act. The
-delivery of a result checks it too. A session that does not hold the authority
-gets one refusal that names the session that holds it. The refusal says
-`Worker <id> belongs to session <S> (phase <P>). This session only reads it.`
-A session without an identity and a task without an ownership row keep the old
-behaviour. The automatic path of a monitor checks the authority too.
+`wezterm_worker_cleanup`, `wezterm_worker_resume`, `wezterm_worker_ack`,
+`wezterm_worker_resolve`, `wezterm_worker_note_to_worker` and
+`wezterm_worker_notes_from_worker` check the authority of the task before they
+act. The delivery of a result checks it too. A session that does not hold the
+authority gets one refusal that names the session that holds it. The refusal
+says `Worker <id> belongs to session <S> (phase <P>). This session only reads
+it.` A session without an identity and a task without an ownership row keep the
+old behaviour. The automatic path of a monitor checks the authority too.
 
 The worker reports its own task state through `wezterm_worker_report`. That
 tool is worker-only. The main session never gets it.
+
+## The worker channel
+
+The main session and one worker share a worker channel. A channel note is a
+short piece of free text, and it changes no state of the task. A note never
+steers a worker, and the extension never wakes the main session for a note.
+
+Each side writes its own file in the session directory of the worker, next to
+the report file. The main session writes
+`.wezterm-worker-channel-main.jsonl`, and the worker writes
+`.wezterm-worker-channel-worker.jsonl`. A resume of the task shares the
+session directory, so the channel survives a resume. The cleanup of a worker
+removes the session directory, so it removes the channel too.
+
+The worker writes a note with `wezterm_worker_note_to_main`. It reads the
+notes of the main session with `wezterm_worker_notes_from_main`. The worker
+reads the channel at the start of each instruction cycle and before it
+reports `completed`.
+
+The main session writes a note with `wezterm_worker_note_to_worker`. It reads
+the notes of the worker with `wezterm_worker_notes_from_worker`. A read is
+stateless. The caller passes the number of the last note that it read, and the
+reply names the highest number of the channel. A note holds 4000 characters at
+most, and an empty note is refused.
+
+The delivery of a finished worker carries the 10 newest worker notes. One
+line names the older notes and the tool that reads them. The status tool shows
+one count line per worker, for example `notes: 3 from worker, 1 to worker`. It
+shows no note text.
+
+A Claude Code worker and a Codex worker have no channel today. The four tools
+refuse with a reply that says that the backend does not support the channel
+yet. See ADR 0024.
 
 
 ## Usage
@@ -959,6 +995,10 @@ omp-wezterm-worker/
 │   │   ├── cycle.ts             the instruction cycle of a worker
 │   │   ├── report-model.ts      the report that a worker sends
 │   │   ├── report-store.ts      the reports of a session directory
+│   │   ├── channel-model.ts     the note that travels over the worker channel
+│   │   ├── channel-store.ts     the channel files of a session directory
+│   │   ├── channel-select.ts    the selection of the notes of a channel
+│   │   ├── channel-delivery.ts  the worker notes of a delivery
 │   │   ├── report-binding.ts    the binding of a report to a run and a cycle
 │   │   ├── report-decision.ts   the decision that the reports produce
 │   │   ├── usage.ts             the measured token usage of a worker
@@ -1052,6 +1092,10 @@ omp-wezterm-worker/
 │       ├── result.ts, resume.ts, cancel.ts, cleanup.ts
 │       ├── report.ts, ack.ts, release.ts, resolve.ts
 │       ├── takeover.ts          the takeover of a task of another session
+│       ├── note-to-main.ts      the note of a worker for the main session
+│       ├── notes-from-main.ts   the notes of the main session for a worker
+│       ├── note-to-worker.ts    the note of the main session for a worker
+│       ├── notes-from-worker.ts the notes of a worker for the main session
 │       └── roster.ts            the /wezterm-workers command
 ├── scripts/
 │   ├── _paths.sh                shared Windows-path helpers
@@ -1134,6 +1178,9 @@ omp-wezterm-worker/
 │   ├── trial-report.test.ts     the text of the Windows trial report
 │   ├── trial-paths.test.ts      the paths that the report hides
 │   ├── registration.test.ts     the tools that the extension registers
+│   ├── worker-channel.test.ts   the channel tools of the main session and the worker
+│   ├── worker-channel-delivery.test.ts the notes in the delivery and in the status
+│   ├── worker-channel-helpers.ts the helpers of the tests of the channel
 │   ├── error-drain.test.ts      the report of the errors at the end of a session
 │   ├── backend.test.ts          the backend of a run and the report binding
 │   ├── claude-run-state.test.ts the native state of a Claude Code run
