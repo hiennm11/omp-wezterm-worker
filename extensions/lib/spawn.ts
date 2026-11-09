@@ -23,7 +23,7 @@ import {
 import { freshRunState, type Job } from "./job.ts";
 import { finalizeJob } from "./lifecycle.ts";
 import { launchPane } from "./pane.ts";
-import { withReportTool } from "./preset.ts";
+import { withWorkerTools } from "./preset.ts";
 import { describeFailure } from "./process.ts";
 import { checkSourcePane } from "./resume-guard.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -66,7 +66,7 @@ export function ompArgv(job: Job, resumeFile: string | null, trailing: string | 
 	if (existsSync(prompt)) args.push("--append-system-prompt", prompt);
 	if (resumeFile) args.push("--resume", resumeFile);
 	if (job.model) args.push("--model", job.model);
-	const tools = withReportTool(job.tools);
+	const tools = withWorkerTools(job.tools);
 	if (tools?.length) args.push("--tools", tools.join(","));
 	// A job without a level asks for no level. OMP then runs the worker at
 	// the default level of OMP.

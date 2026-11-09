@@ -78,7 +78,10 @@ test("preset values start an OMP worker and call values override them", async ()
 			const command = calls.find((args) => args.includes("--tools"));
 			assert.ok(command, "the OMP pane command did not include --tools");
 			const toolsAt = command.indexOf("--tools");
-			assert.equal(command[toolsAt + 1], "read,grep,glob,wezterm_worker_report");
+			assert.equal(
+				command[toolsAt + 1],
+				"read,grep,glob,wezterm_worker_report,wezterm_worker_note_to_main,wezterm_worker_notes_from_main",
+			);
 			const modelAt = command.indexOf("--model");
 			assert.equal(command[modelAt + 1], model);
 			calls.splice(0, calls.length);

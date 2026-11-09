@@ -93,7 +93,31 @@ export function resolveSpawn<T extends SpawnPresetValues>(
 	return merged;
 }
 
-export function withReportTool(tools: string[] | null): string[] | null {
-	if (!tools?.length || tools.includes("wezterm_worker_report")) return tools;
-	return [...tools, "wezterm_worker_report"];
+/**
+ * The tools that every OMP worker needs.
+ *
+ * OMP filters the extension tools with the flag `--tools`. A worker with a
+ * restricted list that omits a tool cannot call it. The reporting contract
+ * names the report tool and the two channel tools, so a worker without them
+ * breaks its own contract.
+ */
+export const WORKER_TOOLS = [
+	"wezterm_worker_report",
+	"wezterm_worker_note_to_main",
+	"wezterm_worker_notes_from_main",
+];
+
+/**
+ * Add the tools that every OMP worker needs to a restricted tool list.
+ *
+ * A null list and an empty list stay unchanged. A list that already holds a
+ * tool keeps it once. The input array stays unchanged.
+ */
+export function withWorkerTools(tools: string[] | null): string[] | null {
+	if (!tools?.length) return tools;
+	const result = [...tools];
+	for (const tool of WORKER_TOOLS) {
+		if (!result.includes(tool)) result.push(tool);
+	}
+	return result;
 }

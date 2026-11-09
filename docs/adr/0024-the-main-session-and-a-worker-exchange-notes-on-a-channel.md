@@ -56,6 +56,12 @@ A worker reads and writes only its own channel. The extension finds the
 channel through the session directory of the worker and the run context. No
 parameter points at another worker.
 
+OMP filters the extension tools with the flag `--tools`. The OMP backend
+adds the two worker channel tools and the report tool to each non-empty
+restricted tool list that omits them, the same rule that ADR 0018 gives for
+the report tool. The reporting contract names the channel tools, so a worker
+that cannot call them breaks its own contract.
+
 The main session uses the existing authority check, the same one that the
 steer tool uses. Another session cannot read or write the channel of a task
 that it does not own. The refusal names the session that holds the task. A

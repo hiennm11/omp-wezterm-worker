@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Preset } from "../extensions/lib/preset.ts";
-import { readPresets, resolveSpawn, withReportTool } from "../extensions/lib/preset.ts";
+import { readPresets, resolveSpawn, withWorkerTools } from "../extensions/lib/preset.ts";
 
 const preset: Preset = {
 	model: "preset-model",
@@ -62,13 +62,23 @@ test("invalid presets are skipped with guidance while valid presets load", () =>
 	assert.match(guidance.join(" "), /empty/);
 });
 
-test("withReportTool adds once and preserves null, empty, and input values", () => {
+test("withWorkerTools adds the worker tools once and preserves null, empty, and input values", () => {
 	const tools = ["read"];
-	assert.deepEqual(withReportTool(tools), ["read", "wezterm_worker_report"]);
+	assert.deepEqual(withWorkerTools(tools), [
+		"read",
+		"wezterm_worker_report",
+		"wezterm_worker_note_to_main",
+		"wezterm_worker_notes_from_main",
+	]);
 	assert.deepEqual(tools, ["read"]);
 	const existing = ["read", "wezterm_worker_report"];
-	assert.equal(withReportTool(existing), existing);
-	assert.equal(withReportTool(null), null);
+	assert.deepEqual(withWorkerTools(existing), [
+		"read",
+		"wezterm_worker_report",
+		"wezterm_worker_note_to_main",
+		"wezterm_worker_notes_from_main",
+	]);
+	assert.equal(withWorkerTools(null), null);
 	const empty: string[] = [];
-	assert.equal(withReportTool(empty), empty);
+	assert.equal(withWorkerTools(empty), empty);
 });

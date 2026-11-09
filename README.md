@@ -190,7 +190,7 @@ Put named presets in `wezterm-worker.json` under `presets`:
 ```
 
 The spawn call parameter wins over the preset. The preset wins over the global configuration. The global configuration wins over the default.
-An OMP worker with a non-empty restricted tool list always gets `wezterm_worker_report` when the list omits it. A resume applies the same rule.
+An OMP worker with a non-empty restricted tool list always gets `wezterm_worker_report`, `wezterm_worker_note_to_main` and `wezterm_worker_notes_from_main` when the list omits them. A resume applies the same rule.
 
 ### The Claude Code backend
 
