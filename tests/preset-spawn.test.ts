@@ -59,6 +59,12 @@ function runtime() {
 				stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p99", tab_id: "w1:t1" } } }),
 				stderr: "",
 			};
+		if (args[0] === "tab" && args[1] === "create")
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { root_pane: { pane_id: "w1:p99", tab_id: "w1:t2" } } }),
+				stderr: "",
+			};
 		if (bin === "powershell") return { code: 0, stdout: "0", stderr: "" };
 		return { code: 0, stdout: "", stderr: "" };
 	};
@@ -102,7 +108,9 @@ test("preset values start an OMP worker and call values override them", async ()
 		assert.equal(missing.isError, true);
 		assert.match(missing.content[0]?.text ?? "", /scout/);
 		assert.equal(
-			calls.some((args) => args[0] === "pane" && args[1] === "split"),
+			calls.some(
+				(args) => (args[1] === "pane" && args[2] === "split") || (args[1] === "tab" && args[2] === "create"),
+			),
 			false,
 		);
 	} finally {
@@ -125,6 +133,40 @@ test("a preset with Claude backend and tools uses the existing tools refusal", a
 		);
 		assert.equal(result.isError, true);
 		assert.match(result.content[0]?.text ?? "", /tools parameter applies to an OMP worker only/);
+	} finally {
+		rt.closeDb();
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("a spawn opens a tab by default and a split on request", async () => {
+	const { rt, dir, calls } = runtime();
+	try {
+		const tool = spawnToolOf(rt);
+		const opened = (name: string, verb: string) => calls.some((args) => args[1] === name && args[2] === verb);
+
+		const byDefault = await tool.execute(
+			"t1",
+			{ task: "Read baseline.txt.", cwd: dir },
+			undefined,
+			undefined,
+			CONTEXT,
+		);
+		assert.notEqual(byDefault.isError, true, byDefault.content[0]?.text);
+		assert.equal(opened("tab", "create"), true);
+		assert.equal(opened("pane", "split"), false);
+
+		calls.splice(0, calls.length);
+		const split = await tool.execute(
+			"t2",
+			{ task: "Read baseline.txt.", cwd: dir, placement: "split" },
+			undefined,
+			undefined,
+			CONTEXT,
+		);
+		assert.notEqual(split.isError, true, split.content[0]?.text);
+		assert.equal(opened("pane", "split"), true);
+		assert.equal(opened("tab", "create"), false);
 	} finally {
 		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });
