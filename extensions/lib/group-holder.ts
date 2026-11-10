@@ -64,7 +64,7 @@ export async function freeEndedHolder(rt: WorkerRuntime, group: ResourceGroup): 
 	if (isActive(job)) return null;
 
 	let state: PaneState | null = null;
-	if (job.paneId !== null && !job.paneClosed) state = await paneState(rt, job.paneId);
+	if (job.paneId !== null && !job.paneClosed) state = await paneState(rt, job);
 
 	const decision = decideHolder(job, state);
 	if (decision === "release") {

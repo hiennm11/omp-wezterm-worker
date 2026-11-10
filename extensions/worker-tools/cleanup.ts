@@ -38,7 +38,7 @@ async function releaseWorktree(rt: WorkerRuntime, job: Job, force: boolean): Pro
 	const path = job.worktreePath;
 	if (!path) return { notes: [], kept: null, keptChanges: [] };
 
-	const pane = job.paneId === null ? "gone" : await paneState(rt, job.paneId);
+	const pane = job.paneId === null ? "gone" : await paneState(rt, job);
 	if (pane === "present") {
 		return {
 			notes: [`worktree kept: close pane ${job.paneId} first, it holds the directory`],
@@ -49,7 +49,7 @@ async function releaseWorktree(rt: WorkerRuntime, job: Job, force: boolean): Pro
 	if (pane === "unknown") {
 		return {
 			notes: [
-				`worktree kept: the Herdr pane list cannot be read, so pane ${job.paneId} may still hold the directory`,
+				`worktree kept: the pane list cannot be read, so pane ${job.paneId} may still hold the directory`,
 			],
 			kept: path,
 			keptChanges: [],

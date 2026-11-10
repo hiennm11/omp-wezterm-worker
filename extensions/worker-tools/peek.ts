@@ -27,11 +27,11 @@ export function registerPeekTool({ pi, rt }: ToolDeps): void {
 			if (job.paneId === null) {
 				return reply(`Worker ${job.id} has no pane.`, { workerId: job.id }, true);
 			}
-			const text = await paneTail(rt, job.paneId, params.lines ?? DEFAULT_LINES);
+			const text = await paneTail(rt, job, params.lines ?? DEFAULT_LINES);
 			const details = {
 				workerId: job.id,
 				paneId: job.paneId,
-				alive: (await paneState(rt, job.paneId)) === "present",
+				alive: (await paneState(rt, job)) === "present",
 			};
 			return reply(text || "No pane text available. The pane may be closed.", details);
 		},

@@ -32,7 +32,7 @@ export function createPaneWatch(rt: WorkerRuntime, job: Job, notify: (job: Job) 
 		if (reading || paneId === null || !isActive(job) || job.pendingStop !== null) return;
 		reading = true;
 		void runMonitorAction(rt, job.id, async () => {
-			const state = await paneState(rt, paneId);
+			const state = await paneState(rt, job);
 			if (!shouldSettleGonePane(job, state)) return;
 			await settleDetachedJob(rt, job);
 			notify(job);

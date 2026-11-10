@@ -18,11 +18,11 @@ import { claudeHerdrRefusal } from "./claude-herdr.ts";
 import { createClaudeRunState } from "./claude-run-state.ts";
 import { checkClaude, claudeArgv, preparePlugin, validatePlugin } from "./claude-session.ts";
 import { createGroup, setGroupWorktree } from "./groups.ts";
-import { launchProgram } from "./herdr-launch.ts";
-import { herdrSessionRefusal } from "./herdr-session.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { finalizeJob } from "./lifecycle.ts";
 import { observeNative } from "./native-ledger.ts";
+import { launchProgram } from "./pane-launch.ts";
+import { paneSessionRefusal } from "./pane-session.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { writeRunContext } from "./worker-context.ts";
 import { createWorktree } from "./worktree.ts";
@@ -73,6 +73,7 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 		closePaneOnFinish: params.closePaneOnFinish ?? config.closePaneOnFinish,
 		backend: "claude",
 		nativeSessionId: params.sessionId,
+		runtime: rt.paneRuntime,
 		...freshRunState(Date.now()),
 	};
 	rt.jobs.set(jobId, job);
@@ -86,8 +87,8 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 		return job;
 	}
 
-	// A pane can only open inside a Herdr session.
-	const sessionRefusal = herdrSessionRefusal(process.env);
+	// A pane can only open inside a Herdr or a WezTerm session.
+	const sessionRefusal = paneSessionRefusal(process.env, config.runtime);
 	if (sessionRefusal) {
 		await finalizeJob(rt, job, "failed", sessionRefusal, null);
 		return job;

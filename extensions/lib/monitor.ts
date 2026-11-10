@@ -143,7 +143,7 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 			const paneId = job.paneId;
 			if (now - (job.startedAt ?? job.createdAt) < STARTUP_GRACE_MS || paneId === null) return;
 			void runMonitorAction(rt, job.id, async () => {
-				if ((await paneState(rt, paneId)) !== "gone") return;
+				if ((await paneState(rt, job)) !== "gone") return;
 				if (listSessionFiles(job.sessionDir).length > 0) return;
 				await finalizeJob(
 					rt,

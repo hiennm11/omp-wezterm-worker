@@ -9,6 +9,7 @@
 import type { RunBackend } from "./backend.ts";
 import type { Placement } from "./config.ts";
 import type { NativeTotals } from "./native-usage.ts";
+import type { PaneRuntime } from "./pane-runtime.ts";
 import type { ThinkingLevel } from "./thinking.ts";
 import type { UsageTotals } from "./usage.ts";
 
@@ -41,6 +42,14 @@ export interface Job {
 	status: JobStatus;
 	/** The id of the pane of the worker. Herdr names it like `w4:p1`. */
 	paneId: string | null;
+	/**
+	 * The pane runtime that started this worker.
+	 *
+	 * A worker keeps the runtime that started it, so a tool that acts on the
+	 * worker later uses the same runtime. A run that the database holds from
+	 * an older version has no value. It is never guessed as Herdr.
+	 */
+	runtime?: PaneRuntime | null;
 	/** The id of the tab of the worker. Herdr names it like `w4:t1`. */
 	tabId: string | null;
 	/** Herdr has no window. The field stays and always holds null. */
