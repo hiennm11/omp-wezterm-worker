@@ -47,9 +47,9 @@ export interface MixedMachine {
 	/** The state directory of the test. */
 	dir: string;
 	/** The panes that the machine holds now. */
-	panes: Set<number>;
+	panes: Set<string>;
 	/** The panes that the extension closed. */
-	killedPanes: number[];
+	killedPanes: string[];
 	/** The programs that the extension started, in order. */
 	programs: string[];
 	/** The number of pane launches. */
@@ -61,7 +61,7 @@ export interface MixedMachine {
 	/** The number of clients of Codex that the extension closed. */
 	clientCloses: number;
 	/** The transcript file of a pane of an OMP worker. */
-	transcripts: Map<number, string>;
+	transcripts: Map<string, string>;
 	/** The path of the Codex program of the machine. */
 	codexBin: string;
 	/** The turn that the thread of Codex still runs. */
@@ -88,13 +88,13 @@ export interface MixedMachine {
 export function mixedMachine(options: HostOptions = {}): MixedMachine {
 	const dir = options.stateDir ?? mkdtempSync(join(tmpdir(), "wt-mixed-"));
 	const state: MachineState = {
-		panes: new Set<number>(),
+		panes: new Set<string>(),
 		killedPanes: [],
 		programs: [],
 		launches: 0,
 		taskkills: [],
 		clientCalls: [],
-		transcripts: new Map<number, string>(),
+		transcripts: new Map<string, string>(),
 		processes: new Map(),
 		clients: [],
 		codexBin: join(dir, "codex.exe"),

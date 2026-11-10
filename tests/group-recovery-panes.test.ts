@@ -17,15 +17,15 @@ import type { PaneState } from "../extensions/lib/pane.ts";
 import { fakeWezterm, heldGroup, jobOf, runtimeFor } from "./group-holder-helpers.ts";
 
 /** A holder that ended and whose pane the user closed by hand. */
-function endedHolder(id: string, paneId: number): Job {
+function endedHolder(id: string, paneId: string): Job {
 	return jobOf(id, { paneId, paneClosed: false, status: "completed" });
 }
 
 test("the recovery frees the group of a holder whose pane is gone", async (t) => {
-	const { exec } = fakeWezterm({ panes: [{ pane_id: 99, tab_id: 1, window_id: 1 }] });
+	const { exec } = fakeWezterm({ panes: [{ pane_id: "w1:p99", tab_id: "w1:t1" }] });
 	const { rt } = runtimeFor(t, exec);
 	const db = rt.openDb();
-	const job = endedHolder("wz-1", 121);
+	const job = endedHolder("wz-1", "w1:p121");
 	const group = heldGroup(rt, db, job);
 
 	const freed = await releaseEndedGroups(rt, [job], 1002);
@@ -37,10 +37,10 @@ test("the recovery frees the group of a holder whose pane is gone", async (t) =>
 });
 
 test("the recovery keeps the group of a holder whose pane is open", async (t) => {
-	const { exec } = fakeWezterm({ panes: [{ pane_id: 121, tab_id: 1, window_id: 1 }] });
+	const { exec } = fakeWezterm({ panes: [{ pane_id: "w1:p121", tab_id: "w1:t1" }] });
 	const { rt } = runtimeFor(t, exec);
 	const db = rt.openDb();
-	const job = endedHolder("wz-1", 121);
+	const job = endedHolder("wz-1", "w1:p121");
 	const group = heldGroup(rt, db, job);
 
 	const freed = await releaseEndedGroups(rt, [job], 1002);
@@ -54,7 +54,7 @@ test("the recovery keeps the group of a holder when the pane list fails", async 
 	const { exec } = fakeWezterm({ panes: [], listCode: 1 });
 	const { rt } = runtimeFor(t, exec);
 	const db = rt.openDb();
-	const job = endedHolder("wz-1", 121);
+	const job = endedHolder("wz-1", "w1:p121");
 	const group = heldGroup(rt, db, job);
 
 	const freed = await releaseEndedGroups(rt, [job], 1002);
@@ -68,7 +68,7 @@ test("the recovery frees the group of a holder whose pane is closed without a pa
 	const { exec, calls } = fakeWezterm({ panes: [], listCode: 1 });
 	const { rt } = runtimeFor(t, exec);
 	const db = rt.openDb();
-	const job = jobOf("wz-1", { paneId: 121, paneClosed: true, status: "completed" });
+	const job = jobOf("wz-1", { paneId: "w1:p121", paneClosed: true, status: "completed" });
 	const group = heldGroup(rt, db, job);
 
 	const freed = await releaseEndedGroups(rt, [job], 1002);
@@ -82,8 +82,8 @@ test("the recovery reads the pane list one time for two groups", async (t) => {
 	const { exec, calls } = fakeWezterm({ panes: [] });
 	const { rt } = runtimeFor(t, exec);
 	const db = rt.openDb();
-	const first = endedHolder("wz-1", 121);
-	const second = endedHolder("wz-2", 122);
+	const first = endedHolder("wz-1", "w1:p121");
+	const second = endedHolder("wz-2", "w1:p122");
 	const firstGroup = heldGroup(rt, db, first);
 	const secondGroup = heldGroup(rt, db, second);
 
@@ -110,9 +110,9 @@ test("the recovery keeps the group of an active holder and of an unknown holder"
 	const { exec } = fakeWezterm({ panes: [] });
 	const { rt } = runtimeFor(t, exec);
 	const db = rt.openDb();
-	const active = jobOf("wz-1", { paneId: 121, paneClosed: false, status: "running" });
+	const active = jobOf("wz-1", { paneId: "w1:p121", paneClosed: false, status: "running" });
 	const activeGroup = heldGroup(rt, db, active);
-	const unknown = endedHolder("wz-2", 122);
+	const unknown = endedHolder("wz-2", "w1:p122");
 	const unknownGroup = heldGroup(rt, db, unknown);
 	rt.jobs.delete(unknown.id);
 
@@ -137,7 +137,7 @@ test("the decision of the recovery names one result for every state of the pane"
 			updatedAt: 1000,
 		},
 	];
-	const job = endedHolder("wz-1", 121);
+	const job = endedHolder("wz-1", "w1:p121");
 	const cases: { state: PaneState | null; released: string[] }[] = [
 		{ state: "gone", released: ["grp-1"] },
 		{ state: "present", released: [] },
@@ -146,8 +146,8 @@ test("the decision of the recovery names one result for every state of the pane"
 	];
 
 	for (const row of cases) {
-		const states = new Map<number, PaneState>();
-		if (row.state !== null) states.set(121, row.state);
+		const states = new Map<string, PaneState>();
+		if (row.state !== null) states.set("w1:p121", row.state);
 		assert.deepEqual(
 			groupsToRelease(groups, [job], states).map((group) => group.id),
 			row.released,

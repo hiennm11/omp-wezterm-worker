@@ -31,7 +31,7 @@ const MAIN_WORKER = "wz-subagent-spawn-main";
 const PROCESS_START = "2026-11-03T00:00:00.000Z";
 
 /** The panes that the fake WezTerm holds. */
-const panes = new Set<number>();
+const panes = new Set<string>();
 
 /** The main agent of the main session. */
 const MAIN_AGENT: AgentDescriptor = { kind: "main", id: "main", name: "main", depth: 0 };
@@ -57,17 +57,24 @@ const exec = async (_bin: string, args: string[]): Promise<RunResult> => {
  * the worker does not end it.
  */
 const wezterm = async (args: string[]): Promise<RunResult> => {
-	if (args[0] === "list") {
-		const listing = [...panes].map((pane_id) => ({ pane_id, tab_id: 1, window_id: 1 }));
-		return { code: 0, stdout: JSON.stringify(listing), stderr: "" };
+	if (args[0] === "pane" && args[1] === "list") {
+		const listing = [...panes].map((pane_id) => ({ pane_id, tab_id: "w1:t1" }));
+		return { code: 0, stdout: JSON.stringify({ result: { panes: listing } }), stderr: "" };
 	}
-	if (args[0] === "split-pane" || args[0] === "spawn") {
-		const paneId = 21;
+	if ((args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create")) {
+		const paneId = "w1:p21";
 		panes.add(paneId);
-		return { code: 0, stdout: String(paneId), stderr: "" };
+		return {
+			code: 0,
+			stdout: JSON.stringify({ result: { pane: { pane_id: paneId, tab_id: "w1:t1" } } }),
+			stderr: "",
+		};
 	}
-	if (args[0] === "kill-pane") {
-		panes.delete(Number(args[args.indexOf("--pane-id") + 1]));
+	if (args[0] === "agent" && args[1] === "start") {
+		return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
+	}
+	if (args[0] === "pane" && args[1] === "close") {
+		panes.delete(args[2]);
 		return { code: 0, stdout: "", stderr: "" };
 	}
 	return { code: 0, stdout: "", stderr: "" };
@@ -111,7 +118,7 @@ function seedRun(stateDir: string): Job {
 		closePaneOnFinish: true,
 		...freshRunState(Date.now()),
 		status: "running",
-		paneId: 20,
+		paneId: "w1:p20",
 		startedAt: Date.now(),
 	};
 	const db = openDatabase(join(stateDir, "lifecycle.db"));
@@ -130,9 +137,9 @@ function seedRun(stateDir: string): Job {
 function loadTwice(stateDir: string): { main: TestHost; subagent: TestHost } {
 	seedRun(stateDir);
 	panes.clear();
-	panes.add(20);
+	panes.add("w1:p20");
 	RUNTIME.exec = exec;
-	RUNTIME.wezterm = wezterm;
+	RUNTIME.herdr = wezterm;
 
 	const main = createHost({ stateDir, cwd: stateDir, sessionId: MAIN, agent: MAIN_AGENT });
 	const subagent = createHost({ stateDir, cwd: stateDir, sessionId: SUBAGENT, agent: SUB_AGENT });

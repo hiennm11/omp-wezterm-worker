@@ -50,7 +50,7 @@ function activeJob(sessionDir: string): Job {
 		closePaneOnFinish: true,
 		...freshRunState(Date.now()),
 		status: "running",
-		paneId: 7,
+		paneId: "w1:p7",
 	};
 }
 

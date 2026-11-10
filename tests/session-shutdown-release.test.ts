@@ -34,13 +34,13 @@ const RUNNING = "wz-shutdown-release-1";
 const ENDED = "wz-shutdown-release-2";
 
 /** The pane of the running worker. The fake WezTerm holds it. */
-const PANE = 21;
+const PANE = "w1:p21";
 
 /** The start time of the process of the test. The ownership row holds it. */
 const PROCESS_START = "2026-11-05T01:00:00.000Z";
 
 /** The panes that the fake WezTerm holds. */
-const panes = new Set<number>();
+const panes = new Set<string>();
 
 /**
  * The answers of the programs that the extension starts.
@@ -60,12 +60,12 @@ const exec = async (_bin: string, args: string[]): Promise<RunResult> => {
  * The pane of the running worker exists until a kill closes it.
  */
 const wezterm = async (args: string[]): Promise<RunResult> => {
-	if (args[0] === "list") {
-		const listing = [...panes].map((pane_id) => ({ pane_id, tab_id: 1, window_id: 1 }));
-		return { code: 0, stdout: JSON.stringify(listing), stderr: "" };
+	if (args[0] === "pane" && args[1] === "list") {
+		const listing = [...panes].map((pane_id) => ({ pane_id, tab_id: "w1:t1" }));
+		return { code: 0, stdout: JSON.stringify({ result: { panes: listing } }), stderr: "" };
 	}
-	if (args[0] === "kill-pane") {
-		panes.delete(Number(args[args.indexOf("--pane-id") + 1]));
+	if (args[0] === "pane" && args[1] === "close") {
+		panes.delete(args[2]);
 		return { code: 0, stdout: "", stderr: "" };
 	}
 	return { code: 0, stdout: "", stderr: "" };
@@ -129,7 +129,7 @@ function makeHost(stateDir: string): TestHost {
 	panes.clear();
 	panes.add(PANE);
 	RUNTIME.exec = exec;
-	RUNTIME.wezterm = wezterm;
+	RUNTIME.herdr = wezterm;
 	return createHost({ stateDir, cwd: stateDir, sessionId: SESSION });
 }
 

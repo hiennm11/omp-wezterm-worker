@@ -207,7 +207,7 @@ async function startServerPane(
 	port: number,
 	report: CodexReportLaunch,
 ): Promise<string | null> {
-	const pane = await openProgramTab({
+	const pane = await openProgramTab(rt, {
 		cwd: job.cwd,
 		command: [
 			binary.bin,

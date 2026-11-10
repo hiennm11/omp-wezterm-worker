@@ -25,13 +25,13 @@ async function startThreeBackends(machine: ReturnType<typeof mixedMachine>) {
 	machine.rt.config.maxLaunchesPerRequest = 0;
 	const spawn = toolOf(machine.rt, registerSpawnTool, "spawn");
 	const ctx = toolCtx(machine.dir, OWN);
-	const started: Record<string, { id: string; paneId: number }> = {};
+	const started: Record<string, { id: string; paneId: string | null }> = {};
 	for (const backend of ["omp", "claude", "codex"]) {
 		const result = await spawn.execute("t1", { task: TASK, cwd: machine.dir, backend }, ctx);
 		assert.equal(result.isError, undefined, `the ${backend} worker did not start`);
 		started[backend] = {
 			id: result.details.workerId as string,
-			paneId: result.details.paneId as number,
+			paneId: result.details.paneId as string,
 		};
 	}
 	return started;
@@ -41,9 +41,9 @@ test("the cancel of the Claude worker closes only the pane of the Claude worker"
 	const machine = mixedMachine({ sessionId: OWN });
 	try {
 		const started = await startThreeBackends(machine);
-		const claudePane = started.claude.paneId;
-		const ompPane = started.omp.paneId;
-		const codexPane = started.codex.paneId;
+		const claudePane = started.claude.paneId ?? "";
+		const ompPane = started.omp.paneId ?? "";
+		const codexPane = started.codex.paneId ?? "";
 		const codexServerPane = machine.rt.jobs.get(started.codex.id)?.codex?.serverPaneId ?? null;
 
 		const cancel = toolOf(machine.rt, registerCancelTool, "cancel");
@@ -77,8 +77,8 @@ test("the cancel of the Codex worker ends no program of the other workers", asyn
 	const machine = mixedMachine({ sessionId: OWN });
 	try {
 		const started = await startThreeBackends(machine);
-		const claudePane = started.claude.paneId;
-		const ompPane = started.omp.paneId;
+		const claudePane = started.claude.paneId ?? "";
+		const ompPane = started.omp.paneId ?? "";
 
 		const cancel = toolOf(machine.rt, registerCancelTool, "cancel");
 		const ctx = toolCtx(machine.dir, OWN);

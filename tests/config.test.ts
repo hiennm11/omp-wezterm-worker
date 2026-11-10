@@ -17,7 +17,7 @@ function configFile(content: unknown): string {
 test("a missing config file leaves the defaults", () => {
 	const cfg = loadConfig(join(tmpdir(), `no-such-config-${Date.now()}.json`), {});
 	assert.equal(cfg.ompBin, DEFAULT_CONFIG.ompBin);
-	assert.equal(cfg.weztermBin, DEFAULT_CONFIG.weztermBin);
+	assert.equal(cfg.herdrBin, DEFAULT_CONFIG.herdrBin);
 	assert.equal(cfg.placement, DEFAULT_CONFIG.placement);
 	assert.equal(cfg.closePaneOnFinish, DEFAULT_CONFIG.closePaneOnFinish);
 });
@@ -25,7 +25,7 @@ test("a missing config file leaves the defaults", () => {
 test("the file overrides the defaults", () => {
 	const file = configFile({
 		ompBin: "/opt/omp",
-		weztermBin: "/opt/wezterm",
+		herdrBin: "/opt/herdr",
 		placement: "tab",
 		stateDir: "/tmp/state",
 		defaultCwd: "/tmp/work",
@@ -41,7 +41,7 @@ test("the file overrides the defaults", () => {
 	});
 	const cfg = loadConfig(file, {});
 	assert.equal(cfg.ompBin, "/opt/omp");
-	assert.equal(cfg.weztermBin, "/opt/wezterm");
+	assert.equal(cfg.herdrBin, "/opt/herdr");
 	assert.equal(cfg.placement, "tab");
 	assert.equal(cfg.stateDir, "/tmp/state");
 	assert.equal(cfg.defaultCwd, "/tmp/work");

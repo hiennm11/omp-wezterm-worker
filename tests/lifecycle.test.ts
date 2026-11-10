@@ -33,7 +33,7 @@ function runningJob(): Job {
 		closePaneOnFinish: true,
 		...freshRunState(0),
 		status: "running",
-		paneId: 7,
+		paneId: "w1:p7",
 	};
 }
 

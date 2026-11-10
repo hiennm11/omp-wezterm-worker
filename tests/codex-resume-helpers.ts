@@ -59,20 +59,48 @@ export async function endSource(fake: CodexFake, job: Job): Promise<void> {
 }
 
 /**
- * A fake WezTerm that records the program of every pane that it starts.
+ * A fake Herdr that records the program of every pane that it starts.
  *
  * The runtime of the test has no pane list, so a resume of a run without a
  * pane goes on.
  */
 export function fakeWezterm(): { exec: RunFn; programs: string[] } {
 	const programs: string[] = [];
+	/* The extension refuses a spawn outside a Herdr session. */
+	process.env.HERDR_ENV = "1";
 	const exec: RunFn = async (bin, args) => {
-		if (args.includes("split-pane") || args.includes("spawn")) {
-			programs.push(args[args.indexOf("--") + 1] ?? bin);
-			return { code: 0, stdout: "99", stderr: "" };
+		if (args[0] === "agent" && args[1] === "start") {
+			const dash = args.indexOf("--");
+			programs.push(dash < 0 ? "" : args[dash + 1]);
+			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
 		}
-		if (args.includes("list")) return { code: 0, stdout: "[]", stderr: "" };
-		if (args.includes("get-text")) return { code: 0, stdout: "bypass permissions on", stderr: "" };
+		if (args[0] === "pane" && args[1] === "split") {
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p99", tab_id: "w1:t1" } } }),
+				stderr: "",
+			};
+		}
+		if (args[0] === "tab" && args[1] === "create") {
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { root_pane: { pane_id: "w1:p99", tab_id: "w1:t1" } } }),
+				stderr: "",
+			};
+		}
+		if (args[0] === "pane" && args[1] === "list") {
+			return { code: 0, stdout: JSON.stringify({ result: { panes: [] } }), stderr: "" };
+		}
+		if (args[0] === "layout:apply") {
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { layout: { root: { pane_id: "w1:p99", tab_id: "w1:t1" } } } }),
+				stderr: "",
+			};
+		}
+		if (args[0] === "pane" && args[1] === "read") {
+			return { code: 0, stdout: "bypass permissions on", stderr: "" };
+		}
 		if (bin === "powershell") return { code: 0, stdout: "0", stderr: "" };
 		return { code: 0, stdout: "", stderr: "" };
 	};

@@ -30,7 +30,7 @@ const job: Job = {
 	closePaneOnFinish: true,
 	...freshRunState(1),
 	status: "running",
-	paneId: 7,
+	paneId: "w1:p7",
 };
 
 function owner(overrides: Partial<Ownership> = {}): Ownership {

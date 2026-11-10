@@ -44,13 +44,13 @@ test("cancelling a run creates no result event", async (t) => {
 
 test("a reader that sees the finished status of a run finds its result event", async (t) => {
 	const { rt } = runtimeFor(t, fakeWezterm().exec);
-	const job = jobOf("result-status-gap", { status: "running", paneId: 7, closePaneOnFinish: true });
+	const job = jobOf("result-status-gap", { status: "running", paneId: "w1:p7", closePaneOnFinish: true });
 	rt.jobs.set(job.id, job);
 	/* The pane kill is the first await of finalizeJob. A cleanup that runs
 	   there must already find the event. */
 	let seenAtKill: { status: string; events: string[] } | null = null;
-	rt.wezterm = async (args) => {
-		if (args.includes("kill-pane") && seenAtKill === null) {
+	rt.herdr = async (args) => {
+		if (args[0] === "pane" && args[1] === "close" && seenAtKill === null) {
 			seenAtKill = { status: job.status, events: eventsOfRun(rt.openDb(), job.id).map((event) => event.id) };
 		}
 		return { code: 0, stdout: "", stderr: "" };

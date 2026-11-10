@@ -57,7 +57,7 @@ export interface TestHost {
 	commands: string[];
 	stateDir: string;
 	/** The panes that this host created. */
-	panes: Set<number>;
+	panes: Set<string>;
 	/** The ids of the workers that this host started or resumed. */
 	workers: Set<string>;
 	/** Run every handler for one event. */
@@ -89,9 +89,9 @@ export function removeDir(path: string): void {
 }
 
 /** Close a pane. A pane that is already gone is not an error. */
-export function closePane(paneId: number): void {
+export function closePane(paneId: string): void {
 	try {
-		execFileSync("wezterm", ["cli", "kill-pane", "--pane-id", String(paneId)], {
+		execFileSync("herdr", ["pane", "close", paneId], {
 			stdio: "ignore",
 			windowsHide: true,
 		});
@@ -131,15 +131,15 @@ export function workerProcessesRunning(directories: Iterable<string> = []): bool
 	}
 }
 
-/** The pane ids that WezTerm reports now. */
-export function currentPanes(): number[] {
+/** The pane ids that Herdr reports now. */
+export function currentPanes(): string[] {
 	try {
-		const out = execFileSync("wezterm", ["cli", "list", "--format", "json"], {
+		const out = execFileSync("herdr", ["pane", "list"], {
 			encoding: "utf8",
 			windowsHide: true,
 		});
-		const panes = JSON.parse(out) as Array<{ pane_id: number }>;
-		return panes.map((p) => p.pane_id);
+		const reply = JSON.parse(out) as { result?: { panes?: Array<{ pane_id: string }> } };
+		return (reply.result?.panes ?? []).map((p) => p.pane_id);
 	} catch {
 		return [];
 	}
@@ -151,7 +151,7 @@ export function currentPanes(): number[] {
  * The worker process needs a moment to exit after its pane closes. The
  * directory that the worker used cannot be removed until then.
  */
-export async function closePanesAndWait(paneIds: Iterable<number>, timeoutMs = 30_000): Promise<void> {
+export async function closePanesAndWait(paneIds: Iterable<string>, timeoutMs = 30_000): Promise<void> {
 	const ids = [...paneIds];
 	for (const paneId of ids) closePane(paneId);
 	const deadline = Date.now() + timeoutMs;
@@ -215,7 +215,7 @@ export function createHost(options: {
 			// Remember every pane the extension created, so the cleanup can
 			// close it. A worker process holds its directory open.
 			if (name === "wezterm_spawn_worker" || name === "wezterm_worker_resume") {
-				const paneId = detailNumber(result.details, "paneId");
+				const paneId = detailString(result.details, "paneId");
 				if (paneId !== null) host.panes.add(paneId);
 				const workerId = detailString(result.details, "workerId");
 				if (workerId !== null) host.workers.add(workerId);

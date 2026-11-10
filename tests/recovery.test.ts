@@ -59,7 +59,7 @@ test("a crash after the pane creation recovers the worker without a duplicate", 
 		markIssued(db, "att-1", 1001);
 		const outcomes = reconcileAttempts(
 			rt,
-			[{ jobId: "wz-1", paneId: 42, sessionId: "s-1", sessionFile: "C:/state/wz-1.jsonl" }],
+			[{ jobId: "wz-1", paneId: "w1:p42", sessionId: "s-1", sessionFile: "C:/state/wz-1.jsonl" }],
 			"session-new",
 			1002,
 		);
@@ -118,7 +118,7 @@ test("the attempt of a task of another session stays issued", () => {
 		markIssued(db, "att-1", 1001);
 		const outcomes = reconcileAttempts(
 			rt,
-			[{ jobId: "wz-1", paneId: 42, sessionId: "s-1", sessionFile: "C:/state/wz-1.jsonl" }],
+			[{ jobId: "wz-1", paneId: "w1:p42", sessionId: "s-1", sessionFile: "C:/state/wz-1.jsonl" }],
 			"session-new",
 			1002,
 		);

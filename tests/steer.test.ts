@@ -42,7 +42,7 @@ function worker(sessionDir: string): Job {
 		closePaneOnFinish: true,
 		...freshRunState(0),
 		status: "running",
-		paneId: 7,
+		paneId: "w1:p7",
 	};
 }
 
@@ -98,7 +98,7 @@ test("a steer call sends the instruction once", async () => {
 	const dir = sessionDir();
 	const f = fake();
 	try {
-		const outcome = await steerWorker(f.rt, worker(dir), 7, INSTRUCTION, { confirmDelayMs: 1 });
+		const outcome = await steerWorker(f.rt, worker(dir), "w1:p7", INSTRUCTION, { confirmDelayMs: 1 });
 		assert.equal(f.sends.length, 1, "the extension sent the instruction more than once");
 		assert.ok(f.sends[0]?.startsWith(INSTRUCTION), "the pane did not receive the instruction");
 		assert.equal(outcome.attempts, 1);
@@ -112,7 +112,7 @@ test("the transcript confirms the delivery when it records the instruction", asy
 	const dir = sessionDir();
 	const f = fake(() => appendUserMessage(dir, INSTRUCTION));
 	try {
-		const outcome = await steerWorker(f.rt, worker(dir), 7, INSTRUCTION, { confirmDelayMs: 1 });
+		const outcome = await steerWorker(f.rt, worker(dir), "w1:p7", INSTRUCTION, { confirmDelayMs: 1 });
 		assert.equal(outcome.ok, true, `the delivery was not confirmed: ${outcome.error}`);
 		assert.equal(outcome.error, null);
 		assert.equal(f.sends.length, 1, "the extension sent the instruction more than once");
@@ -126,7 +126,7 @@ test("a message with other text does not confirm the delivery", async () => {
 	const dir = sessionDir();
 	const f = fake(() => appendUserMessage(dir, "an unrelated message"));
 	try {
-		const outcome = await steerWorker(f.rt, worker(dir), 7, INSTRUCTION, { confirmDelayMs: 1 });
+		const outcome = await steerWorker(f.rt, worker(dir), "w1:p7", INSTRUCTION, { confirmDelayMs: 1 });
 		assert.equal(outcome.ok, false, "an unrelated message confirmed the delivery");
 		assert.match(outcome.error ?? "", /unconfirmed/);
 		assert.equal(f.sends.length, 1, "the extension resent the instruction");
@@ -141,7 +141,7 @@ test("an instruction from before the send does not confirm the delivery", async 
 	writeTranscript(dir, [INSTRUCTION]);
 	const f = fake();
 	try {
-		const outcome = await steerWorker(f.rt, worker(dir), 7, INSTRUCTION, { confirmDelayMs: 1 });
+		const outcome = await steerWorker(f.rt, worker(dir), "w1:p7", INSTRUCTION, { confirmDelayMs: 1 });
 		assert.equal(outcome.ok, false, "an old message with the same text confirmed the delivery");
 		assert.match(outcome.error ?? "", /unconfirmed/);
 		assert.equal(f.sends.length, 1, "the extension resent the instruction");
@@ -156,7 +156,7 @@ test("the instruction is confirmed next to an unrelated message", async () => {
 	writeTranscript(dir, ["an earlier message"]);
 	const f = fake(() => appendUserMessage(dir, INSTRUCTION));
 	try {
-		const outcome = await steerWorker(f.rt, worker(dir), 7, INSTRUCTION, { confirmDelayMs: 1 });
+		const outcome = await steerWorker(f.rt, worker(dir), "w1:p7", INSTRUCTION, { confirmDelayMs: 1 });
 		assert.equal(outcome.ok, true, `the delivery was not confirmed: ${outcome.error}`);
 	} finally {
 		f.cleanup();
@@ -168,7 +168,7 @@ test("a delivery that no message confirms stays unconfirmed and is not sent agai
 	const dir = sessionDir();
 	const f = fake();
 	try {
-		const outcome = await steerWorker(f.rt, worker(dir), 7, INSTRUCTION, { confirmDelayMs: 1 });
+		const outcome = await steerWorker(f.rt, worker(dir), "w1:p7", INSTRUCTION, { confirmDelayMs: 1 });
 		assert.equal(outcome.ok, false, "the delivery was confirmed without a message");
 		assert.match(outcome.error ?? "", /unconfirmed/);
 		assert.equal(f.sends.length, 1, "the extension resent the instruction");
@@ -184,7 +184,7 @@ test("a refused send is not a delivery", async () => {
 	const exec: RunFn = async () => ({ code: 1, stdout: "", stderr: "pane not found" });
 	const rt = createRuntime(exec);
 	try {
-		const outcome = await steerWorker(rt, worker(dir), 7, INSTRUCTION, { confirmDelayMs: 1 });
+		const outcome = await steerWorker(rt, worker(dir), "w1:p7", INSTRUCTION, { confirmDelayMs: 1 });
 		assert.equal(outcome.ok, false);
 		assert.match(outcome.error ?? "", /refused/);
 	} finally {

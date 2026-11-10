@@ -77,7 +77,7 @@ export function makeJob(dir: string, id: string): Job {
 		closePaneOnFinish: true,
 		...freshRunState(0),
 		status: "running",
-		paneId: 3,
+		paneId: "w1:p3",
 	} as Job;
 }
 

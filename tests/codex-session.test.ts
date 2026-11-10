@@ -80,7 +80,7 @@ function codexJob(sessionDir: string): Job {
 		closePaneOnFinish: true,
 		...freshRunState(Date.now()),
 		status: "running",
-		paneId: 3,
+		paneId: "w1:p3",
 		backend: "codex",
 		nativeSessionId: "thread-1",
 	} as Job;

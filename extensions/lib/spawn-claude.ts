@@ -1,7 +1,7 @@
 /**
  * Starting a Claude Code worker.
  *
- * A Claude worker runs a real interactive Claude Code session in a WezTerm
+ * A Claude worker runs a real interactive Claude Code session in a Herdr
  * pane. The session loads a session-scoped mod. The mod carries the report
  * tool and the command bridge.
  *

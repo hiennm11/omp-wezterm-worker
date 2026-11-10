@@ -75,7 +75,7 @@ test("the cleanup of a running native run refuses", async () => {
 	try {
 		rt.sessionId = OWN;
 		seedOwner(rt, "wz-1", OWN);
-		const job = nativeJob(sessionDir, { status: "running", paneId: 7 });
+		const job = nativeJob(sessionDir, { status: "running", paneId: "w1:p7" });
 		rt.jobs.set(job.id, job);
 
 		const result = await toolOf(rt, registerCleanupTool, "cleanup").execute("t1", { workerId: "wz-1" });
@@ -96,7 +96,7 @@ test("the cleanup of a native run keeps the worktree while its pane is open", as
 		seedOwner(rt, "wz-1", OWN);
 		const worktreePath = join(dir, "worktrees", "wz-1");
 		mkdirSync(worktreePath, { recursive: true });
-		const job = nativeJob(sessionDir, { paneId: 7, worktreePath, worktreeBranch: "omp/worker/wz-1" });
+		const job = nativeJob(sessionDir, { paneId: "w1:p7", worktreePath, worktreeBranch: "omp/worker/wz-1" });
 		rt.jobs.set(job.id, job);
 
 		const result = await toolOf(rt, registerCleanupTool, "cleanup").execute("t1", { workerId: "wz-1" });

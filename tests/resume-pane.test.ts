@@ -22,11 +22,12 @@ import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts"
 import { resumeWorker } from "../extensions/lib/spawn.ts";
 
 /** The reason that a resume refuses a source run whose pane is still open. */
-const PRESENT_REFUSAL = "The pane 42 of the source run is still open. Close pane 42, then resume again.";
+const PRESENT_REFUSAL =
+	"The pane w1:p42 of the source run is still open. Close pane w1:p42, then resume again.";
 
 /** The reason that a resume refuses a source run whose pane list cannot be read. */
 const UNKNOWN_REFUSAL =
-	"The pane list cannot be read, so the state of pane 42 is unknown. Try the resume again.";
+	"The pane list cannot be read, so the state of pane w1:p42 is unknown. Try the resume again.";
 
 /**
  * The guard module.
@@ -75,7 +76,7 @@ function sourceJob(id: string, sessionDir: string, overrides: Partial<Job> = {})
 		closePaneOnFinish: true,
 		...freshRunState(0),
 		status: "completed",
-		paneId: 42,
+		paneId: "w1:p42",
 		...overrides,
 	};
 }
@@ -220,7 +221,7 @@ test("a resume refuses a completed source run whose pane is still open", async (
 		const source = sourceJob("wz-source-5", sessionDir, {
 			status: "completed",
 			closePaneOnFinish: false,
-			paneId: 42,
+			paneId: "w1:p42",
 		});
 		createGroup(db, "grp-wz-source-5", sessionDir, 1000);
 
@@ -272,15 +273,15 @@ test("a native resume refuses a source run whose pane is still open", async () =
 
 test("the refusal of a source pane names the pane and asks for its close", async () => {
 	const { sourcePaneRefusal } = await loadGuard();
-	assert.equal(sourcePaneRefusal("present", 42), PRESENT_REFUSAL);
+	assert.equal(sourcePaneRefusal("present", "w1:p42"), PRESENT_REFUSAL);
 });
 
 test("the refusal of an unreadable pane list asks for a retry", async () => {
 	const { sourcePaneRefusal } = await loadGuard();
-	assert.equal(sourcePaneRefusal("unknown", 42), UNKNOWN_REFUSAL);
+	assert.equal(sourcePaneRefusal("unknown", "w1:p42"), UNKNOWN_REFUSAL);
 });
 
 test("a gone pane refuses no resume", async () => {
 	const { sourcePaneRefusal } = await loadGuard();
-	assert.equal(sourcePaneRefusal("gone", 42), null);
+	assert.equal(sourcePaneRefusal("gone", "w1:p42"), null);
 });

@@ -33,9 +33,13 @@ function setup(t: TestContext, ownerId = OLD_SESSION) {
 	});
 	rt.config.stateDir = stateDir;
 	rt.processStartedAt = PROCESS_START;
-	rt.wezterm = async (args): Promise<RunResult> =>
-		args[0] === "list"
-			? { code: 0, stdout: JSON.stringify([{ pane_id: 21, tab_id: 1, window_id: 1 }]), stderr: "" }
+	rt.herdr = async (args): Promise<RunResult> =>
+		args[0] === "pane" && args[1] === "list"
+			? {
+					code: 0,
+					stdout: JSON.stringify({ result: { panes: [{ pane_id: "w1:p21", tab_id: "w1:t1" }] } }),
+					stderr: "",
+				}
 			: { code: 0, stdout: "", stderr: "" };
 	rt.sessionLeaseHeld = async () => false;
 	const job: Job = {
@@ -56,7 +60,7 @@ function setup(t: TestContext, ownerId = OLD_SESSION) {
 		closePaneOnFinish: true,
 		...freshRunState(Date.now()),
 		status: "running",
-		paneId: 21,
+		paneId: "w1:p21",
 		startedAt: Date.now(),
 		finishedAt: null,
 	};
@@ -90,7 +94,7 @@ test("a session branch releases old tasks and binds the new id", async (t) => {
 	RUNTIME.config.stateDir = stateDir;
 	RUNTIME.processStartedAt = PROCESS_START;
 	RUNTIME.exec = rt.exec;
-	RUNTIME.wezterm = rt.wezterm;
+	RUNTIME.herdr = rt.herdr;
 	RUNTIME.sessionLeaseHeld = async () => false;
 	const db = openDatabase(join(stateDir, "lifecycle.db"));
 	persistRuns(db, OLD_SESSION, [job]);

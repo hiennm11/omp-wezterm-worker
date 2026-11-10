@@ -61,7 +61,7 @@ test("the holder of an ended run frees its group when its pane is gone", async (
 	const { exec } = fakeWezterm({ panes: [] });
 	const { rt } = runtimeFor(t, exec);
 	const db = rt.openDb();
-	const job = jobOf("wz-1", { paneId: 7, paneClosed: false });
+	const job = jobOf("wz-1", { paneId: "w1:p7", paneClosed: false });
 	const group = heldGroup(rt, db, job);
 
 	const result = await freeEndedHolder(rt, group);
@@ -74,17 +74,17 @@ test("the holder of an ended run frees its group when its pane is gone", async (
 
 test("the holder of an ended run keeps its group while its pane is open", async (t) => {
 	const { freeEndedHolder } = await loadHolder();
-	const { exec } = fakeWezterm({ panes: [{ pane_id: 7, tab_id: 1, window_id: 1 }] });
+	const { exec } = fakeWezterm({ panes: [{ pane_id: "w1:p7", tab_id: "w1:t1" }] });
 	const { rt } = runtimeFor(t, exec);
 	const db = rt.openDb();
-	const job = jobOf("wz-1", { paneId: 7, paneClosed: false });
+	const job = jobOf("wz-1", { paneId: "w1:p7", paneClosed: false });
 	const group = heldGroup(rt, db, job);
 
 	const result = await freeEndedHolder(rt, group);
 
 	assert.equal(
 		result,
-		"The resources of this task are held by run wz-1. Its pane 7 is still open. Close pane 7, then try again.",
+		"The resources of this task are held by run wz-1. Its pane w1:p7 is still open. Close pane w1:p7, then try again.",
 	);
 	assert.equal(readGroup(db, group.id)?.executionHolder, "wz-1");
 	assert.equal(job.paneClosed, false);
@@ -95,7 +95,7 @@ test("the holder of an ended run keeps its group when the pane list fails", asyn
 	const { exec } = fakeWezterm({ panes: [], listCode: 1 });
 	const { rt } = runtimeFor(t, exec);
 	const db = rt.openDb();
-	const job = jobOf("wz-1", { paneId: 7, paneClosed: false });
+	const job = jobOf("wz-1", { paneId: "w1:p7", paneClosed: false });
 	const group = heldGroup(rt, db, job);
 
 	const result = await freeEndedHolder(rt, group);
@@ -110,7 +110,7 @@ test("an active holder keeps its group", async (t) => {
 	const { exec } = fakeWezterm({ panes: [] });
 	const { rt } = runtimeFor(t, exec);
 	const db = rt.openDb();
-	const job = jobOf("wz-1", { status: "running", paneId: 7, paneClosed: false });
+	const job = jobOf("wz-1", { status: "running", paneId: "w1:p7", paneClosed: false });
 	const group = heldGroup(rt, db, job);
 
 	const result = await freeEndedHolder(rt, group);
@@ -143,7 +143,7 @@ test("a resume takes the group of a source run whose pane was closed by hand", a
 	const source = jobOf("wz-src", {
 		sessionDir,
 		sessionFile: join(sessionDir, "a.jsonl"),
-		paneId: 7,
+		paneId: "w1:p7",
 		paneClosed: false,
 		status: "completed",
 	});
@@ -158,13 +158,13 @@ test("a resume takes the group of a source run whose pane was closed by hand", a
 });
 
 test("a resume refuses while the pane of the holder is open", async (t) => {
-	const { exec, calls } = fakeWezterm({ panes: [{ pane_id: 7, tab_id: 1, window_id: 1 }] });
+	const { exec, calls } = fakeWezterm({ panes: [{ pane_id: "w1:p7", tab_id: "w1:t1" }] });
 	const { rt, dir } = runtimeFor(t, exec);
 	const db = rt.openDb();
 	const sessionDir = sessionDirOf(dir, "wz-src");
 	createGroup(db, "grp-wz-src", sessionDir, 1000);
 	// The holder is another run of the task. Its pane is still open.
-	seedHolder(rt, "grp-wz-src", sessionDir, "wz-hold", 7);
+	seedHolder(rt, "grp-wz-src", sessionDir, "wz-hold", "w1:p7");
 	const source = jobOf("wz-src", {
 		sessionDir,
 		sessionFile: join(sessionDir, "a.jsonl"),
@@ -178,7 +178,7 @@ test("a resume refuses while the pane of the holder is open", async (t) => {
 	assert.equal(resumed.status, "failed");
 	assert.equal(
 		resumed.error,
-		"The resources of this task are held by run wz-hold. Its pane 7 is still open. Close pane 7, then try again.",
+		"The resources of this task are held by run wz-hold. Its pane w1:p7 is still open. Close pane w1:p7, then try again.",
 	);
 	assert.equal(readGroup(db, "grp-wz-src")?.executionHolder, "wz-hold");
 	assert.equal(launchedPane(calls), false);
@@ -187,7 +187,7 @@ test("a resume refuses while the pane of the holder is open", async (t) => {
 test("the cleanup of a task whose holder ended with its pane gone goes on", async (t) => {
 	const { exec } = fakeWezterm({ panes: [] });
 	const { rt, sessionDir } = taskWith(t, exec);
-	seedHolder(rt, "grp-wz-task", sessionDir, "wz-hold", 7);
+	seedHolder(rt, "grp-wz-task", sessionDir, "wz-hold", "w1:p7");
 	seedTarget(rt, sessionDir, "wz-task");
 
 	const result = await cleanupTool(rt).execute("t1", { workerId: "wz-task" });
@@ -198,9 +198,9 @@ test("the cleanup of a task whose holder ended with its pane gone goes on", asyn
 });
 
 test("the cleanup refuses and names the pane while the pane of the holder is open", async (t) => {
-	const { exec } = fakeWezterm({ panes: [{ pane_id: 7, tab_id: 1, window_id: 1 }] });
+	const { exec } = fakeWezterm({ panes: [{ pane_id: "w1:p7", tab_id: "w1:t1" }] });
 	const { rt, db, sessionDir } = taskWith(t, exec);
-	seedHolder(rt, "grp-wz-task", sessionDir, "wz-hold", 7);
+	seedHolder(rt, "grp-wz-task", sessionDir, "wz-hold", "w1:p7");
 	seedTarget(rt, sessionDir, "wz-task");
 
 	const result = await cleanupTool(rt).execute("t1", { workerId: "wz-task" });
@@ -208,7 +208,7 @@ test("the cleanup refuses and names the pane while the pane of the holder is ope
 	assert.equal(result.isError, true);
 	assert.equal(
 		result.content[0]?.text,
-		"The resources of this task are held by run wz-hold. Its pane 7 is still open. Close pane 7, then try again.",
+		"The resources of this task are held by run wz-hold. Its pane w1:p7 is still open. Close pane w1:p7, then try again.",
 	);
 	assert.equal(result.details.pane, 7);
 	assert.equal(result.details.executionHolder, "wz-hold");

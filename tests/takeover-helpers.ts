@@ -118,7 +118,7 @@ export function makeJob(dir: string, id: string, overrides: Partial<Job> = {}): 
 		closePaneOnFinish: true,
 		...freshRunState(0),
 		status: "running",
-		paneId: 3,
+		paneId: "w1:p3",
 		...overrides,
 	} as Job;
 }

@@ -38,13 +38,13 @@ export function jobOf(id: string, overrides: Partial<Job> = {}): Job {
 		closePaneOnFinish: false,
 		...freshRunState(0),
 		status: "completed",
-		paneId: 7,
+		paneId: "w1:p7",
 		...overrides,
 	};
 }
 
 /**
- * The fake WezTerm of the tests.
+ * The fake Herdr of the tests.
  *
  * The pane list answers with the given panes. The launch answers with a pane
  * id. The calls are recorded, so a test can see what ran.
@@ -54,16 +54,29 @@ export function fakeWezterm(options: { panes?: unknown; listCode?: number } = {}
 	calls: string[][];
 } {
 	const calls: string[][] = [];
+	/* The extension refuses a spawn outside a Herdr session. A test that
+	   fakes Herdr stands for a session, so the variable is set here. */
+	process.env.HERDR_ENV = "1";
 	const exec: RunFn = async (bin, args) => {
 		calls.push(args);
-		if (args.includes("list")) {
+		if (args[0] === "pane" && args[1] === "list") {
 			const code = options.listCode ?? 0;
-			return { code, stdout: code === 0 ? JSON.stringify(options.panes ?? []) : "", stderr: "" };
+			const panes = options.panes ?? [];
+			const reply = { result: { panes } };
+			return { code, stdout: code === 0 ? JSON.stringify(reply) : "", stderr: "" };
 		}
-		if (args.includes("split-pane") || args.includes("spawn")) {
-			return { code: 0, stdout: "99", stderr: "" };
+		if (args[0] === "pane" && args[1] === "split") {
+			return { code: 0, stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p9", tab_id: "w1:t1" } } }), stderr: "" };
 		}
-		if (args.includes("get-text")) return { code: 0, stdout: "bypass permissions on", stderr: "" };
+		if (args[0] === "tab" && args[1] === "create") {
+			return { code: 0, stdout: JSON.stringify({ result: { root_pane: { pane_id: "w1:p9", tab_id: "w1:t2" } } }), stderr: "" };
+		}
+		if (args[0] === "agent" && args[1] === "start") {
+			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
+		}
+		if (args[0] === "pane" && args[1] === "read") {
+			return { code: 0, stdout: "bypass permissions on", stderr: "" };
+		}
 		if (bin === "powershell") return { code: 0, stdout: "0", stderr: "" };
 		return { code: 0, stdout: "", stderr: "" };
 	};
@@ -72,7 +85,10 @@ export function fakeWezterm(options: { panes?: unknown; listCode?: number } = {}
 
 /** True when a call started a pane. */
 export function launchedPane(calls: string[][]): boolean {
-	return calls.some((args) => args.includes("split-pane") || args.includes("spawn"));
+	return calls.some(
+		(args) =>
+			(args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"),
+	);
 }
 
 /** A tool that the fake host records. */
@@ -157,7 +173,7 @@ export function seedHolder(
 	groupId: string,
 	sessionDir: string,
 	id: string,
-	paneId: number | null,
+	paneId: string | null,
 ): void {
 	reserveExecution(rt.openDb(), groupId, id, 1001);
 	const holder = jobOf(id, { sessionDir, paneId, paneClosed: false, status: "completed" });

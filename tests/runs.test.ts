@@ -74,7 +74,7 @@ test("a finished run comes back as history", () => {
 test("a run that was active comes back as alive", () => {
 	const { db, dir } = freshDb();
 	try {
-		persistRuns(db, null, [job({ id: "wz-live", status: "running", paneId: 3 })]);
+		persistRuns(db, null, [job({ id: "wz-live", status: "running", paneId: "w1:p3" })]);
 		const { finished, alive } = loadRuns(db);
 		assert.equal(finished.length, 0);
 		assert.equal(alive.length, 1);
@@ -90,7 +90,7 @@ test("a pending stop survives the round trip", () => {
 	const { db, dir } = freshDb();
 	try {
 		const pendingStop = { status: "failed" as const, error: "x", failure: "y" };
-		persistRuns(db, null, [job({ id: "wz-pending", status: "running", paneId: 3, pendingStop })]);
+		persistRuns(db, null, [job({ id: "wz-pending", status: "running", paneId: "w1:p3", pendingStop })]);
 		const { alive } = loadRuns(db);
 		assert.deepEqual(alive.find((j) => j.id === "wz-pending")?.pendingStop, pendingStop);
 	} finally {

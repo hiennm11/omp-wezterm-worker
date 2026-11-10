@@ -11,9 +11,14 @@
  * A leaf of type `pane` holds the `command` as an array. Every element stays
  * one argv element, so a program with spaces, quotes and `$(...)` keeps its
  * shape.
+ *
+ * The seam of the runtime carries the request, so a test replaces it and
+ * needs no Herdr server.
  */
 
 import net from "node:net";
+
+import type { RunResult } from "./process.ts";
 
 /** The variable that holds the path of the socket of the session. */
 const SOCKET_PATH_VAR = "HERDR_SOCKET_PATH";
@@ -21,15 +26,8 @@ const SOCKET_PATH_VAR = "HERDR_SOCKET_PATH";
 /** How long the client waits for the reply of the server. */
 const REPLY_TIMEOUT_MS = 15_000;
 
-/** A pane of a layout. */
-export interface LayoutPane {
-	/** The id of the pane, like `w4:p1`. */
-	paneId: string;
-	/** The id of the tab of the pane, like `w4:t1`. */
-	tabId: string;
-	/** The id of the workspace of the pane. */
-	workspaceId: string;
-}
+/** The verb that carries a layout request through the seam of the runtime. */
+export const LAYOUT_APPLY_VERB = "layout:apply";
 
 /**
  * The path of the socket of the session, or null when the process runs
@@ -57,17 +55,17 @@ function pipeName(socketPath: string): string {
  * The protocol is newline-delimited JSON. The server answers one request per
  * connection, so the client opens one connection for one call.
  */
-function send(socketPath: string, request: unknown): Promise<unknown> {
-	const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+function send(socketPath: string, request: unknown): Promise<string> {
+	const { promise, resolve, reject } = Promise.withResolvers<string>();
 	const socket = net.connect(pipeName(socketPath));
 	let buffer = "";
-	const finish = (error: Error | null, value: unknown): void => {
+	const finish = (error: Error | null, value: string): void => {
 		socket.destroy();
 		if (error) reject(error);
 		else resolve(value);
 	};
 	socket.setTimeout(REPLY_TIMEOUT_MS, () => {
-		finish(new Error("the Herdr server did not answer in time."), null);
+		finish(new Error("the Herdr server did not answer in time."), "");
 	});
 	socket.on("connect", () => {
 		socket.write(`${JSON.stringify(request)}\n`);
@@ -76,13 +74,9 @@ function send(socketPath: string, request: unknown): Promise<unknown> {
 		buffer += chunk.toString("utf8");
 		const end = buffer.indexOf("\n");
 		if (end < 0) return;
-		try {
-			finish(null, JSON.parse(buffer.slice(0, end)));
-		} catch (e) {
-			finish(e instanceof Error ? e : new Error(String(e)), null);
-		}
+		finish(null, buffer.slice(0, end));
 	});
-	socket.on("error", (e: Error) => finish(e, null));
+	socket.on("error", (e: Error) => finish(e, ""));
 	return promise;
 }
 
@@ -92,60 +86,35 @@ function send(socketPath: string, request: unknown): Promise<unknown> {
  * The reply comes from a program, so the shape is unknown. The function
  * narrows the value instead of trusting it.
  */
-function memberOf(value: unknown, key: string): unknown {
+export function memberOf(value: unknown, key: string): unknown {
 	if (typeof value !== "object" || value === null) return null;
 	if (!(key in value)) return null;
 	return (value as Record<string, unknown>)[key];
 }
 
 /**
- * Open a new tab with one pane that runs a program.
+ * Run a layout request against the server of Herdr.
  *
- * The function returns the pane, or null when the server refused the call.
- * The call never names a `tab_id`, so the tab of the main session stays.
+ * The parameters hold the tree of the layout. The function returns the
+ * answer of the server in the shape of a program answer, so the seam of the
+ * runtime stays the same for every verb.
  */
-export async function applyPaneLayout(options: {
-	/** The working directory of the pane. */
-	cwd: string;
-	/** The program and its arguments. Every element stays one argv element. */
-	command: string[];
-	/** The environment of the program. */
-	env?: NodeJS.ProcessEnv;
-	/** The label of the tab. */
-	label?: string;
-}): Promise<LayoutPane | null> {
+export async function runLayoutApply(params: string): Promise<RunResult> {
 	const socketPath = herdrSocketPath();
-	if (socketPath === null) return null;
-	const leaf: Record<string, unknown> = {
-		type: "pane",
-		cwd: options.cwd,
-		command: options.command,
-	};
-	if (options.env) {
-		const env: Record<string, string> = {};
-		for (const [key, value] of Object.entries(options.env)) {
-			if (value === undefined) continue;
-			env[key] = value;
-		}
-		if (Object.keys(env).length > 0) leaf.env = env;
+	if (socketPath === null) {
+		return { code: 1, stdout: "", stderr: "The process runs outside a Herdr session." };
 	}
-	const params: Record<string, unknown> = { root: leaf, focus: false };
-	if (options.label) params.tab_label = options.label;
-	const reply = await send(socketPath, { id: "omp:layout:apply", method: "layout.apply", params });
-	if (memberOf(reply, "error") !== null) return null;
-	const result = memberOf(reply, "result");
-	if (result === null) return null;
-	const layout = memberOf(result, "layout");
-	if (layout === null) return null;
-	const root = memberOf(layout, "root");
-	if (root === null) return null;
-	const paneId = memberOf(root, "pane_id");
-	const tabId = memberOf(root, "tab_id");
-	const workspaceId = memberOf(layout, "workspace_id");
-	if (typeof paneId !== "string") return null;
-	return {
-		paneId,
-		tabId: typeof tabId === "string" ? tabId : "",
-		workspaceId: typeof workspaceId === "string" ? workspaceId : "",
-	};
+	let request: unknown;
+	try {
+		request = JSON.parse(params);
+	} catch {
+		return { code: 1, stdout: "", stderr: "The layout request is not JSON." };
+	}
+	const stdout = await send(socketPath, {
+		id: "omp:layout:apply",
+		method: "layout.apply",
+		params: request,
+	});
+	if (stdout === "") return { code: 1, stdout: "", stderr: "The Herdr server did not answer." };
+	return { code: 0, stdout, stderr: "" };
 }
