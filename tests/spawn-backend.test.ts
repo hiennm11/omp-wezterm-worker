@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import type { Job } from "../extensions/lib/job.ts";
-import { createRuntime } from "../extensions/lib/runtime.ts";
+import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { spawnClaudeWorker } from "../extensions/lib/spawn-claude.ts";
 import { registerSpawnTool } from "../extensions/worker-tools/spawn.ts";
 import { createHost, sessionContext, type TestHost } from "./harness.ts";
@@ -52,6 +52,59 @@ async function makeHost(): Promise<{ host: TestHost; cwd: string }> {
 	return { host, cwd };
 }
 
+/** The context of a call of the spawn tool. */
+const CONTEXT = {
+	cwd: process.cwd(),
+	sessionManager: { getSessionFile: () => null, getSessionId: () => null },
+};
+
+/**
+ * The spawn tool of a runtime.
+ *
+ * The tool registers itself with the host. The test calls it the way the
+ * agent calls it.
+ */
+function spawnToolOf(rt: WorkerRuntime): {
+	execute: (
+		id: string,
+		params: Record<string, unknown>,
+		signal?: unknown,
+		update?: unknown,
+		ctx?: unknown,
+	) => Promise<{ content: { text: string }[]; details: Record<string, unknown>; isError?: boolean }>;
+} {
+	const tools = new Map<
+		string,
+		{
+			execute: (
+				id: string,
+				params: Record<string, unknown>,
+				signal?: unknown,
+				update?: unknown,
+				ctx?: unknown,
+			) => Promise<{ content: { text: string }[]; details: Record<string, unknown>; isError?: boolean }>;
+		}
+	>();
+	const chain = { optional: () => chain, describe: () => chain };
+	registerSpawnTool({
+		pi: {
+			zod: {
+				string: () => chain,
+				number: () => chain,
+				boolean: () => chain,
+				array: () => chain,
+				object: () => chain,
+			},
+			registerTool: (tool: { name: string; execute: unknown }) => tools.set(tool.name, tool as never),
+		} as never,
+		rt,
+		deliver: () => undefined,
+	});
+	const tool = tools.get("wezterm_spawn_worker");
+	assert.ok(tool, "the spawn tool was not registered");
+	return tool;
+}
+
 test("a spawn with an unknown backend is refused", async () => {
 	const { host, cwd } = await makeHost();
 	try {
@@ -68,22 +121,30 @@ test("a spawn with an unknown backend is refused", async () => {
 });
 
 test("a spawn with the backend codex is refused and the reply lists the known backends", async () => {
-	const { host, cwd } = await makeHost();
+	const dir = mkdtempSync(join(tmpdir(), "wt-backend-codex-"));
+	const rt = createRuntime(async () => ({ code: 0, stdout: "", stderr: "" }));
+	rt.config.stateDir = dir;
+	rt.config.commsStandard = { mode: "off", minScore: 80 };
 	try {
-		const result = await host.call("wezterm_spawn_worker", {
-			task: "Read baseline.txt.",
-			cwd,
-			backend: "codex",
-		});
+		const tool = spawnToolOf(rt);
+		const result = await tool.execute(
+			"t1",
+			{ task: "Read baseline.txt.", cwd: dir, backend: "codex" },
+			undefined,
+			undefined,
+			CONTEXT,
+		);
 		assert.equal(result.isError, true);
-		const text = host.text(result);
+		const text = result.content[0]?.text ?? "";
 		assert.match(text, /Unknown backend 'codex'/);
 		assert.match(text, /omp/);
 		assert.match(text, /claude/);
 		assert.doesNotMatch(text, /codex,/, "the reply names codex as a known backend");
+		/* The refusal comes before the launch, so no pane exists. */
+		assert.equal(rt.jobs.size, 0);
 	} finally {
-		await host.cleanup();
-		rmSync(cwd, { recursive: true, force: true });
+		rt.closeDb();
+		rmSync(dir, { recursive: true, force: true });
 	}
 });
 
