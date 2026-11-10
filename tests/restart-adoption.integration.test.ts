@@ -31,7 +31,7 @@ function hasProgram(name: string): boolean {
 	return probe.status === 0 || probe.status === 1;
 }
 
-const CAN_RUN = hasProgram("omp") && hasProgram("wezterm");
+const CAN_RUN = hasProgram("omp") && hasProgram("herdr") && process.env.HERDR_ENV === "1";
 
 /** The root of the repository that holds the extension under test. */
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -113,29 +113,32 @@ function workerState(stateDir: string): {
 }
 
 /**
- * Start the first OMP process in a new window.
+ * Start the first OMP process in a new tab.
  *
- * The window gives the process a pane of its own. The command clears the
+ * The tab gives the process a pane of its own. The command clears the
  * variables that name a worker session, because the pane inherits the
- * environment of the WezTerm server.
+ * environment of the Herdr server.
  */
-function startFirstProcess(repo: string, helper: string): number {
+function startFirstProcess(repo: string, helper: string): string {
+	const out = execFileSync("herdr", ["tab", "create", "--cwd", repo, "--no-focus"], { encoding: "utf8" });
+	const reply = JSON.parse(out) as { result?: { root_pane?: { pane_id?: string } } };
+	const paneId = reply.result?.root_pane?.pane_id ?? "";
 	const command = `set OMP_WORKER_SESSION_DIR=&& set PI_SESSION_FILE=&& omp --no-title --no-extensions --cwd ${repo} -e ${helper}`;
-	const out = execFileSync("wezterm", ["cli", "spawn", "--cwd", repo, "--", "cmd", "/c", command], {
-		encoding: "utf8",
-	});
-	return Number(out.trim());
+	execFileSync("herdr", ["pane", "run", paneId, command], { stdio: "ignore" });
+	return paneId;
 }
 
-/** The pane ids whose title names the directory of the test. */
-function paneIdsOf(marker: string): number[] {
-	const out = execFileSync("wezterm", ["cli", "list", "--format", "json"], { encoding: "utf8" });
-	const panes = JSON.parse(out) as Array<{ pane_id: number; title: string }>;
-	return panes.filter((pane) => pane.title.includes(marker)).map((pane) => pane.pane_id);
+/** The pane ids whose directory names the marker. */
+function paneIdsOf(marker: string): string[] {
+	const out = execFileSync("herdr", ["pane", "list"], { encoding: "utf8" });
+	const reply = JSON.parse(out) as { result?: { panes?: Array<{ pane_id: string; cwd?: string }> } };
+	return (reply.result?.panes ?? [])
+		.filter((pane) => (pane.cwd ?? "").includes(marker))
+		.map((pane) => pane.pane_id);
 }
 
 test("a new OMP process adopts the worker of a closed session", {
-	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+	skip: !CAN_RUN ? "omp or herdr is not available, or this is not a Herdr session" : false,
 }, async () => {
 	const repo = mkdtempSync(join(tmpdir(), "wt-adopt-repo-"));
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-adopt-state-"));
@@ -144,7 +147,7 @@ test("a new OMP process adopts the worker of a closed session", {
 
 	try {
 		const paneId = startFirstProcess(repo, helper);
-		assert.ok(paneId > 0, "The first process got no pane");
+		assert.match(paneId, /^w\d+:p\d+$/, "The first process got no pane");
 
 		// The first process starts the worker and owns the task.
 		const running = await waitFor(
@@ -160,9 +163,8 @@ test("a new OMP process adopts the worker of a closed session", {
 
 		// The first process closes its session. The process stays alive as
 		// the parent of the second process.
-		execFileSync("wezterm", ["cli", "send-text", "--no-paste", "--pane-id", String(paneId), "/restart\r"], {
-			stdio: "ignore",
-		});
+		execFileSync("herdr", ["pane", "send-text", paneId, "/restart"], { stdio: "ignore" });
+		execFileSync("herdr", ["pane", "send-keys", paneId, "enter"], { stdio: "ignore" });
 
 		// The closing session releases the row of the task.
 		const released = await waitFor(() => workerState(stateDir).phase === "released", 120_000, 500);
@@ -185,7 +187,7 @@ test("a new OMP process adopts the worker of a closed session", {
 	} finally {
 		for (const pane of paneIdsOf("wt-adopt-repo-")) {
 			try {
-				execFileSync("wezterm", ["cli", "kill-pane", "--pane-id", String(pane)], { stdio: "ignore" });
+				execFileSync("herdr", ["pane", "close", pane], { stdio: "ignore" });
 			} catch {
 				/* the pane may already be gone */
 			}

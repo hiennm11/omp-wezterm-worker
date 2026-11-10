@@ -21,7 +21,7 @@ function hasProgram(name: string): boolean {
 	return probe.status === 0 || probe.status === 1;
 }
 
-const CAN_RUN = hasProgram("omp") && hasProgram("wezterm");
+const CAN_RUN = hasProgram("omp") && hasProgram("herdr") && process.env.HERDR_ENV === "1";
 
 /** Build a small git repository for the worker to work in. */
 function makeRepo(): string {
@@ -45,7 +45,7 @@ function changedPaths(cwd: string): string[] {
 }
 
 test("the worktree survives the worker and cleanup keeps the changes", {
-	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+	skip: !CAN_RUN ? "omp or herdr is not available, or this is not a Herdr session" : false,
 }, async () => {
 	const repo = makeRepo();
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-worktree-state-"));

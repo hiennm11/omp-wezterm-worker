@@ -22,7 +22,7 @@ function hasProgram(name: string): boolean {
 	return probe.status === 0 || probe.status === 1;
 }
 
-const CAN_RUN = hasProgram("omp") && hasProgram("wezterm");
+const CAN_RUN = hasProgram("omp") && hasProgram("herdr") && process.env.HERDR_ENV === "1";
 
 /** A task that keeps the worker busy for a while. */
 const LONG_TASK =
@@ -31,7 +31,7 @@ const LONG_TASK =
 	"Then reply with the word DONE.";
 
 test("a worker cannot launch a worker", {
-	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+	skip: !CAN_RUN ? "omp or herdr is not available, or this is not a Herdr session" : false,
 }, async () => {
 	const repo = mkdtempSync(join(tmpdir(), "wt-nested-"));
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-nested-state-"));
@@ -103,7 +103,7 @@ test("a worker cannot launch a worker", {
 });
 
 test("a spawn over the active worker limit is refused", {
-	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+	skip: !CAN_RUN ? "omp or herdr is not available, or this is not a Herdr session" : false,
 }, async () => {
 	const repo = mkdtempSync(join(tmpdir(), "wt-limit-"));
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-limit-state-"));

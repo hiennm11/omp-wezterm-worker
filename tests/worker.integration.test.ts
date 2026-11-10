@@ -1,7 +1,7 @@
 /**
  * The worker lifecycle, with a real worker in a real pane.
  *
- * This test spawns a real `omp` process in a real WezTerm pane. It needs both
+ * This test spawns a real `omp` process in a real Herdr pane. It needs both
  * programs. On a machine without them the test reports that it cannot run,
  * instead of reporting a pass.
  */
@@ -24,7 +24,7 @@ function hasProgram(name: string): boolean {
 	return probe.status === 0 || probe.status === 1;
 }
 
-const CAN_RUN = hasProgram("omp") && hasProgram("wezterm");
+const CAN_RUN = hasProgram("omp") && hasProgram("herdr") && process.env.HERDR_ENV === "1";
 
 /** Build a small git repository for the worker to work in. */
 function makeRepo(): string {
@@ -38,15 +38,15 @@ function makeRepo(): string {
 	return dir;
 }
 
-/** The pane ids that WezTerm reports now. */
-function currentPanes(): number[] {
-	const out = execFileSync("wezterm", ["cli", "list", "--format", "json"], { encoding: "utf8" });
-	const panes = JSON.parse(out) as Array<{ pane_id: number }>;
-	return panes.map((p) => p.pane_id);
+/** The pane ids that Herdr reports now. */
+function currentPanes(): string[] {
+	const out = execFileSync("herdr", ["pane", "list"], { encoding: "utf8", windowsHide: true });
+	const reply = JSON.parse(out) as { result?: { panes?: Array<{ pane_id: string }> } };
+	return (reply.result?.panes ?? []).map((p) => p.pane_id);
 }
 
 test("the worker lifecycle, with a real worker", {
-	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+	skip: !CAN_RUN ? "omp or herdr is not available, or this is not a Herdr session" : false,
 }, async () => {
 	const repo = makeRepo();
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-integration-state-"));
@@ -62,11 +62,11 @@ test("the worker lifecycle, with a real worker", {
 			cwd: repo,
 			label: "integration",
 		});
-		const details = spawned.details as { workerId?: string; paneId?: number };
+		const details = spawned.details as { workerId?: string; paneId?: string | null };
 		const workerId = details?.workerId ?? "";
-		const paneId = details?.paneId ?? -1;
+		const paneId = details?.paneId ?? "";
 		assert.ok(workerId, "The spawn tool returned no worker id");
-		assert.ok(paneId > 0, "The spawn tool returned no pane id");
+		assert.match(paneId, /^w\d+:p\d+$/, "The spawn tool returned no Herdr pane id");
 
 		// --- the worker finishes ---
 		const finished = await waitFor(

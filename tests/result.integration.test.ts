@@ -19,10 +19,10 @@ function hasProgram(name: string): boolean {
 	return probe.status === 0 || probe.status === 1;
 }
 
-const CAN_RUN = hasProgram("omp") && hasProgram("wezterm");
+const CAN_RUN = hasProgram("omp") && hasProgram("herdr") && process.env.HERDR_ENV === "1";
 
 test("the result tool returns the worker's answer", {
-	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+	skip: !CAN_RUN ? "omp or herdr is not available, or this is not a Herdr session" : false,
 }, async () => {
 	const repo = mkdtempSync(join(tmpdir(), "wt-result-"));
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-result-state-"));
