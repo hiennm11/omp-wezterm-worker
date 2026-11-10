@@ -8,7 +8,7 @@ Verified against **omp 18.12.3** on **Windows native** (no WSL), Herdr
 **0.9.5**. The extension runs only inside a Herdr or a WezTerm session. Only
 the OMP backend runs today. The Claude Code backend refuses to start, and
 the reply says so. See
-[ADR 0025](docs/adr/0025-herdr-replaces-wezterm-as-the-pane-runtime.md).
+[ADR 0027](docs/adr/0027-two-pane-runtimes.md) and [ADR 0025](docs/adr/0025-herdr-replaces-wezterm-as-the-pane-runtime.md).
 
 ## What this is (and what it is not)
 

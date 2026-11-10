@@ -48,6 +48,7 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0024-the-main-session-and-a-worker-exchange-notes-on-a-channel.md",
 	"docs/adr/0025-herdr-replaces-wezterm-as-the-pane-runtime.md",
 	"docs/adr/0026-the-codex-backend-is-removed.md",
+	"docs/adr/0027-two-pane-runtimes.md",
 	"docs/plans/recoverable-omp-supervision.md",
 ];
 

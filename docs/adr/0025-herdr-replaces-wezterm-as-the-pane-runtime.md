@@ -1,5 +1,7 @@
 # Herdr replaces WezTerm as the pane runtime
 
+Status: superseded by ADR 0027. The extension uses Herdr and WezTerm, and each run keeps its runtime.
+
 The extension opens each worker pane with `wezterm cli`. Herdr 0.9.5 does the same work through a local API. This ADR records the decision to replace WezTerm with Herdr. It also records what the measurements showed. The code changes follow in separate batches.
 
 ## Why
