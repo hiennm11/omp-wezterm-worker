@@ -25,7 +25,6 @@
 		"proof:claude": "node tooling/backend-proof.ts --backend claude --scenario all",
 		"proof:codex": "node tooling/backend-proof.ts --backend codex --scenario all",
 		"smoke:claude": "node tooling/claude-smoke.ts",
-		"smoke:codex": "node tooling/codex-smoke.ts",
 		"typecheck": "tsc --noEmit -p tsconfig.json",
 		"check": "npm run lint && npm run typecheck && npm run ste100 && npm run test"
 	},
