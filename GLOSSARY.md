@@ -1,6 +1,6 @@
 # Pane Workers
 
-An OMP extension that runs a worker session independently inside a WezTerm pane
+An OMP extension that runs a worker session independently inside a Herdr pane
 or tab. The user sees a long task run live, and the main agent keeps working.
 The worker runs in OMP, in Claude Code CLI, or in Codex CLI.
 
