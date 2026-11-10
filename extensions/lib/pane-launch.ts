@@ -1,16 +1,23 @@
 /**
- * The launch of a worker in a Herdr pane.
+ * The launch of a worker in a pane.
  *
  * The launch opens a pane next to the pane of the main session, or in a tab
- * of its own. It starts the program as an agent and sends the task with the
- * agent prompt. Every function touches only the pane that this launch
- * opened, so a pane of the user is never touched.
+ * of its own. It starts the program in that pane. Every function touches only
+ * the pane that this launch opened, so a pane of the user is never touched.
+ *
+ * The launch differs by the runtime:
+ *
+ * - Herdr starts the program as an agent and sends the task with the agent
+ *   prompt, because Herdr refuses an argument with a line break.
+ * - WezTerm starts the program with the task in the argv, because WezTerm
+ *   takes every argument as one element.
  */
 
 import { backendLabel, readBackend } from "./backend.ts";
 import { LAYOUT_APPLY_VERB } from "./herdr-layout.ts";
 import type { Job } from "./job.ts";
 import { killPane, sendToPane } from "./pane.ts";
+import { launchWezterm } from "./pane-launch-wezterm.ts";
 import { describeFailure } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 
@@ -19,9 +26,9 @@ import type { WorkerRuntime } from "./runtime.ts";
  *
  * Every value in `ompArgs` is its own argv element, so the task is never
  * parsed by a shell and quoting cannot go wrong. The task is not an argv
- * element: Herdr refuses an argument with a line break, and a real task has
- * line breaks. The task goes to the worker through the agent prompt after
- * the worker is ready.
+ * element in Herdr: Herdr refuses an argument with a line break, and a real
+ * task has line breaks. The task goes to the worker through the agent prompt
+ * after the worker is ready.
  *
  * On success the job holds its pane id and is `running`. Returns the reason
  * when the pane could not start, and leaves the job alone.
@@ -53,24 +60,35 @@ export async function launchProgram(
 	env?: NodeJS.ProcessEnv,
 	task?: string,
 ): Promise<string | null> {
+	const runtime = job.runtime ?? null;
+	if (runtime === null) {
+		return "The runtime of this worker is unknown, so no pane can open.";
+	}
+	if (runtime === "wezterm") {
+		return launchWezterm(rt, job, binary, args, env, task);
+	}
 	const argRefusal = argvRefusal(args);
 	if (argRefusal) return argRefusal;
 	const opened = await openPane(rt, job, env);
 	if ("failure" in opened) return `Herdr did not open a pane for this worker: ${opened.failure}`;
 	const paneId = opened.paneId;
+	// The job holds the pane id before the program starts, so a failed start
+	// can close the pane that this launch opened.
+	job.paneId = paneId;
 	const started = await startAgent(rt, paneId, job, binary, args);
 	if (started !== null) {
-		await killPane(rt, paneId);
+		await killPane(rt, job);
+		job.paneId = null;
 		return started;
 	}
 	if (task) {
-		const sent = await sendToPane(rt, paneId, task);
+		const sent = await sendToPane(rt, job, task);
 		if (!sent.ok) {
-			await killPane(rt, paneId);
+			await killPane(rt, job);
+			job.paneId = null;
 			return `Herdr did not deliver the task to the worker in pane ${paneId}: ${sent.error}`;
 		}
 	}
-	job.paneId = paneId;
 	job.tabId = opened.tabId;
 	job.windowId = null;
 	job.status = "running";
@@ -135,9 +153,9 @@ async function openPane(
 /**
  * Open a tab with one pane that runs a program.
  *
- * Herdr 0.9.5 has no `layout` command in its CLI, so the call goes through
- * the socket API. The call never names a `tab_id`, so the tab of the main
- * session survives.
+ * Herdr 0.9.5 has no `layout` command in its CLI, so the call goes through the
+ * socket API. The call never names a `tab_id`, so the tab of the main session
+ * survives.
  */
 export async function openProgramTab(
 	rt: WorkerRuntime,

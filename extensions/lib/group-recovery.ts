@@ -50,16 +50,16 @@ export async function releaseEndedGroups(rt: WorkerRuntime, jobs: Job[], now: nu
 	const db = rt.openDb();
 	const groups = heldGroups(db);
 	const byId = new Map(jobs.map((job) => [job.id, job]));
-	const paneIds: string[] = [];
+	const ended: Job[] = [];
 	for (const group of groups) {
 		const holder = group.executionHolder;
 		if (holder === null) continue;
 		const job = byId.get(holder);
 		if (!job || isActive(job)) continue;
 		if (job.paneId === null || job.paneClosed) continue;
-		if (!paneIds.includes(job.paneId)) paneIds.push(job.paneId);
+		ended.push(job);
 	}
-	const states = paneIds.length > 0 ? await paneStatesOf(rt, paneIds) : new Map<string, PaneState>();
+	const states = ended.length > 0 ? await paneStatesOf(rt, ended) : new Map<string, PaneState>();
 
 	const released = groupsToRelease(groups, jobs, states);
 	const holders = new Set(released.map((group) => group.executionHolder).filter((id) => id !== null));

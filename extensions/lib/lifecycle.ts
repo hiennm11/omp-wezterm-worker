@@ -64,7 +64,7 @@ export async function finalizeJob(
 	// The cancel path already closed it, hence the paneClosed guard. A failed
 	// kill leaves the flag false, so the status tool still shows the pane.
 	if (job.paneId !== null && job.closePaneOnFinish && !job.paneClosed) {
-		const failure = await killPane(rt, job.paneId);
+		const failure = await killPane(rt, job);
 		job.paneClosed = failure === null;
 	}
 
@@ -157,7 +157,7 @@ export async function stopJob(
 		recordStopIntent(rt.openDb(), intentId, job.id, status, error, Date.now());
 		// The stop closes only the pane that this extension created, so a
 		// pane of the user is never touched.
-		const failure = job.paneId === null ? null : await closePaneConfirmed(rt, job.paneId);
+		const failure = job.paneId === null ? null : await closePaneConfirmed(rt, job);
 		if (failure === null) {
 			// finalizeJob must not close the pane a second time.
 			job.paneClosed = true;

@@ -96,12 +96,12 @@ export async function steerWorker(
 ): Promise<SteerOutcome> {
 	const wanted = message.trim();
 	const before = recordedUserMessages(job.sessionDir);
-	const sent = await sendToPane(rt, paneId, message);
+	const sent = await sendToPane(rt, job, message);
 	if (!sent.ok) {
 		return {
 			ok: false,
 			error:
-				`Herdr refused to send the text into pane ${paneId}: ${sent.error}. ` +
+				`The pane runtime refused to send the text into pane ${paneId}: ${sent.error}. ` +
 				"The worker did not receive the instruction.",
 			attempts: 1,
 		};
@@ -117,7 +117,7 @@ export async function steerWorker(
 	return {
 		ok: false,
 		error:
-			`Herdr accepted the text for pane ${paneId}, but the worker's transcript does not record the instruction. ` +
+			`The pane runtime accepted the text for pane ${paneId}, but the worker's transcript does not record the instruction. ` +
 			"The delivery is unconfirmed.",
 		attempts: 1,
 	};

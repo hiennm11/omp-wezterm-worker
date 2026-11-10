@@ -27,9 +27,9 @@ import {
 } from "./claude-session.ts";
 import { freeEndedHolder } from "./group-holder.ts";
 import { groupOfRun, releaseExecutionByHolder, reserveExecution } from "./groups.ts";
-import { launchProgram } from "./herdr-launch.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { observeNative } from "./native-ledger.ts";
+import { launchProgram } from "./pane-launch.ts";
 import { delay } from "./process.ts";
 import { checkSourcePane } from "./resume-guard.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -67,6 +67,9 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 		id: jobId,
 		label: `${source.label} (resumed)`,
 		...freshRunState(Date.now()),
+		// The resumed worker opens a new pane, so it uses the runtime of this
+		// session.
+		runtime: rt.paneRuntime,
 	};
 
 	// The Claude Code backend cannot start on Herdr yet. The refusal comes

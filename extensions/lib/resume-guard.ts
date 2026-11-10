@@ -39,6 +39,6 @@ export function sourcePaneRefusal(state: PaneState, paneId: string): string | nu
 export async function checkSourcePane(rt: WorkerRuntime, source: Job): Promise<string | null> {
 	const tuiPaneId = source.paneId;
 	if (tuiPaneId === null) return null;
-	const states = await paneStatesOf(rt, [tuiPaneId]);
+	const states = await paneStatesOf(rt, [source]);
 	return sourcePaneRefusal(states.get(tuiPaneId) ?? "unknown", tuiPaneId);
 }

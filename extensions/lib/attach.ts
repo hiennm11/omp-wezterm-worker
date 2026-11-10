@@ -27,7 +27,7 @@ import type { WorkerRuntime } from "./runtime.ts";
  * keeps running.
  */
 export async function attachWorker(rt: WorkerRuntime, job: Job, notify: (job: Job) => void): Promise<void> {
-	const pane = job.paneId === null ? "gone" : await paneState(rt, job.paneId);
+	const pane = job.paneId === null ? "gone" : await paneState(rt, job);
 	if (pane === "gone") {
 		await settleDetachedJob(rt, job);
 		/* The worker ended and the main session must learn it. The recovery

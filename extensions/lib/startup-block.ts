@@ -131,7 +131,7 @@ export async function checkStartupBlock(
 		const launchedAt = job.startedAt ?? job.createdAt;
 		if (now - launchedAt < STARTUP_BLOCK_MS) return;
 		if (job.paneId === null) return;
-		const reason = startupBlockReason(state.sessionId, launchedAt, now, await readPaneText(rt, job.paneId));
+		const reason = startupBlockReason(state.sessionId, launchedAt, now, await readPaneText(rt, job));
 		if (reason === null) return;
 		recordStartupBlock(rt, job.id, reason, now);
 	} catch (e) {
@@ -146,9 +146,9 @@ export async function checkStartupBlock(
  * A pane that cannot be read gives an empty text. The empty text names no
  * cause, so the run raises no event.
  */
-async function readPaneText(rt: WorkerRuntime, paneId: string): Promise<string> {
+async function readPaneText(rt: WorkerRuntime, job: Job): Promise<string> {
 	try {
-		return await paneTail(rt, paneId, PANE_LINES);
+		return await paneTail(rt, job, PANE_LINES);
 	} catch {
 		return "";
 	}

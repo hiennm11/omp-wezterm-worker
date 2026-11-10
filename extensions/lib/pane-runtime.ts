@@ -45,17 +45,22 @@ export function selectPaneRuntime(
 }
 
 /**
+ * The message of a refusal. It names both runtimes and both variables.
+ *
+ * The message tells the user every way to give the extension a pane runtime.
+ */
+export const RUNTIME_REFUSAL =
+	`The extension opens worker panes through Herdr or WezTerm, and this process runs outside both. ` +
+	`Start the session from Herdr, so the variable ${HERDR_ENV_VAR} is set, or from WezTerm, ` +
+	`so the variable ${WEZTERM_PANE_VAR} is set.`;
+
+/**
  * The reason that a spawn must not start, or null when it may start.
  *
  * The function is pure. It takes the environment of the process and it reads
- * no pane and no file. The message names both runtimes and both variables, so
- * the user knows every way to give the extension a pane runtime.
+ * no pane and no file.
  */
 export function runtimeRefusal(env: NodeJS.ProcessEnv, configured: PaneRuntimeSetting): string | null {
 	if (selectPaneRuntime(env, configured) !== null) return null;
-	return (
-		`The extension opens worker panes through Herdr or WezTerm, and this process runs outside both. ` +
-		`Start the session from Herdr, so the variable ${HERDR_ENV_VAR} is set, or from WezTerm, ` +
-		`so the variable ${WEZTERM_PANE_VAR} is set.`
-	);
+	return RUNTIME_REFUSAL;
 }

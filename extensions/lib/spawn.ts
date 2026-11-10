@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
 import { readBackend } from "./backend.ts";
-import { bootstrapPromptFile, writeBootstrapPrompt } from "./bootstrap-prompt.ts";
+import { writeBootstrapPrompt } from "./bootstrap-prompt.ts";
 import type { Placement } from "./config.ts";
 import { freeEndedHolder } from "./group-holder.ts";
 import {
@@ -20,11 +20,11 @@ import {
 	reserveExecution,
 	setGroupWorktree,
 } from "./groups.ts";
-import { launchPane } from "./herdr-launch.ts";
-import { herdrSessionRefusal } from "./herdr-session.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { finalizeJob } from "./lifecycle.ts";
-import { withWorkerTools } from "./preset.ts";
+import { ompArgv } from "./omp-argv.ts";
+import { launchPane } from "./pane-launch.ts";
+import { paneSessionRefusal } from "./pane-session.ts";
 import { describeFailure } from "./process.ts";
 import { checkSourcePane } from "./resume-guard.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -53,28 +53,11 @@ export interface SpawnParams {
 }
 
 /**
- * The omp argv. Every value is its own argv element.
+ * Start a new worker.
  *
- * The task and the follow-up message are not in the argv. Herdr refuses an
- * argument with a line break, so the launch sends them with the agent prompt.
+ * The function returns the job of the run. A launch that fails leaves the job
+ * failed with the reason.
  */
-export function ompArgv(job: Job, resumeFile: string | null): string[] {
-	const args = ["--no-title", "--cwd", job.cwd, "--session-dir", job.sessionDir];
-	// The worker reports its task state. The prompt tells it how. Without the
-	// prompt the worker never reports, and the supervisor cannot tell a
-	// finished task from a silent one.
-	const prompt = bootstrapPromptFile(job.sessionDir);
-	if (existsSync(prompt)) args.push("--append-system-prompt", prompt);
-	if (resumeFile) args.push("--resume", resumeFile);
-	if (job.model) args.push("--model", job.model);
-	const tools = withWorkerTools(job.tools);
-	if (tools?.length) args.push("--tools", tools.join(","));
-	// A job without a level asks for no level. OMP then runs the worker at
-	// the default level of OMP.
-	if (job.thinking) args.push("--thinking", job.thinking);
-	return args;
-}
-
 export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promise<Job> {
 	const { config } = rt;
 	const { jobId } = params;
@@ -95,13 +78,14 @@ export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promi
 		timeoutMs: params.timeoutMs ?? config.timeoutMs,
 		idleTimeoutMs: config.idleTimeoutMs,
 		closePaneOnFinish: params.closePaneOnFinish ?? config.closePaneOnFinish,
+		runtime: rt.paneRuntime,
 		...freshRunState(Date.now()),
 	};
 	rt.jobs.set(jobId, job);
 	rt.persist();
 
-	// A pane can only open inside a Herdr session.
-	const sessionRefusal = herdrSessionRefusal(process.env);
+	// A pane can only open inside a Herdr or a WezTerm session.
+	const sessionRefusal = paneSessionRefusal(process.env, config.runtime);
 	if (sessionRefusal) {
 		await finalizeJob(rt, job, "failed", sessionRefusal, null);
 		return job;
@@ -230,6 +214,9 @@ export async function resumeWorker(
 		label: `${source.label} (resumed)`,
 		placement: params.placement ?? source.placement,
 		...freshRunState(Date.now()),
+		// The resumed worker opens a new pane, so it uses the runtime of this
+		// session.
+		runtime: rt.paneRuntime,
 	};
 
 	// The pane of the source run can still write into the shared transcript.
