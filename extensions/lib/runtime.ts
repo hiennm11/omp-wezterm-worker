@@ -16,6 +16,7 @@ import { databaseFile, type LifecycleDb, openDatabase } from "./db.ts";
 import { LAYOUT_APPLY_VERB, runLayoutApply } from "./herdr-layout.ts";
 import type { ToolCtx } from "./host.ts";
 import type { Job } from "./job.ts";
+import { type PaneRuntime, selectPaneRuntime } from "./pane-runtime.ts";
 import { type RunFn, type RunResult, run } from "./process.ts";
 import { loadRuns, persistRuns } from "./runs.ts";
 
@@ -113,6 +114,20 @@ export interface WorkerRuntime {
 	 * `layout` command in its CLI, so that verb goes to the socket API.
 	 */
 	herdr: (args: string[], env?: NodeJS.ProcessEnv) => Promise<RunResult>;
+	/**
+	 * The seam of the WezTerm pane runtime.
+	 *
+	 * The seam runs the `wezterm` program with the verb `cli`, so the
+	 * arguments of the caller are the arguments of the CLI.
+	 */
+	wezterm: (args: string[], env?: NodeJS.ProcessEnv) => Promise<RunResult>;
+	/**
+	 * The pane runtime of this process, or null when no runtime exists.
+	 *
+	 * The value is read once on every factory bind, so a session picks up the
+	 * current file and env values.
+	 */
+	paneRuntime: PaneRuntime | null;
 	git: (cwd: string, args: string[]) => Promise<RunResult>;
 	/** Start a poll. A throw inside the callback is recorded and the poll keeps running. */
 	startInterval: (fn: () => void, ms: number) => NodeJS.Timeout;
@@ -200,6 +215,17 @@ export interface WorkerRuntime {
 	readonly claudeStates: Map<string, ClaudeRunState>;
 }
 
+/**
+ * Resolve the pane runtime of a runtime.
+ *
+ * The entry calls the function on every factory bind, so a session picks up
+ * the current file and env values. The value is read once per bind, so every
+ * worker of that session uses the same runtime.
+ */
+export function bindPaneRuntime(rt: WorkerRuntime): void {
+	rt.paneRuntime = selectPaneRuntime(process.env, rt.config.runtime);
+}
+
 export function createRuntime(exec: RunFn = run): WorkerRuntime {
 	let sequence = 0;
 	const rt: WorkerRuntime = {
@@ -271,10 +297,12 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 			rt.ownerTools.set(definition.name, definition);
 		},
 		exec,
+		paneRuntime: selectPaneRuntime(process.env, DEFAULT_CONFIG.runtime),
 		herdr: async (args, env) => {
 			if (args[0] === LAYOUT_APPLY_VERB) return runLayoutApply(args[1] ?? "{}");
 			return exec(rt.config.herdrBin, args, undefined, env);
 		},
+		wezterm: async (args, env) => exec(rt.config.weztermBin, ["cli", ...args], undefined, env),
 		git: (cwd, args) => exec("git", args, cwd),
 		startInterval(fn, ms) {
 			return rt.timers.setInterval(() => {

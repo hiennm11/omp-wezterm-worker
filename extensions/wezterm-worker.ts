@@ -37,7 +37,7 @@ import { findLiveWorkers } from "./lib/process-table.ts";
 import { recoverTask } from "./lib/recover-task.ts";
 import { reconcileAttempts } from "./lib/recovery.ts";
 import { detectRole, ownSessionDir } from "./lib/role.ts";
-import { createRuntime } from "./lib/runtime.ts";
+import { bindPaneRuntime, createRuntime } from "./lib/runtime.ts";
 import { createLeaseProbe } from "./lib/session-lease.ts";
 import { releaseSessionTasks } from "./lib/session-release.ts";
 import { switchSession } from "./lib/session-switch.ts";
@@ -76,6 +76,7 @@ export const RUNTIME = createRuntime();
 export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	const rt = RUNTIME;
 	rt.config = loadConfig();
+	bindPaneRuntime(rt);
 	rt.sessionLeaseHeld = createLeaseProbe(pi);
 	mkdirSync(rt.config.stateDir, { recursive: true });
 	pi.setLabel?.("WezTerm Workers");
