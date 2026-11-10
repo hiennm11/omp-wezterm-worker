@@ -173,7 +173,7 @@ Then keep working; the result arrives on its own.
 | `model` | string | Optional model selector, e.g. `omniroute/minimax/MiniMax-M3.1-Flash`. Omit for omp's default. The role aliases `smol`, `task` and `slow` select a model. These aliases apply to an OMP worker only. A Claude Code worker receives the value unchanged. |
 | `tools` | string[] | Optional tool list, e.g. `["read","grep","glob"]`. Omit for the default set. An OMP worker only. |
 | `thinking` | string | Optional thinking level of OMP: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` or `auto`. Omit for the default level of OMP. An OMP worker only. A spawn parameter wins over the config file. |
-| `placement` | `"split"` \| `"tab"` | `split` splits the current pane; `tab` opens a new tab. |
+| `placement` | `"tab"` \| `"split"` | `tab` opens a new tab and is the default; `split` splits the current pane. |
 | `isolated` | boolean | Run in a dedicated `git worktree` so parallel workers never edit the same checkout. |
 | `timeoutMs` | number | Deadline for this worker. `0` means **no deadline**. Defaults to the configured `timeoutMs` (30 min). |
 | `closePaneOnFinish` | boolean | Close the worker's pane when it finishes. Defaults to the config value (`true`). Set `false` to leave the pane open for inspection. |
@@ -444,7 +444,7 @@ extension never reads the pane screen text to get a result.
 	"ompBin": "omp",
 	"codexBin": "codex",
 	"herdrBin": "herdr",
-	"placement": "split",
+	"placement": "tab",
 	"stateDir": "C:/Users/<you>/.omp/agent/wezterm-workers",
 	"defaultCwd": "C:/Users/<you>",
 	"model": null,

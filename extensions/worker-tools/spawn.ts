@@ -119,7 +119,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 			placement: z
 				.string()
 				.optional()
-				.describe("'split' (default) splits the current pane; 'tab' opens a new tab in the current window."),
+				.describe("'tab' (default) opens a new tab; 'split' splits the current pane."),
 			isolated: z
 				.boolean()
 				.optional()

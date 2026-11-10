@@ -64,7 +64,7 @@ export const DEFAULT_CONFIG: WorkerConfig = {
 	claudeBin: "claude",
 	codexBin: "codex",
 	herdrBin: "herdr",
-	placement: "split",
+	placement: "tab",
 	stateDir: join(homedir(), ".omp", "agent", "wezterm-workers"),
 	defaultCwd: process.cwd(),
 	model: null,

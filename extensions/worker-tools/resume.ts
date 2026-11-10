@@ -33,7 +33,7 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 				.string()
 				.optional()
 				.describe("Follow-up instruction for the worker. Omit to reopen it without a new instruction."),
-			placement: z.string().optional().describe("'split' (default) or 'tab'."),
+			placement: z.string().optional().describe("'tab' (default) or 'split'."),
 		}),
 		loadMode: "essential",
 		async execute(
@@ -118,7 +118,10 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 						? await resumeWorker(rt, job, {
 								jobId: admitted.jobId,
 								message: params.message,
-								placement: params.placement === "tab" ? "tab" : "split",
+								placement:
+									params.placement === "split" || params.placement === "tab"
+										? params.placement
+										: rt.config.placement,
 							})
 						: backend === "codex"
 							? await resumeCodexWorker(rt, {
