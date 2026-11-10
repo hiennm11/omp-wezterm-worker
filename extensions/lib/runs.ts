@@ -8,11 +8,11 @@
 
 import { controlRefusal } from "./authority.ts";
 import { isRemovedBackend } from "./backend.ts";
-import { removedRunStatus } from "./removed-backend.ts";
 import type { LifecycleDb } from "./db.ts";
 import type { Job, JobStatus } from "./job.ts";
 import { taskKey } from "./owner.ts";
 import { readOwnership } from "./ownership.ts";
+import { removedRunStatus } from "./removed-backend.ts";
 
 /** The runs that the database holds. */
 export interface RunRows {

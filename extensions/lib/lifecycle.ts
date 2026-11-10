@@ -157,8 +157,7 @@ export async function stopJob(
 		recordStopIntent(rt.openDb(), intentId, job.id, status, error, Date.now());
 		// The stop closes only the pane that this extension created, so a
 		// pane of the user is never touched.
-		const failure =
-			job.paneId === null ? null : await closePaneConfirmed(rt, job.paneId);
+		const failure = job.paneId === null ? null : await closePaneConfirmed(rt, job.paneId);
 		if (failure === null) {
 			// finalizeJob must not close the pane a second time.
 			job.paneClosed = true;
