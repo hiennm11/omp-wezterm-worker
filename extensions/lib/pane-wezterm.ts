@@ -9,10 +9,10 @@
  * a number, so the functions here convert the number at the boundary.
  */
 
-import { delay, describeFailure } from "./process.ts";
-import type { WorkerRuntime } from "./runtime.ts";
 import type { PaneState } from "./pane-herdr.ts";
 import { weztermPaneNumber } from "./pane-id.ts";
+import { delay, describeFailure } from "./process.ts";
+import type { WorkerRuntime } from "./runtime.ts";
 
 /**
  * The pane ids of a pane list, or null when the list cannot be read.
@@ -131,10 +131,7 @@ export async function weztermKillPane(rt: WorkerRuntime, paneId: string): Promis
  * The function returns null when the close is confirmed, else the reason. A
  * failed kill still polls, because "pane not found" means the pane is gone.
  */
-export async function weztermClosePaneConfirmed(
-	rt: WorkerRuntime,
-	paneId: string,
-): Promise<string | null> {
+export async function weztermClosePaneConfirmed(rt: WorkerRuntime, paneId: string): Promise<string | null> {
 	const killFailure = await weztermKillPane(rt, paneId);
 	const { attempts, intervalMs } = rt.stopConfirm;
 	let last: PaneState = "present";

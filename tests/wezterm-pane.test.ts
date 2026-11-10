@@ -93,13 +93,7 @@ test("a send goes through the send-text verb and ends with the Enter key", async
 		assert.equal(sent.ok, true);
 		const call = fake.calls.find((args) => args[0] === "send-text");
 		assert.ok(call, "the extension did not send the text");
-		assert.deepEqual(call, [
-			"send-text",
-			"--no-paste",
-			"--pane-id",
-			"7",
-			"focus on the parser only\r",
-		]);
+		assert.deepEqual(call, ["send-text", "--no-paste", "--pane-id", "7", "focus on the parser only\r"]);
 	} finally {
 		rt.closeDb();
 	}

@@ -18,8 +18,7 @@ import { test } from "node:test";
 
 import { type LifecycleDb, openDatabase } from "../extensions/lib/db.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
-import { killPane, paneState, sendToPane, unknownRuntimeRefusal } from "../extensions/lib/pane.ts";
-import { runtimeOf } from "../extensions/lib/pane.ts";
+import { killPane, paneState, runtimeOf, sendToPane, unknownRuntimeRefusal } from "../extensions/lib/pane.ts";
 import { loadRuns, persistRuns } from "../extensions/lib/runs.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 

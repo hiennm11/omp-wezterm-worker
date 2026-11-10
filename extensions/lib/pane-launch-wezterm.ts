@@ -12,7 +12,6 @@
 
 import { backendLabel, readBackend } from "./backend.ts";
 import type { Job } from "./job.ts";
-import { killPane } from "./pane.ts";
 import { weztermPaneId } from "./pane-id.ts";
 import { describeFailure } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
