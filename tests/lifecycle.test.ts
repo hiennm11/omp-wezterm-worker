@@ -59,8 +59,7 @@ function recordingExec(code: number, calls: string[][]): RunFn {
 	};
 }
 
-const kills = (calls: string[][]) =>
-	calls.filter((args) => args[0] === "pane" && args[1] === "close").length;
+const kills = (calls: string[][]) => calls.filter((args) => args[0] === "pane" && args[1] === "close").length;
 
 test("a finished worker records its pane as closed when the kill succeeds", async () => {
 	const job = await finalizeWith(async () => ({ code: 0, stdout: "", stderr: "" }));

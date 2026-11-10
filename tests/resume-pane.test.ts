@@ -120,7 +120,9 @@ function launchedPane(calls: string[][]): boolean {
 }
 
 test("a resume refuses a source run whose pane is still open", async () => {
-	const { exec, calls } = fakeWezterm({ panes: { result: { panes: [{ pane_id: "w1:p42", tab_id: "w1:t1" }] } } });
+	const { exec, calls } = fakeWezterm({
+		panes: { result: { panes: [{ pane_id: "w1:p42", tab_id: "w1:t1" }] } },
+	});
 	const { rt, dir } = freshRuntime(exec);
 	try {
 		const db = rt.openDb();
@@ -219,7 +221,9 @@ test("a resume of a source run without a pane does not read the pane list", asyn
 });
 
 test("a resume refuses a completed source run whose pane is still open", async () => {
-	const { exec, calls } = fakeWezterm({ panes: { result: { panes: [{ pane_id: "w1:p42", tab_id: "w1:t1" }] } } });
+	const { exec, calls } = fakeWezterm({
+		panes: { result: { panes: [{ pane_id: "w1:p42", tab_id: "w1:t1" }] } },
+	});
 	const { rt, dir } = freshRuntime(exec);
 	try {
 		const db = rt.openDb();
@@ -245,7 +249,9 @@ test("a resume refuses a completed source run whose pane is still open", async (
 });
 
 test("a native resume refuses a source run whose pane is still open", async () => {
-	const { exec, calls } = fakeWezterm({ panes: { result: { panes: [{ pane_id: "w1:p42", tab_id: "w1:t1" }] } } });
+	const { exec, calls } = fakeWezterm({
+		panes: { result: { panes: [{ pane_id: "w1:p42", tab_id: "w1:t1" }] } },
+	});
 	const { rt, dir } = freshRuntime(exec);
 	try {
 		const db = rt.openDb();

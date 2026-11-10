@@ -13,15 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { workerDiagnostics } from "./diagnostic-helpers.ts";
-import {
-	createHost,
-	currentPanes,
-	detailNumber,
-	detailString,
-	removeDir,
-	sessionContext,
-	waitFor,
-} from "./harness.ts";
+import { createHost, currentPanes, detailString, removeDir, sessionContext, waitFor } from "./harness.ts";
 
 const ACTIVE_WORKER_WAIT_MS = 30_000;
 

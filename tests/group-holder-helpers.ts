@@ -66,10 +66,18 @@ export function fakeWezterm(options: { panes?: unknown; listCode?: number } = {}
 			return { code, stdout: code === 0 ? JSON.stringify(reply) : "", stderr: "" };
 		}
 		if (args[0] === "pane" && args[1] === "split") {
-			return { code: 0, stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p9", tab_id: "w1:t1" } } }), stderr: "" };
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p9", tab_id: "w1:t1" } } }),
+				stderr: "",
+			};
 		}
 		if (args[0] === "tab" && args[1] === "create") {
-			return { code: 0, stdout: JSON.stringify({ result: { root_pane: { pane_id: "w1:p9", tab_id: "w1:t2" } } }), stderr: "" };
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { root_pane: { pane_id: "w1:p9", tab_id: "w1:t2" } } }),
+				stderr: "",
+			};
 		}
 		if (args[0] === "agent" && args[1] === "start") {
 			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
@@ -86,8 +94,7 @@ export function fakeWezterm(options: { panes?: unknown; listCode?: number } = {}
 /** True when a call started a pane. */
 export function launchedPane(calls: string[][]): boolean {
 	return calls.some(
-		(args) =>
-			(args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"),
+		(args) => (args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"),
 	);
 }
 

@@ -85,14 +85,7 @@ export const DEFAULT_CONFIG: WorkerConfig = {
 };
 
 /** Static string-keyed table: config key -> the config field it overrides. */
-const CONFIG_STRING_KEYS = [
-	"ompBin",
-	"claudeBin",
-	"codexBin",
-	"herdrBin",
-	"stateDir",
-	"defaultCwd",
-] as const;
+const CONFIG_STRING_KEYS = ["ompBin", "claudeBin", "codexBin", "herdrBin", "stateDir", "defaultCwd"] as const;
 const CONFIG_NUMBER_KEYS = [
 	"pollMs",
 	"timeoutMs",

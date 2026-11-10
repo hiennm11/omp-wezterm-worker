@@ -50,7 +50,6 @@ export function nativeRuntime(panes: string[] = []): {
 } {
 	const dir = mkdtempSync(join(tmpdir(), "wt-native-run-"));
 	const exec: RunFn = async (_bin, args) => {
-		const command = args.join(" ");
 		if (args[0] === "pane" && args[1] === "list") {
 			const listing = panes.map((pane_id) => ({ pane_id, tab_id: "w1:t1" }));
 			return { code: 0, stdout: JSON.stringify({ result: { panes: listing } }), stderr: "" };
