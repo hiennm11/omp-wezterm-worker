@@ -4,7 +4,7 @@
 
 import { statSync } from "node:fs";
 
-import { backendLabel, readBackend } from "../lib/backend.ts";
+import { backendLabel, isRemovedBackend, readBackend } from "../lib/backend.ts";
 import { readChannelNotes } from "../lib/channel-store.ts";
 import { pendingEvents, type WorkerEvent } from "../lib/events.ts";
 import { isActive, type Job, type JobStatus } from "../lib/job.ts";
@@ -12,6 +12,7 @@ import { completionBlockerOf } from "../lib/ledger-sync.ts";
 import { nativeJobUsageReport, requestUsageOf } from "../lib/native-usage-report.ts";
 import { taskKey } from "../lib/owner.ts";
 import { readOwnership } from "../lib/ownership.ts";
+import { REMOVED_BACKEND_REFUSAL, removedRunStatus } from "../lib/removed-backend.ts";
 import { reportState } from "../lib/report-decision.ts";
 import { readReports } from "../lib/report-store.ts";
 import { snapshotNotice, turnsLabel } from "../lib/restored-run.ts";
@@ -90,17 +91,28 @@ interface StatusRow {
 
 function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime, lease: LeaseAnswer): StatusRow {
 	const backend = readBackend(j);
+	/* A run of the removed backend is history. It never runs again, so its
+	   status is the status of an ended run, and it never looks like a run of
+	   OMP. */
+	const removed = isRemovedBackend(j);
+	const status = removed ? removedRunStatus(j) : j.status;
 	/* A native worker reports its usage through its bridge. The OMP reader
 	   finds no transcript, so the native totals are the measured ones. */
-	const measured = backend === "omp" ? usage : nativeJobUsageReport(j, rt.claudeStates.get(j.id) ?? null);
+	const measured =
+		removed || backend === "omp"
+			? usage
+			: nativeJobUsageReport(j, rt.claudeStates.get(j.id) ?? null);
 	/* A restart cut the counts of a native run. The row says that the
 	   counts start at the restart. */
-	const restored = isRestored(rt, j);
-	const turns =
-		backend === "omp" ? j.turns : (rt.claudeStates.get(j.id)?.cycles.length ?? j.nativeCycles ?? 0);
+	const restored = !removed && isRestored(rt, j);
+	const turns = removed
+		? j.turns
+		: backend === "omp"
+			? j.turns
+			: (rt.claudeStates.get(j.id)?.cycles.length ?? j.nativeCycles ?? 0);
 	const owner = readOwnership(rt.openDb(), taskKey(j.id)).owner;
 	const supervision = supervisionLine(
-		j,
+		removed ? { ...j, status } : j,
 		owner,
 		rt.sessionId,
 		rt.processId,
@@ -111,15 +123,15 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime, lease: 
 	return {
 		workerId: j.id,
 		label: j.label,
-		status: j.status,
+		status,
 		backend: backendLabel(backend),
 		paneId: j.paneId,
 		cwd: j.cwd,
 		model: j.model,
 		transcript: j.sessionFile ?? j.sessionDir,
 		elapsedMs: (j.finishedAt ?? now) - (j.startedAt ?? j.createdAt),
-		idleMs: j.finishedAt ? 0 : now - j.lastActivityAt,
-		currentTool: j.currentTool,
+		idleMs: removed ? 0 : j.finishedAt ? 0 : now - j.lastActivityAt,
+		currentTool: removed ? null : j.currentTool,
 		turns,
 		turnsText: turnsLabel(turns, restored),
 		usage: measured,
@@ -129,17 +141,18 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime, lease: 
 		worktreePath: j.worktreePath,
 		worktreeBranch: j.worktreeBranch,
 		worktreeDirty: j.worktreeDirty,
-		stop:
-			j.pendingStop === null
+		stop: removed
+			? null
+			: j.pendingStop === null
 				? null
 				: j.pendingStop.failure === null
 					? "in progress"
 					: `not confirmed (${j.pendingStop.failure}). Call wezterm_worker_cancel to retry.`,
 		stopIntent: pendingStopIntentOf(rt.openDb(), j.id) === null ? null : "pending",
-		error: j.error,
+		error: removed ? REMOVED_BACKEND_REFUSAL : j.error,
 		result: j.result,
-		native: nativeSummary(rt, j),
-		blocked: completionBlocker(rt, j),
+		native: removed ? null : nativeSummary(rt, j),
+		blocked: removed ? null : completionBlocker(rt, j),
 		supervision,
 		notes: noteCounts(j),
 	};

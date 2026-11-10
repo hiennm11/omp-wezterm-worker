@@ -11,8 +11,8 @@ import { admitLaunch } from "../lib/limits.ts";
 import { monitorJob, monitorNativeJob } from "../lib/monitor.ts";
 import { acquireTask, bindSession, maySupervise, taskKey } from "../lib/owner.ts";
 import { readOwnership } from "../lib/ownership.ts";
+import { removedBackendRefusal } from "../lib/removed-backend.ts";
 import { resumeClaudeWorker } from "../lib/resume-claude.ts";
-import { resumeCodexWorker } from "../lib/resume-codex.ts";
 import { resumeWorker } from "../lib/spawn.ts";
 import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
 import { isSubagent, subagentControlRefusal } from "../lib/subagent.ts";
@@ -68,6 +68,10 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 			const found = findJob(rt, params.workerId);
 			if ("error" in found) return found.error;
 			const { job } = found;
+			/* A run of the removed backend never resumes. The refusal comes
+			   before the launch, so no pane opens. */
+			const removed = removedBackendRefusal(job);
+			if (removed) return reply(removed, { workerId: job.id, refused: "removedBackend" }, true);
 			if (isActive(job)) {
 				return reply(
 					`Worker ${job.id} is still ${job.status}. Steer it instead of resuming it.`,
@@ -123,19 +127,12 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 										? params.placement
 										: rt.config.placement,
 							})
-						: backend === "codex"
-							? await resumeCodexWorker(rt, {
-									jobId: admitted.jobId,
-									source: job,
-									threadId: sessionId as string,
-									message: params.message,
-								})
-							: await resumeClaudeWorker(rt, {
-									jobId: admitted.jobId,
-									source: job,
-									sessionId: sessionId as string,
-									message: params.message,
-								});
+						: await resumeClaudeWorker(rt, {
+								jobId: admitted.jobId,
+								source: job,
+								sessionId: sessionId as string,
+								message: params.message,
+							});
 				if (resumed.status === "failed") {
 					return reply(
 						`Could not resume worker: ${resumed.error ?? "unknown error"}`,

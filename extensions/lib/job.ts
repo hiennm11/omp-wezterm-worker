@@ -6,37 +6,13 @@
  * registry as JSON and read back by a later process.
  */
 
-import type { WorkerBackend } from "./backend.ts";
+import type { RunBackend } from "./backend.ts";
 import type { Placement } from "./config.ts";
 import type { NativeTotals } from "./native-usage.ts";
 import type { ThinkingLevel } from "./thinking.ts";
 import type { UsageTotals } from "./usage.ts";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
-
-/**
- * The identity of a Codex worker.
- *
- * A Codex worker owns one app server and one TUI. The identity names both
- * panes, the process of the server and the thread of the turn. The payload
- * of the run row holds the whole identity, so it needs no column.
- */
-export interface CodexIdentity {
-	/** The port of the app server on the loopback interface. */
-	port: number;
-	/** The process id of the app server, or null when it is unknown. */
-	serverPid: number | null;
-	/** The id of the thread of the turn. */
-	threadId: string;
-	/** The pane of the app server. */
-	serverPaneId: string | null;
-	/** The pane of the TUI. */
-	tuiPaneId: string | null;
-	/** The path of the Codex program. */
-	binaryPath: string;
-	/** The version of the Codex program. */
-	version: string;
-}
 
 /** A stop that was requested but that the pane list has not confirmed yet. */
 export interface PendingStop {
@@ -125,9 +101,10 @@ export interface Job {
 	 * The CLI that runs the worker.
 	 *
 	 * A run that the database holds without this field is an OMP run. The
-	 * migration never guesses a different backend.
+	 * migration never guesses a different backend. The value `codex` names
+	 * the removed backend. A run that holds it is history.
 	 */
-	backend?: WorkerBackend;
+	backend?: RunBackend;
 	/**
 	 * The native session id of a native backend.
 	 *
@@ -151,13 +128,6 @@ export interface Job {
 	 * run has no native cycle count.
 	 */
 	nativeCycles?: number;
-	/**
-	 * The identity of a Codex worker.
-	 *
-	 * The field holds the app server and the TUI of the worker. A run of
-	 * another backend has no Codex identity.
-	 */
-	codex?: CodexIdentity | null;
 }
 
 /** A worker that has not finished yet. */

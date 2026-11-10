@@ -1,12 +1,12 @@
 # Native backend workers
 
-Status: accepted design. The extension implements the Claude Code backend. The Codex backend is described in ADR 0012.
+Status: accepted design. The extension implements the Claude Code backend. The Codex backend is described in ADR 0012. The Codex backend was removed by ADR 0026.
 
 ## Scope
 
 This decision replaces the OMP-only restriction of ADR 0009. It keeps every evidence and recovery guarantee of ADR 0009.
 
-A worker runs in the CLI that the user selected. The backends are OMP, Claude Code CLI, and Codex CLI. A spawn that names no backend runs OMP. A run that the database holds without a backend field is an OMP run. The migration never guesses a different backend.
+A worker runs in the CLI that the user selected. The backends are OMP and Claude Code CLI. A spawn that names no backend runs OMP. A run that the database holds without a backend field is an OMP run. The migration never guesses a different backend.
 
 The extension never falls back to another backend. The extension refuses a backend without an implementation, because a silent fallback would run a different program than the user asked for.
 
@@ -156,7 +156,7 @@ A session-scoped mod and a loopback bridge add a native dependency. They buy the
 
 A native worker does not share the transcript format of an OMP worker. The supervisor thus reads the native state of a native run instead of the transcript. The decision functions stay pure, so they are still testable without a pane.
 
-The Codex backend needs a different bridge. It speaks to a dedicated app server over a websocket. The bridge only carries data, so the second backend uses the same decision functions and the event model. ADR 0012 sets the design of that backend.
+The Codex backend needed a different bridge. It spoke to a dedicated app server over a websocket. The bridge only carries data, so that backend used the same decision functions and the event model. ADR 0012 sets the design of that backend. ADR 0026 removed the backend.
 
 ## What this replaces
 

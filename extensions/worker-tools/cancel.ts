@@ -8,6 +8,7 @@ import { isActive } from "../lib/job.ts";
 import { cancelJob } from "../lib/lifecycle.ts";
 import { taskKey } from "../lib/owner.ts";
 import { readOwnership } from "../lib/ownership.ts";
+import { removedBackendRefusal } from "../lib/removed-backend.ts";
 import { subagentControlRefusal } from "../lib/subagent.ts";
 import { findJob, reply, type ToolDeps } from "./kit.ts";
 
@@ -35,6 +36,10 @@ export function registerCancelTool({ pi, rt }: ToolDeps): void {
 			const found = findJob(rt, params.workerId);
 			if ("error" in found) return found.error;
 			const { job } = found;
+			/* A run of the removed backend never cancels. The refusal comes
+			   before the reach into the pane. */
+			const removed = removedBackendRefusal(job);
+			if (removed) return reply(removed, { workerId: job.id, refused: "removedBackend" }, true);
 			if (!isActive(job)) {
 				return reply(`Worker ${job.id} is already ${job.status}.`, { workerId: job.id, status: job.status });
 			}

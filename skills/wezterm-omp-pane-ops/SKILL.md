@@ -14,8 +14,8 @@ inside a Herdr session (`HERDR_ENV=1`). It never starts a Herdr server. No
 WSL: WSL holds a different `omp` build, and every command here would touch the
 wrong install.
 
-Only the OMP backend runs on Herdr today. The Claude Code backend and the
-Codex backend refuse to start, and the reply says so (ADR 0025).
+Only the OMP backend runs on Herdr today. The Claude Code backend refuses to
+start, and the reply says so (ADR 0025).
 
 ## Sending text to a pane
 
@@ -64,8 +64,8 @@ words into one shell string and loses the argv. Never give `tab_id` to the
 socket method `layout.apply`: it replaces the panes of that tab.
 
 `herdr agent start` picks the program by `--kind` from the PATH. The keys
-`ompBin`, `claudeBin` and `codexBin` of the config file do not change the
-program that Herdr starts. Put the program that you want first on the PATH.
+`ompBin` and `claudeBin` of the config file do not change the program that
+Herdr starts. Put the program that you want first on the PATH.
 
 The flag `--thinking <level>` sets the thinking level of an OMP worker. The
 values are `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` and
@@ -279,8 +279,7 @@ Read it. Do not recall them. What belongs here is only the operating
 knowledge the README cannot state:
 
 - The extension starts a real interactive CLI in a pane. The default backend
-  is OMP. Set `backend: "claude"` for Claude Code. Set `backend: "codex"` for
-  Codex. See ADR 0010 and ADR 0012.
+  is OMP. Set `backend: "claude"` for Claude Code. See ADR 0010.
 - OMP activity comes from its session JSONL. Claude activity comes from the
   native observations. Pane text is a debug view. It does not prove completion.
 - A worker gets the **exact task and cwd**, and does not inherit the main
@@ -564,9 +563,9 @@ line names the older notes and the tool that reads them. The status tool shows
 one count line per worker, for example `notes: 3 from worker, 1 to worker`.
 It shows no note text.
 
-A Claude Code worker and a Codex worker have no channel today. The four tools
-refuse with a reply that says that the backend does not support the channel
-yet. Do not report a note to a native worker as if it arrived.
+A Claude Code worker has no channel today. The four tools refuse with a reply
+that says that the backend does not support the channel yet. Do not report a
+note to a native worker as if it arrived.
 
 ## The domain vocabulary
 

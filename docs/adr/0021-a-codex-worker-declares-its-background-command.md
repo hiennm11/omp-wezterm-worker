@@ -1,5 +1,7 @@
 # A Codex worker declares its background command
 
+Status: superseded by ADR 0026. The Codex backend was removed.
+
 Status: accepted design. The owner accepted the limit that an undeclared command is not detected.
 
 ## The problem

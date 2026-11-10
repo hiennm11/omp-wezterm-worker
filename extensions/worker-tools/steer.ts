@@ -4,12 +4,12 @@
 
 import { controlRefusal, refusalDetails } from "../lib/authority.ts";
 import { readBackend } from "../lib/backend.ts";
-import { steerCodex } from "../lib/codex-session.ts";
 import { checkComms } from "../lib/comms-check.ts";
 import type { ToolCtx } from "../lib/host.ts";
 import { isActive } from "../lib/job.ts";
 import { taskKey } from "../lib/owner.ts";
 import { readOwnership } from "../lib/ownership.ts";
+import { removedBackendRefusal } from "../lib/removed-backend.ts";
 import { paneState } from "../lib/pane.ts";
 import { steerWorker } from "../lib/steer.ts";
 import { steerNative } from "../lib/steer-native.ts";
@@ -65,6 +65,10 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 			const found = findJob(rt, params.workerId);
 			if ("error" in found) return found.error;
 			const { job } = found;
+			/* A run of the removed backend never steers. The refusal comes
+			   before the reach into the pane. */
+			const removed = removedBackendRefusal(job);
+			if (removed) return reply(removed, { workerId: job.id, refused: "removedBackend" }, true);
 			if (!isActive(job)) {
 				return reply(
 					`Worker ${job.id} is already ${job.status} and cannot be steered.`,
@@ -96,52 +100,6 @@ export function registerSteerTool({ pi, rt }: ToolDeps): void {
 						{ workerId: job.id, status: job.status, paneId },
 						true,
 					);
-				}
-				/* A Codex worker takes the instruction through the queue of
-				   Codex. The request `turn/steer` sends it to the model of
-				   the running turn, so a running tool is not interrupted. */
-				if (readBackend(job) === "codex") {
-					const client = rt.codexClients.get(job.id);
-					const state = rt.claudeStates.get(job.id);
-					if (!client || !state) {
-						return reply(
-							`Worker ${job.id} has no Codex client. Its process may have exited.`,
-							{ workerId: job.id, status: job.status, paneId },
-							true,
-						);
-					}
-					const threadId = job.nativeSessionId ?? job.codex?.threadId ?? "";
-					const outcome = await steerCodex(client, state, threadId, params.message);
-					if (!outcome.ok) {
-						return reply(
-							`Could not send to worker ${job.id}: ${outcome.error ?? "unknown error"}`,
-							{
-								workerId: job.id,
-								status: job.status,
-								paneId,
-								error: outcome.error,
-								phase: outcome.phase,
-							},
-							true,
-						);
-					}
-					job.steers += 1;
-					job.lastActivityAt = Date.now();
-					rt.persist();
-					const codexQueued = [
-						`Queued for worker ${job.id} in pane ${paneId}:\n${params.message}\n\n` +
-							"The worker continues working; its final result is still delivered back automatically.",
-					];
-					const codexNotice = commsNoticeLine(comms, rt.config.commsStandard);
-					if (codexNotice) codexQueued.push(codexNotice);
-					return reply(codexQueued.join("\n"), {
-						workerId: job.id,
-						status: job.status,
-						paneId,
-						steers: job.steers,
-						phase: outcome.phase,
-						...commsDetails(comms),
-					});
 				}
 				/* A native worker takes the instruction through its bridge. The
 				   native prompt API queues it, so a running tool is not
