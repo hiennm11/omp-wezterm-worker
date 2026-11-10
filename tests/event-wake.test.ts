@@ -101,7 +101,7 @@ function runningJob(sessionDir: string): Job {
 		closePaneOnFinish: true,
 		...freshRunState(1_000_000),
 		status: "running",
-		paneId: 7,
+		paneId: "w1:p7",
 	};
 }
 

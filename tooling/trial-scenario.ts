@@ -114,7 +114,7 @@ export async function waitForDelivery(
 }
 
 /** Check that the pane of the worker is gone. */
-export async function checkPaneGone(paneId: number | null): Promise<{ pass: boolean; detail: string }> {
+export async function checkPaneGone(paneId: string | null): Promise<{ pass: boolean; detail: string }> {
 	if (paneId === null) return { pass: false, detail: "the spawn returned no pane id" };
 	const gone = await waitFor(() => !currentPanes().includes(paneId), 20_000, 500);
 	return gone
@@ -135,7 +135,7 @@ export function deliveryDetail(delivery: string | null): string {
 }
 
 /** Check that every pane that existed before the spawn still exists. */
-export function checkOtherPanes(before: number[], paneId: number | null): { pass: boolean; detail: string } {
+export function checkOtherPanes(before: string[], paneId: string | null): { pass: boolean; detail: string } {
 	const open = currentPanes();
 	const lost = before.filter((pane) => !open.includes(pane));
 	return lost.length === 0
@@ -176,7 +176,7 @@ export function changedPaths(cwd: string, base: string): string[] {
 /** The result of a spawn call. */
 export interface Spawn {
 	workerId: string | null;
-	paneId: number | null;
+	paneId: string | null;
 	worktreePath: string | null;
 	/** The reason the spawn failed, or null when it worked. */
 	refusal: string | null;
@@ -187,7 +187,7 @@ export async function startWorker(host: TestHost, args: Record<string, unknown>)
 	const result = await host.call("wezterm_spawn_worker", args);
 	return {
 		workerId: detailString(result.details, "workerId"),
-		paneId: detailNumber(result.details, "paneId"),
+		paneId: detailString(result.details, "paneId"),
 		worktreePath: detailString(result.details, "worktreePath"),
 		refusal: result.isError === true ? host.text(result) : null,
 	};
@@ -210,7 +210,7 @@ export function notStarted(name: string, task: string, detail: string, wallMs: n
 
 /** The checks that every worker that ran must pass. */
 export async function commonChecks(
-	paneId: number | null,
+	paneId: string | null,
 	row: StatusRow,
 	delivery: string | null,
 	checks: TrialCheck[],

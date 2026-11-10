@@ -55,9 +55,9 @@ test("a running worker can be steered, peeked at and cancelled", {
 			label: "live",
 		});
 		const workerId = detailString(spawned.details, "workerId") ?? "";
-		const paneId = detailNumber(spawned.details, "paneId") ?? -1;
+		const paneId = detailString(spawned.details, "paneId") ?? "";
 		assert.ok(workerId, "The spawn tool returned no worker id");
-		assert.ok(paneId > 0, "The spawn tool returned no pane id");
+		assert.ok(paneId, "The spawn tool returned no pane id");
 
 		// --- the pane is alive ---
 		const alive = await waitFor(() => currentPanes().includes(paneId), 30_000, 500);
@@ -152,7 +152,7 @@ test("a running worker can be cancelled and only its pane closes", {
 			label: "cancel",
 		});
 		const workerId = detailString(spawned.details, "workerId") ?? "";
-		const paneId = detailNumber(spawned.details, "paneId") ?? -1;
+		const paneId = detailString(spawned.details, "paneId") ?? "";
 		assert.ok(workerId, "The spawn tool returned no worker id");
 
 		const alive = await waitFor(() => currentPanes().includes(paneId), 30_000, 500);
@@ -196,7 +196,7 @@ test("a worker past its deadline is stopped and its pane is confirmed closed", {
 			timeoutMs: 5_000,
 		});
 		const workerId = detailString(spawned.details, "workerId") ?? "";
-		const paneId = detailNumber(spawned.details, "paneId") ?? -1;
+		const paneId = detailString(spawned.details, "paneId") ?? "";
 		assert.ok(workerId, "The spawn tool returned no worker id");
 
 		const alive = await waitFor(() => currentPanes().includes(paneId), 30_000, 500);
@@ -243,7 +243,7 @@ test("a session releases the worker that it started, and the worker keeps runnin
 			label: "release",
 		});
 		const workerId = detailString(spawned.details, "workerId") ?? "";
-		const paneId = detailNumber(spawned.details, "paneId") ?? -1;
+		const paneId = detailString(spawned.details, "paneId") ?? "";
 		assert.ok(workerId, "The spawn tool returned no worker id");
 
 		const released = await host.call("wezterm_worker_release", { workerId });

@@ -22,6 +22,7 @@ import type { ToolDeps } from "../extensions/worker-tools/kit.ts";
 import { registerReleaseTool } from "../extensions/worker-tools/release.ts";
 import { registerResumeTool } from "../extensions/worker-tools/resume.ts";
 import { registerSteerTool } from "../extensions/worker-tools/steer.ts";
+import { herdrFake } from "./herdr-fake.ts";
 import { makeJob } from "./takeover-helpers.ts";
 
 /** The session that calls the tool. */
@@ -66,14 +67,14 @@ function fakeRuntime(options: FakeOptions = {}): {
 } {
 	const dir = mkdtempSync(join(tmpdir(), "wt-authority-"));
 	const calls: string[][] = [];
+	const fake = herdrFake();
 	const exec: RunFn = async (_bin, args) => {
 		calls.push(args);
-		if (args.includes("kill-pane")) {
+		if (args[0] === "pane" && args[1] === "close") {
 			options.onClose?.();
 			if (options.gate) await options.gate;
 		}
-		if (args.includes("list")) return { code: 0, stdout: "[]", stderr: "" };
-		return { code: 0, stdout: "", stderr: "" };
+		return fake.answer(args);
 	};
 	const rt = createRuntime(exec);
 	rt.config.stateDir = dir;
@@ -126,7 +127,7 @@ test("the cancel of a worker of another session is refused", async () => {
 		assert.equal(result.details.owner, OTHER);
 		assert.equal(result.details.phase, "active");
 		assert.equal(
-			calls.some((args) => args.includes("kill-pane")),
+			calls.some((args) => args[0] === "pane" && args[1] === "close"),
 			false,
 		);
 		assert.equal(job.status, "running");
@@ -155,7 +156,7 @@ test("the steer of a worker of another session is refused", async () => {
 		);
 		assert.equal(result.details.owner, OTHER);
 		assert.equal(
-			calls.some((args) => args.includes("send-text")),
+			calls.some((args) => args[0] === "agent" && args[1] === "prompt"),
 			false,
 		);
 	} finally {
@@ -288,7 +289,7 @@ test("a cancel of a task that this session is releasing is refused", async () =>
 		assert.equal(result.content[0]?.text, "This session is releasing worker wz-1.");
 		assert.equal(result.details.phase, "releasing");
 		assert.equal(
-			calls.some((args) => args.includes("kill-pane")),
+			calls.some((args) => args[0] === "pane" && args[1] === "close"),
 			false,
 		);
 		assert.equal(job.status, "running");
@@ -316,7 +317,7 @@ test("a cancel of a task that this session released is refused", async () => {
 		);
 		assert.equal(result.details.phase, "released");
 		assert.equal(
-			calls.some((args) => args.includes("kill-pane")),
+			calls.some((args) => args[0] === "pane" && args[1] === "close"),
 			false,
 		);
 		assert.equal(job.status, "running");

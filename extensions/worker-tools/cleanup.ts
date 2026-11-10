@@ -49,7 +49,7 @@ async function releaseWorktree(rt: WorkerRuntime, job: Job, force: boolean): Pro
 	if (pane === "unknown") {
 		return {
 			notes: [
-				`worktree kept: the WezTerm pane list cannot be read, so pane ${job.paneId} may still hold the directory`,
+				`worktree kept: the Herdr pane list cannot be read, so pane ${job.paneId} may still hold the directory`,
 			],
 			kept: path,
 			keptChanges: [],

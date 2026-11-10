@@ -2,7 +2,7 @@
  * The answers of the fake machine of the tests of the mixed backends.
  *
  * The answers stand for the two programs that the extension reads: the
- * WezTerm CLI and the process table of PowerShell. The panes and the
+ * Herdr CLI and the process table of PowerShell. The panes and the
  * processes are the only fakes. Every other part is the code of the
  * extension.
  */
@@ -21,9 +21,9 @@ export interface FakeProcess {
 /** The state that the answers of the machine read. */
 export interface MachineState {
 	/** The panes that the machine holds now. */
-	panes: Set<number>;
+	panes: Set<string>;
 	/** The panes that the extension closed. */
-	killedPanes: number[];
+	killedPanes: string[];
 	/** The programs that the extension started, in order. */
 	programs: string[];
 	/** The number of pane launches. */
@@ -33,7 +33,7 @@ export interface MachineState {
 	/** The requests that the client of Codex made. */
 	clientCalls: { method: string; params: Record<string, unknown> }[];
 	/** The transcript file of a pane of an OMP worker. */
-	transcripts: Map<number, string>;
+	transcripts: Map<string, string>;
 	/** The processes of the machine. */
 	processes: Map<number, FakeProcess>;
 	/** The clients of Codex that the extension opened. */
@@ -73,25 +73,28 @@ export interface AnswerOptions {
 	listCode: number;
 }
 
-/** The answer of the WezTerm CLI. */
+/** The answer of the Herdr CLI. */
 export function weztermAnswer(state: MachineState, command: string, options: AnswerOptions): MachineAnswer {
-	if (command.includes("list --format json")) {
+	const args = command.split(" ");
+	if (args[0] === "pane" && args[1] === "list") {
 		if (options.listCode !== 0) return { code: options.listCode, stdout: "", stderr: "" };
-		const listing = [...state.panes].map((pane_id) => ({ pane_id, tab_id: 1, window_id: 1 }));
-		return { code: 0, stdout: JSON.stringify(listing), stderr: "" };
+		const listing = [...state.panes].map((pane_id) => ({ pane_id, tab_id: "w1:t1" }));
+		return { code: 0, stdout: JSON.stringify({ result: { panes: listing } }), stderr: "" };
 	}
-	if (command.includes("kill-pane")) {
-		const paneId = Number.parseInt(command.split("--pane-id")[1]?.trim() ?? "-1", 10);
+	if (args[0] === "pane" && args[1] === "close") {
+		const paneId = args[2] ?? "";
 		if (!state.keepPaneOnKill) state.panes.delete(paneId);
 		state.killedPanes.push(paneId);
 		return { code: 0, stdout: "", stderr: "" };
 	}
-	if (command.includes("get-text")) return { code: 0, stdout: "bypass permissions on", stderr: "" };
-	if (command.includes("send-text")) return sendText(state, command);
-	if (command.includes("set-tab-title")) return { code: 0, stdout: "", stderr: "" };
+	if (args[0] === "pane" && args[1] === "read") {
+		return { code: 0, stdout: "bypass permissions on", stderr: "" };
+	}
+	if (args[0] === "agent" && args[1] === "prompt") return sendText(state, args);
+	if (args[0] === "tab" && args[1] === "rename") return { code: 0, stdout: "", stderr: "" };
 	/* A pane launch. The program of the pane stands after the "--". */
 	const program = command.split("-- ").pop()?.split(" ")[0] ?? "";
-	const paneId = state.nextPane;
+	const paneId = `w1:p${state.nextPane}`;
 	state.nextPane += 1;
 	state.panes.add(paneId);
 	state.programs.push(program.split(/[\\/]/).pop() ?? program);
@@ -106,18 +109,20 @@ export function weztermAnswer(state: MachineState, command: string, options: Ans
 			commandLine: `"${state.codexBin}" app-server --listen ${port}`,
 		});
 	}
-	return { code: 0, stdout: String(paneId), stderr: "" };
+	return {
+		code: 0,
+		stdout: JSON.stringify({ result: { pane: { pane_id: paneId, tab_id: "w1:t1" } } }),
+		stderr: "",
+	};
 }
 
 /**
  * A send into a pane of an OMP worker writes the instruction into the
  * transcript, so the delivery of the instruction can be confirmed.
  */
-function sendText(state: MachineState, command: string): MachineAnswer {
-	const after = command.split("--pane-id ")[1] ?? "";
-	const space = after.indexOf(" ");
-	const paneId = Number.parseInt(after.slice(0, space), 10);
-	const text = after.slice(space + 1).replace(/\r$/, "");
+function sendText(state: MachineState, args: string[]): MachineAnswer {
+	const paneId = args[2] ?? "";
+	const text = args.slice(3).join(" ").replace(/\r$/, "");
 	const file = state.transcripts.get(paneId);
 	if (file) {
 		const line = JSON.stringify({

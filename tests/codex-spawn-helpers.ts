@@ -31,10 +31,10 @@ export interface CodexFakeOptions {
 	serverProcessCount?: number;
 	/** The name of the server process of the test. */
 	serverProcessName?: string;
-	/** The number of the pane of the server. */
-	serverPaneId?: number;
-	/** The number of the pane of the TUI. */
-	tuiPaneId?: number;
+	/** The id of the pane of the server. */
+	serverPaneId?: string;
+	/** The id of the pane of the TUI. */
+	tuiPaneId?: string;
 	/** How long the launch waits for the process of the app server. */
 	serverWaitMs?: number;
 	/** The number of calls of `taskkill` that fail before they succeed. */
@@ -53,14 +53,14 @@ export interface CodexFake {
 	dir: string;
 	/** The steps of the launch in the order that the extension made them. */
 	order: string[];
-	/** The calls of WezTerm. */
+	/** The calls of Herdr. */
 	weztermCalls: string[][];
 	/** The programs that the fake was asked to start, in order. */
 	programs: string[];
 	/** The panes that the fake holds. */
-	panes: Set<number>;
+	panes: Set<string>;
 	/** The panes that the fake closed. */
-	killedPanes: number[];
+	killedPanes: string[];
 	/** The commands of `taskkill` that the fake received. */
 	taskkills: string[];
 	/** The requests that the client made. */
@@ -83,8 +83,8 @@ export interface CodexFake {
  */
 export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 	const version = options.version ?? "codex-cli 0.166.0";
-	const serverPaneId = options.serverPaneId ?? 11;
-	const tuiPaneId = options.tuiPaneId ?? 12;
+	const serverPaneId = options.serverPaneId ?? "w1:p11";
+	const tuiPaneId = options.tuiPaneId ?? "w1:p12";
 	const serverProcessCount = options.serverProcessCount ?? 1;
 	const serverProcessName = options.serverProcessName ?? "codex.exe";
 	let taskkillFailures = options.taskkillFailures ?? 0;
@@ -96,8 +96,8 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 	const order: string[] = [];
 	const weztermCalls: string[][] = [];
 	const programs: string[] = [];
-	const panes = new Set<number>();
-	const killedPanes: number[] = [];
+	const panes = new Set<string>();
+	const killedPanes: string[] = [];
 	const taskkills: string[] = [];
 	const clientCalls: { method: string; params: Record<string, unknown> }[] = [];
 	let clientCloses = 0;
@@ -116,7 +116,7 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 		args: string[],
 	): Promise<{ code: number; stdout: string; stderr: string }> => {
 		const command = args.join(" ");
-		if (bin === "wezterm") return weztermAnswer(command);
+		if (bin === "herdr") return herdrAnswer(command);
 		if (bin === "taskkill") {
 			taskkills.push(command);
 			if (taskkillFailures > 0) {
@@ -132,13 +132,27 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 		return { code: 0, stdout: "", stderr: "" };
 	};
 
-	const weztermAnswer = (command: string) => {
+	const herdrAnswer = (command: string) => {
 		weztermCalls.push(command.split(" "));
-		/* The program of a pane stands after the "--" of the WezTerm
+		const args = command.split(" ");
+		/* The program of a pane stands after the "--" of the Herdr
 		   command. The test reads it to know which CLI started. */
 		const program = command.split("-- ").pop()?.split(" ")[0] ?? "";
-		if (command.includes("app-server")) {
-			endpoint = command.split("--listen ")[1]?.split(" ")[0] ?? endpoint;
+		if (args[0] === "agent" && args[1] === "start") {
+			const dash = args.indexOf("--");
+			const kind = args[args.indexOf("--kind") + 1] ?? "";
+			const started = dash < 0 ? [] : args.slice(dash + 1);
+			if (kind === "codex" && options.failTuiLaunch) {
+				return { code: 1, stdout: "", stderr: "the TUI did not start" };
+			}
+			panes.add(tuiPaneId);
+			order.push("tui-pane");
+			programs.push(started[0] ?? program);
+			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
+		}
+		if (args[0] === "layout:apply") {
+			const params = args[1] ?? "{}";
+			endpoint = params.split("--listen ")[1]?.split('"')[0] ?? endpoint;
 			panes.add(serverPaneId);
 			for (let index = 0; index < serverProcessCount; index += 1) {
 				const pid = nextProcessId;
@@ -149,27 +163,24 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 				});
 			}
 			order.push("server-pane");
-			programs.push(program);
-			return { code: 0, stdout: String(serverPaneId), stderr: "" };
+			programs.push("codex");
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { layout: { root: { pane_id: serverPaneId, tab_id: "w1:t1" } } } }),
+				stderr: "",
+			};
 		}
-		if (command.includes("--remote")) {
-			if (options.failTuiLaunch) return { code: 1, stdout: "", stderr: "the TUI did not start" };
-			panes.add(tuiPaneId);
-			order.push("tui-pane");
-			programs.push(program);
-			return { code: 0, stdout: String(tuiPaneId), stderr: "" };
-		}
-		if (command.includes("kill-pane")) {
-			const paneId = Number(command.split("--pane-id")[1]?.trim() ?? "-1");
+		if (args[0] === "pane" && args[1] === "close") {
+			const paneId = args[2] ?? "";
 			panes.delete(paneId);
 			killedPanes.push(paneId);
 			return { code: 0, stdout: "", stderr: "" };
 		}
-		if (command.includes("list --format json")) {
+		if (args[0] === "pane" && args[1] === "list") {
 			const code = options.listCode ?? 0;
 			if (code !== 0) return { code, stdout: "", stderr: "" };
-			const listing = [...panes].map((pane_id) => ({ pane_id, tab_id: 1, window_id: 1 }));
-			return { code: 0, stdout: JSON.stringify(listing), stderr: "" };
+			const listing = [...panes].map((pane_id) => ({ pane_id, tab_id: "w1:t1" }));
+			return { code: 0, stdout: JSON.stringify({ result: { panes: listing } }), stderr: "" };
 		}
 		return { code: 0, stdout: "", stderr: "" };
 	};
@@ -201,6 +212,12 @@ export function codexFake(options: CodexFakeOptions = {}): CodexFake {
 	const rt = createRuntime(exec);
 	rt.config.stateDir = dir;
 	rt.config.codexBin = binary;
+	/* The layout verb of Herdr has no CLI command, so the seam of the
+	   runtime answers it. The fake answers it here. */
+	rt.herdr = async (args) => {
+		if (args[0] === "layout:apply") return herdrAnswer(args[1] ?? "{}");
+		return herdrAnswer(args.join(" "));
+	};
 
 	let connections = 0;
 	const closedClients: number[] = [];

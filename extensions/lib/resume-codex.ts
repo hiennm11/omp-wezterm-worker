@@ -18,6 +18,7 @@ import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempt
 import { startBridge } from "./claude-bridge.ts";
 import { createClaudeRunState } from "./claude-run-state.ts";
 import { codexVersionRefusal, findCodexBinary } from "./codex-binary.ts";
+import { codexHerdrRefusal } from "./codex-herdr.ts";
 import { type CodexLaunchDeps, launchCodex } from "./codex-launch.ts";
 import { endCodexProcesses } from "./codex-process.ts";
 import { codexReportLaunch } from "./codex-report.ts";
@@ -63,6 +64,11 @@ export async function resumeCodexWorker(
 		   the source run must not end the program of the source run. */
 		codex: null,
 	};
+
+	/* The Codex backend does not run on Herdr yet. The refusal comes before
+	   every other step, so no pane opens and no program starts. */
+	const herdrRefusal = codexHerdrRefusal();
+	if (herdrRefusal) return failed(rt, job, herdrRefusal);
 
 	/* The panes of the source run can still write into the thread of that
 	   run. The resume waits until they are gone. The check comes before the

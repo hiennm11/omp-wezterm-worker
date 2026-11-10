@@ -50,9 +50,9 @@ test("a worker cannot launch a worker", {
 	/* The watcher records every pane that appears while the outer worker
 	   runs. A nested worker opens a pane of its own, even when it ends
 	   before the check runs.
-	   The interval polls the real WezTerm CLI. A fake clock cannot drive
+	   The interval polls the real Herdr CLI. A fake clock cannot drive
 	   an external process, so the poll is the only way to see the pane. */
-	const panesDuringRun: number[] = [];
+	const panesDuringRun: string[] = [];
 	const watch = setInterval(() => {
 		for (const pane of currentPanes()) {
 			if (!panesDuringRun.includes(pane)) panesDuringRun.push(pane);
@@ -95,7 +95,7 @@ test("a worker cannot launch a worker", {
 		   pane of its own. The check watches the pane list while the outer
 		   worker runs, so a pane that opens and closes again is caught too.
 		   The pane of the outer worker is the one pane that may appear. */
-		const workerPane = detailNumber(spawned.details, "paneId");
+		const workerPane = detailString(spawned.details, "paneId");
 		assert.deepEqual(
 			panesDuringRun.filter((p) => !panesBefore.includes(p) && p !== workerPane),
 			[],

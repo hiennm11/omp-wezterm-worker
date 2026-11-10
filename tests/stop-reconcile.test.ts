@@ -19,7 +19,7 @@ import { intentVerdict, reconcileStopIntents, stopIntentRefusal } from "../exten
 import { fakeWezterm, jobOf, runtimeFor } from "./group-holder-helpers.ts";
 
 /** A run with a pending stop intent. The task belongs to the given session. */
-function stopping(rt: WorkerRuntime, id: string, paneId: number | null, session = "s1"): Job {
+function stopping(rt: WorkerRuntime, id: string, paneId: string | null, session = "s1"): Job {
 	const job = jobOf(id, { paneId, status: "running" });
 	rt.jobs.set(id, job);
 	acquireOwnership(rt.openDb(), taskKey(id), session, 1, "t", 1000);
@@ -34,9 +34,9 @@ test("the verdict follows the pane state and never guesses", () => {
 });
 
 test("a pending intent is confirmed when its pane is gone", async (t) => {
-	const { rt } = runtimeFor(t, fakeWezterm({ panes: [{ pane_id: 99, tab_id: 1, window_id: 1 }] }).exec);
+	const { rt } = runtimeFor(t, fakeWezterm({ panes: [{ pane_id: "w1:p99", tab_id: "w1:t1" }] }).exec);
 	rt.sessionId = "s1";
-	stopping(rt, "wz-1", 121);
+	stopping(rt, "wz-1", "w1:p121");
 
 	const outcome = await reconcileStopIntents(rt, [...rt.jobs.values()], 2000);
 
@@ -55,9 +55,9 @@ test("a pending intent is confirmed when the run has no pane", async (t) => {
 });
 
 test("a pending intent fails when its pane still exists", async (t) => {
-	const { rt } = runtimeFor(t, fakeWezterm({ panes: [{ pane_id: 121, tab_id: 1, window_id: 1 }] }).exec);
+	const { rt } = runtimeFor(t, fakeWezterm({ panes: [{ pane_id: "w1:p121", tab_id: "w1:t1" }] }).exec);
 	rt.sessionId = "s1";
-	stopping(rt, "wz-1", 121);
+	stopping(rt, "wz-1", "w1:p121");
 
 	const outcome = await reconcileStopIntents(rt, [...rt.jobs.values()], 2000);
 
@@ -68,7 +68,7 @@ test("a pending intent fails when its pane still exists", async (t) => {
 test("a pending intent stays pending when the pane list cannot be read", async (t) => {
 	const { rt } = runtimeFor(t, fakeWezterm({ panes: [], listCode: 1 }).exec);
 	rt.sessionId = "s1";
-	stopping(rt, "wz-1", 121);
+	stopping(rt, "wz-1", "w1:p121");
 
 	const outcome = await reconcileStopIntents(rt, [...rt.jobs.values()], 2000);
 
@@ -79,7 +79,7 @@ test("a pending intent stays pending when the pane list cannot be read", async (
 test("the reconciliation leaves the intent of another session alone", async (t) => {
 	const { rt } = runtimeFor(t, fakeWezterm({ panes: [] }).exec);
 	rt.sessionId = "s1";
-	stopping(rt, "wz-foreign", 121, "s2");
+	stopping(rt, "wz-foreign", "w1:p121", "s2");
 
 	const outcome = await reconcileStopIntents(rt, [...rt.jobs.values()], 2000);
 
@@ -90,7 +90,7 @@ test("the reconciliation leaves the intent of another session alone", async (t) 
 test("a pending intent refuses the action and a settled intent does not", async (t) => {
 	const { rt } = runtimeFor(t, fakeWezterm({ panes: [] }).exec);
 	rt.sessionId = "s1";
-	stopping(rt, "wz-1", 121);
+	stopping(rt, "wz-1", "w1:p121");
 	const db = rt.openDb();
 
 	const refusal = stopIntentRefusal(db, "wz-1");

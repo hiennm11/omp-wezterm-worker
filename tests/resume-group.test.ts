@@ -56,7 +56,7 @@ function sourceJob(id: string, sessionDir: string, overrides: Partial<Job> = {})
 		closePaneOnFinish: true,
 		...freshRunState(0),
 		status: "completed",
-		paneId: 42,
+		paneId: "w1:p42",
 		...overrides,
 	};
 }

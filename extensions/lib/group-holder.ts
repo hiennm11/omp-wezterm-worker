@@ -8,7 +8,7 @@
  *
  * A resume and a cleanup read the pane list. When the pane of the holder is
  * gone, the holder frees the group. An unreadable pane list keeps the group
- * held, because a broken WezTerm must not look like a closed pane.
+ * held, because a broken Herdr must not look like a closed pane.
  *
  * The decision is a pure function of the job of the holder and the state of
  * its pane. The database work stays in `groups.ts`.

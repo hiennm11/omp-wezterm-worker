@@ -16,6 +16,8 @@ const FAIL_TEXT = "json: Invalid JSON syntax: Unexpected EOF";
 
 function setup(exec: RunFn) {
 	const dir = mkdtempSync(join(tmpdir(), "wt-claude-validate-"));
+	/* The extension refuses a spawn outside a Herdr session. */
+	process.env.HERDR_ENV = "1";
 	const rt = createRuntime(exec);
 	rt.config.stateDir = dir;
 	rt.config.claudeBin = "claude";
@@ -56,8 +58,14 @@ test("spawn refuses an invalid plugin before bridge, group, attempt, or pane cre
 		calls.push({ bin, args });
 		if (args[0] === "plugin") return { code: 1, stdout: FAIL_TEXT, stderr: "" };
 		if (args.includes("--version")) return { code: 0, stdout: "Claude", stderr: "" };
-		if (args.includes("list")) return { code: 0, stdout: "[]", stderr: "" };
-		if (args.includes("split-pane") || args.includes("spawn")) return { code: 0, stdout: "88", stderr: "" };
+		if (args[0] === "pane" && args[1] === "list")
+			return { code: 0, stdout: JSON.stringify({ result: { panes: [] } }), stderr: "" };
+		if ((args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"))
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p88", tab_id: "w1:t1" } } }),
+				stderr: "",
+			};
 		return { code: 0, stdout: "", stderr: "" };
 	};
 	const { rt, dir } = setup(exec);
@@ -79,7 +87,10 @@ test("spawn refuses an invalid plugin before bridge, group, attempt, or pane cre
 			calls.some(({ args }) => args[0] === "plugin" && args[2] === join(result.sessionDir, "claude-plugin")),
 		);
 		assert.equal(
-			calls.some(({ args }) => args.includes("split-pane") || args.includes("spawn")),
+			calls.some(
+			({ args }) =>
+				(args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"),
+		),
 			false,
 		);
 		const db = rt.openDb();
@@ -111,11 +122,17 @@ test("resume accepts a validated plugin and launches the worker", async () => {
 		calls.push({ bin, args });
 		if (args[0] === "plugin") return { code: 0, stdout: "Found 1 warning", stderr: "" };
 		if (bin === "powershell") return { code: 0, stdout: "0", stderr: "" };
-		if (args.includes("list")) return { code: 0, stdout: "[]", stderr: "" };
+		if (args[0] === "pane" && args[1] === "list")
+			return { code: 0, stdout: JSON.stringify({ result: { panes: [] } }), stderr: "" };
 		if (args.includes("--version")) return { code: 0, stdout: "Claude", stderr: "" };
-		if (args.includes("get-text")) return { code: 0, stdout: "bypass permissions on", stderr: "" };
-		if (args.some((arg) => arg === "split-pane" || arg === "spawn"))
-			return { code: 0, stdout: "88", stderr: "" };
+		if (args[0] === "pane" && args[1] === "read")
+			return { code: 0, stdout: "bypass permissions on", stderr: "" };
+		if ((args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"))
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p88", tab_id: "w1:t1" } } }),
+				stderr: "",
+			};
 		return { code: 0, stdout: "", stderr: "" };
 	};
 	const { rt, dir } = setup(exec);
@@ -162,8 +179,14 @@ test("spawn accepts validation warnings and launches the worker", async () => {
 		calls.push({ bin, args });
 		if (args[0] === "plugin") return { code: 0, stdout: "Found 1 warning", stderr: "" };
 		if (args.includes("--version")) return { code: 0, stdout: "Claude", stderr: "" };
-		if (args.includes("list")) return { code: 0, stdout: "[]", stderr: "" };
-		if (args.includes("split-pane") || args.includes("spawn")) return { code: 0, stdout: "88", stderr: "" };
+		if (args[0] === "pane" && args[1] === "list")
+			return { code: 0, stdout: JSON.stringify({ result: { panes: [] } }), stderr: "" };
+		if ((args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"))
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p88", tab_id: "w1:t1" } } }),
+				stderr: "",
+			};
 		return { code: 0, stdout: "", stderr: "" };
 	};
 	const { rt, dir } = setup(exec);
@@ -190,7 +213,8 @@ test("spawn reports a validation execution error and does not launch", async () 
 		calls.push({ bin, args });
 		if (args[0] === "plugin") throw new Error("cannot execute Claude");
 		if (args.includes("--version")) return { code: 0, stdout: "Claude", stderr: "" };
-		if (args.includes("list")) return { code: 0, stdout: "[]", stderr: "" };
+		if (args[0] === "pane" && args[1] === "list")
+			return { code: 0, stdout: JSON.stringify({ result: { panes: [] } }), stderr: "" };
 		return { code: 0, stdout: "", stderr: "" };
 	};
 	const { rt, dir } = setup(exec);
@@ -204,7 +228,10 @@ test("spawn reports a validation execution error and does not launch", async () 
 		assert.equal(result.status, "failed");
 		assert.match(result.error ?? "", /The mod of the extension could not be checked:.*cannot execute Claude/);
 		assert.equal(
-			calls.some(({ args }) => args.includes("split-pane") || args.includes("spawn")),
+			calls.some(
+			({ args }) =>
+				(args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"),
+		),
 			false,
 		);
 	} finally {
@@ -218,10 +245,16 @@ test("resume refuses an invalid plugin and releases the resource group", async (
 	const exec: RunFn = async (bin, args) => {
 		calls.push({ bin, args });
 		if (args[0] === "plugin") return { code: 1, stdout: FAIL_TEXT, stderr: "" };
-		if (args.includes("list")) return { code: 0, stdout: "[]", stderr: "" };
+		if (args[0] === "pane" && args[1] === "list")
+			return { code: 0, stdout: JSON.stringify({ result: { panes: [] } }), stderr: "" };
 		if (args.includes("--version")) return { code: 0, stdout: "Claude", stderr: "" };
 		if (bin === "powershell") return { code: 0, stdout: "0", stderr: "" };
-		if (args.includes("split-pane") || args.includes("spawn")) return { code: 0, stdout: "88", stderr: "" };
+		if ((args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"))
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p88", tab_id: "w1:t1" } } }),
+				stderr: "",
+			};
 		return { code: 0, stdout: "", stderr: "" };
 	};
 	const { rt, dir } = setup(exec);
@@ -235,7 +268,10 @@ test("resume refuses an invalid plugin and releases the resource group", async (
 		assert.match(result.error ?? "", /The installed Claude Code refused the mod of the extension:/);
 		assert.equal(rt.bridges.size, 0);
 		assert.equal(
-			calls.some(({ args }) => args.includes("split-pane") || args.includes("spawn")),
+			calls.some(
+			({ args }) =>
+				(args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"),
+		),
 			false,
 		);
 		assert.equal(readGroup(db, "grp-wz-source")?.executionState, "free");

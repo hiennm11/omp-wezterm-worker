@@ -10,7 +10,7 @@
  * must be gone before a resume starts.
  *
  * An unreadable pane list gives the state `unknown`. A resume must not start
- * on an unknown state, because a broken WezTerm must not look like a closed
+ * on an unknown state, because a broken Herdr must not look like a closed
  * pane.
  */
 

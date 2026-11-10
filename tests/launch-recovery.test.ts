@@ -39,7 +39,7 @@ test("a receipt attaches the attempt to its pane", () => {
 	try {
 		reserveAttempt(db, "att-1", "wz-1", 1000);
 		markIssued(db, "att-1", 1001);
-		attachAttempt(db, "att-1", 42, "C:/state/sessions/wz-1/a.jsonl", "session-abc", 1002);
+		attachAttempt(db, "att-1", "w1:p42", "C:/state/sessions/wz-1/a.jsonl", "session-abc", 1002);
 		assert.equal(openAttempts(db).length, 0, "an attached attempt is not open");
 	} finally {
 		db.close();

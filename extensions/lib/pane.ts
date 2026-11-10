@@ -10,7 +10,7 @@
  */
 
 import { backendLabel, readBackend } from "./backend.ts";
-import { applyPaneLayout } from "./herdr-layout.ts";
+import { LAYOUT_APPLY_VERB } from "./herdr-layout.ts";
 import type { Job } from "./job.ts";
 import { delay, describeFailure } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -180,15 +180,33 @@ async function openPane(
  * the socket API. The call never names a `tab_id`, so the tab of the main
  * session survives.
  */
-export async function openProgramTab(options: {
-	cwd: string;
-	command: string[];
-	env?: NodeJS.ProcessEnv;
-	label?: string;
-}): Promise<{ paneId: string; tabId: string } | null> {
-	const pane = await applyPaneLayout(options);
-	if (pane === null) return null;
-	return { paneId: pane.paneId, tabId: pane.tabId };
+export async function openProgramTab(
+	rt: WorkerRuntime,
+	options: {
+		cwd: string;
+		command: string[];
+		env?: NodeJS.ProcessEnv;
+		label?: string;
+	},
+): Promise<{ paneId: string; tabId: string } | null> {
+	const leaf: Record<string, unknown> = {
+		type: "pane",
+		cwd: options.cwd,
+		command: options.command,
+	};
+	if (options.env) {
+		const env: Record<string, string> = {};
+		for (const [key, value] of Object.entries(options.env)) {
+			if (value === undefined) continue;
+			env[key] = value;
+		}
+		if (Object.keys(env).length > 0) leaf.env = env;
+	}
+	const params: Record<string, unknown> = { root: leaf, focus: false };
+	if (options.label) params.tab_label = options.label;
+	const res = await rt.herdr([LAYOUT_APPLY_VERB, JSON.stringify(params)]);
+	if (res.code !== 0) return null;
+	return paneOfReply(res.stdout);
 }
 
 /**

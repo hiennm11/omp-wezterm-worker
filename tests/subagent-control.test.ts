@@ -16,7 +16,7 @@ import { sessionContext } from "./session-context.ts";
 const MAIN = "session-subagent-control-main";
 const SUB = "session-subagent-control-sub";
 const WORKER = "wz-subagent-control";
-const PANE = 912;
+const PANE = "w1:p912";
 const MAIN_AGENT: AgentDescriptor = { kind: "main", id: "main", depth: 0 };
 const SUB_AGENT: AgentDescriptor = { kind: "sub", id: "sub-1", depth: 1 };
 const panes = new Set([PANE]);
@@ -37,9 +37,11 @@ test("a subagent can read a worker but cannot control it", async () => {
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-subagent-control-"));
 	const main = createHost({ stateDir, cwd: stateDir, sessionId: MAIN, agent: MAIN_AGENT });
 	const sub = createHost({ stateDir, cwd: stateDir, sessionId: SUB, agent: SUB_AGENT });
-	RUNTIME.wezterm = async (args) => {
-		if (args[0] === "list")
-			return { code: 0, stdout: JSON.stringify([...panes].map((pane_id) => ({ pane_id }))), stderr: "" };
+	RUNTIME.herdr = async (args) => {
+		if (args[0] === "pane" && args[1] === "list") {
+			const listing = [...panes].map((pane_id) => ({ pane_id, tab_id: "w1:t1" }));
+			return { code: 0, stdout: JSON.stringify({ result: { panes: listing } }), stderr: "" };
+		}
 		return { code: 0, stdout: "pane output", stderr: "" };
 	};
 	RUNTIME.exec = async () => ({ code: 0, stdout: "[]", stderr: "" });

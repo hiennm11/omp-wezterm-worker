@@ -60,7 +60,7 @@ function nativeJob(sessionDir: string): Job {
 		closePaneOnFinish: true,
 		...freshRunState(launchedAt),
 		status: "running",
-		paneId: 7,
+		paneId: "w1:p7",
 		backend: "claude",
 		startedAt: launchedAt,
 	};

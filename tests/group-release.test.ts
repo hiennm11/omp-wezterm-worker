@@ -56,7 +56,7 @@ function jobOf(id: string, overrides: Partial<Job> = {}): Job {
 		closePaneOnFinish: true,
 		...freshRunState(0),
 		status: "running",
-		paneId: 7,
+		paneId: "w1:p7",
 		...overrides,
 	};
 }
@@ -82,7 +82,7 @@ test("a run that ends with its pane closed frees its group", async () => {
 		const db = rt.openDb();
 		createGroup(db, "grp-1", "C:/state/sessions/wz-1", 1000);
 		reserveExecution(db, "grp-1", "run-1", 1001);
-		const job = jobOf("run-1", { paneId: 7, paneClosed: true });
+		const job = jobOf("run-1", { paneId: "w1:p7", paneClosed: true });
 		rt.jobs.set(job.id, job);
 
 		await finalizeJob(rt, job, "completed", null, "done");
@@ -104,7 +104,7 @@ test("a run that ends with its pane alive keeps its group", async () => {
 		const db = rt.openDb();
 		createGroup(db, "grp-1", "C:/state/sessions/wz-1", 1000);
 		reserveExecution(db, "grp-1", "run-1", 1001);
-		const job = jobOf("run-1", { paneId: 7, paneClosed: false, closePaneOnFinish: false });
+		const job = jobOf("run-1", { paneId: "w1:p7", paneClosed: false, closePaneOnFinish: false });
 		rt.jobs.set(job.id, job);
 
 		await finalizeJob(rt, job, "completed", null, "done");
@@ -177,7 +177,7 @@ test("the release by holder frees every group that the run holds", () => {
 
 test("the recovery releases a group whose holder ended with its pane closed", () => {
 	const groups = [heldGroup("grp-1", "run-1")];
-	const jobs = [jobOf("run-1", { status: "completed", paneId: 7, paneClosed: true })];
+	const jobs = [jobOf("run-1", { status: "completed", paneId: "w1:p7", paneClosed: true })];
 	assert.deepEqual(
 		groupsToRelease(groups, jobs, new Map()).map((group) => group.id),
 		["grp-1"],
@@ -186,7 +186,7 @@ test("the recovery releases a group whose holder ended with its pane closed", ()
 
 test("the recovery keeps a group whose holder is still active", () => {
 	const groups = [heldGroup("grp-1", "run-1")];
-	const jobs = [jobOf("run-1", { status: "running", paneId: 7, paneClosed: true })];
+	const jobs = [jobOf("run-1", { status: "running", paneId: "w1:p7", paneClosed: true })];
 	assert.deepEqual(groupsToRelease(groups, jobs, new Map()), []);
 });
 
@@ -197,7 +197,7 @@ test("the recovery keeps a group whose holder has no job", () => {
 
 test("the recovery keeps a group whose holder ended with a live pane", () => {
 	const groups = [heldGroup("grp-1", "run-1")];
-	const jobs = [jobOf("run-1", { status: "failed", paneId: 7, paneClosed: false })];
+	const jobs = [jobOf("run-1", { status: "failed", paneId: "w1:p7", paneClosed: false })];
 	assert.deepEqual(groupsToRelease(groups, jobs, new Map()), []);
 });
 
@@ -207,7 +207,7 @@ test("the recovery frees the group of a holder that ended with its pane closed",
 		const db = rt.openDb();
 		createGroup(db, "grp-1", "C:/state/sessions/wz-1", 1000);
 		reserveExecution(db, "grp-1", "run-1", 1001);
-		const jobs = [jobOf("run-1", { status: "failed", paneId: 7, paneClosed: true })];
+		const jobs = [jobOf("run-1", { status: "failed", paneId: "w1:p7", paneClosed: true })];
 
 		const freed = await releaseEndedGroups(rt, jobs, 1002);
 

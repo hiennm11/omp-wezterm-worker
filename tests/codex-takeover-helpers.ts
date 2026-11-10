@@ -37,10 +37,10 @@ export const FIRST = "session-first";
 export const SECOND = "session-second";
 
 /** The pane of the app server of the tests. */
-export const SERVER_PANE = 11;
+export const SERVER_PANE = "w1:p11";
 
 /** The pane of the TUI of the tests. */
-export const TUI_PANE = 12;
+export const TUI_PANE = "w1:p12";
 
 /** The options of the fake of the tests. */
 function options(overrides: CodexFakeOptions = {}): CodexFakeOptions {

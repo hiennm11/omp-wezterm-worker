@@ -27,7 +27,7 @@ import { createHost, sessionContext } from "./harness.ts";
 const SESSION = "session-restart";
 
 /** A pane id that no WezTerm pane has. The pane of the worker is gone. */
-const GONE_PANE = 999_999;
+const GONE_PANE = "w1:p999999";
 
 /** A process id that no process has. The owner of the task is gone. */
 const DEAD_PROCESS = 999_998;

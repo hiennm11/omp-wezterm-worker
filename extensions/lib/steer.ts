@@ -3,7 +3,7 @@
  *
  * A steer call sends one instruction into the pane of a running worker. The
  * extension never sends that instruction twice. The transcript is the only
- * evidence that the worker took the instruction, because WezTerm accepts the
+ * evidence that the worker took the instruction, because Herdr accepts the
  * keystrokes without knowing what the worker does with them.
  */
 

@@ -15,6 +15,7 @@ import { type CodexClient, connectCodexServer } from "./codex-client.ts";
 import { DEFAULT_CONFIG, type WorkerConfig } from "./config.ts";
 import { databaseFile, type LifecycleDb, openDatabase } from "./db.ts";
 import type { ToolCtx } from "./host.ts";
+import { LAYOUT_APPLY_VERB, runLayoutApply } from "./herdr-layout.ts";
 import type { Job } from "./job.ts";
 import { type RunFn, type RunResult, run } from "./process.ts";
 import { loadRuns, persistRuns } from "./runs.ts";
@@ -106,7 +107,12 @@ export interface WorkerRuntime {
 	 */
 	closeDb: () => void;
 	exec: RunFn;
-	/** The seam of the pane runtime. The extension calls Herdr through it. */
+	/**
+	 * The seam of the pane runtime. The extension calls Herdr through it.
+	 *
+	 * The verb `layout:apply` carries a layout request. Herdr 0.9.5 has no
+	 * `layout` command in its CLI, so that verb goes to the socket API.
+	 */
 	herdr: (args: string[], env?: NodeJS.ProcessEnv) => Promise<RunResult>;
 	git: (cwd: string, args: string[]) => Promise<RunResult>;
 	/** Start a poll. A throw inside the callback is recorded and the poll keeps running. */
@@ -282,7 +288,10 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 			rt.ownerTools.set(definition.name, definition);
 		},
 		exec,
-		herdr: (args, env) => exec(rt.config.herdrBin, args, undefined, env),
+		herdr: async (args, env) => {
+			if (args[0] === LAYOUT_APPLY_VERB) return runLayoutApply(args[1] ?? "{}");
+			return exec(rt.config.herdrBin, args, undefined, env);
+		},
 		git: (cwd, args) => exec("git", args, cwd),
 		startInterval(fn, ms) {
 			return rt.timers.setInterval(() => {
