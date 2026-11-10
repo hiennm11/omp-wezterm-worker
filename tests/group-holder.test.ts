@@ -100,7 +100,7 @@ test("the holder of an ended run keeps its group when the pane list fails", asyn
 
 	const result = await freeEndedHolder(rt, group);
 
-	assert.equal(result, "The pane list cannot be read, so the state of pane 7 is unknown. Try again.");
+	assert.equal(result, "The pane list cannot be read, so the state of pane w1:p7 is unknown. Try again.");
 	assert.equal(readGroup(db, group.id)?.executionHolder, "wz-1");
 	assert.equal(job.paneClosed, false);
 });
@@ -210,7 +210,7 @@ test("the cleanup refuses and names the pane while the pane of the holder is ope
 		result.content[0]?.text,
 		"The resources of this task are held by run wz-hold. Its pane w1:p7 is still open. Close pane w1:p7, then try again.",
 	);
-	assert.equal(result.details.pane, 7);
+	assert.equal(result.details.pane, "w1:p7");
 	assert.equal(result.details.executionHolder, "wz-hold");
 	assert.equal(readGroup(db, "grp-wz-task")?.executionHolder, "wz-hold");
 	assert.equal(existsSync(sessionDir), true);

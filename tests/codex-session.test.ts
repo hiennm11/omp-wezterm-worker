@@ -240,7 +240,7 @@ test("a steer without a running turn is refused", async () => {
 });
 
 test("the steer tool sends the instruction to a Codex worker", async () => {
-	const { rt, sessionDir } = nativeRuntime([3]);
+	const { rt, sessionDir } = nativeRuntime(["w1:p3"]);
 	try {
 		const job = codexJob(sessionDir);
 		rt.jobs.set(job.id, job);
@@ -265,7 +265,7 @@ test("the steer tool sends the instruction to a Codex worker", async () => {
 });
 
 test("the steer tool refuses a Codex worker with an open approval", async () => {
-	const { rt, sessionDir } = nativeRuntime([3]);
+	const { rt, sessionDir } = nativeRuntime(["w1:p3"]);
 	try {
 		const job = codexJob(sessionDir);
 		rt.jobs.set(job.id, job);

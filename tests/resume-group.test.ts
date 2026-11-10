@@ -71,11 +71,19 @@ function fakeWezterm(): { exec: RunFn; calls: string[][] } {
 	const calls: string[][] = [];
 	const exec: RunFn = async (bin, args) => {
 		calls.push(args);
-		if (args.includes("list")) return { code: 0, stdout: "[]", stderr: "" };
-		if (args.includes("split-pane") || args.includes("spawn")) {
-			return { code: 0, stdout: "99", stderr: "" };
+		if (args[0] === "pane" && args[1] === "list") {
+			return { code: 0, stdout: JSON.stringify({ result: { panes: [] } }), stderr: "" };
 		}
-		if (args.includes("get-text")) return { code: 0, stdout: "bypass permissions on", stderr: "" };
+		if (args[0] === "pane" && args[1] === "split") {
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p99", tab_id: "w1:t1" } } }),
+				stderr: "",
+			};
+		}
+		if (args[0] === "pane" && args[1] === "read") {
+			return { code: 0, stdout: "bypass permissions on", stderr: "" };
+		}
 		if (bin === "powershell") return { code: 0, stdout: "0", stderr: "" };
 		return { code: 0, stdout: "", stderr: "" };
 	};
@@ -84,7 +92,7 @@ function fakeWezterm(): { exec: RunFn; calls: string[][] } {
 
 /** True when a call started a pane. */
 function launchedPane(calls: string[][]): boolean {
-	return calls.some((args) => args.includes("split-pane") || args.includes("spawn"));
+	return calls.some((args) => args[0] === "pane" && args[1] === "split");
 }
 
 test("a resume of a resumed run takes the group of the first run", async () => {

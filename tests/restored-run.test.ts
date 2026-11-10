@@ -18,7 +18,7 @@ const TURN = { input_tokens: 10, output_tokens: 5 };
 
 test("reattachNative marks the usage of the run with the time of the restart", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);

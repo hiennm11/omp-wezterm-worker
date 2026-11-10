@@ -121,7 +121,7 @@ function makeHost(state: MachineState, dir: string, options: HostOptions, own: b
 
 	const exec = async (bin: string, args: string[]) => {
 		const command = args.join(" ");
-		if (bin === "wezterm") return weztermAnswer(state, command, answerOptions);
+		if (bin === "herdr") return weztermAnswer(state, command, answerOptions);
 		if (bin === "taskkill") {
 			state.taskkills.push(command);
 			if (state.taskkillFailures > 0) {

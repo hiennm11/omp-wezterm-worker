@@ -93,15 +93,21 @@ function fakeWezterm(options: {
 	launch?: { code: number; stdout: string; stderr: string };
 }): { exec: RunFn; calls: string[][] } {
 	const calls: string[][] = [];
-	const launch = options.launch ?? { code: 0, stdout: "99", stderr: "" };
+	const launch = options.launch ?? {
+		code: 0,
+		stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p99", tab_id: "w1:t1" } } }),
+		stderr: "",
+	};
 	const exec: RunFn = async (bin, args) => {
 		calls.push(args);
-		if (args.includes("list")) {
+		if (args[0] === "pane" && args[1] === "list") {
 			const code = options.listCode ?? 0;
 			return { code, stdout: code === 0 ? JSON.stringify(options.panes) : "", stderr: "" };
 		}
-		if (args.includes("split-pane") || args.includes("spawn")) return launch;
-		if (args.includes("get-text")) return { code: 0, stdout: "bypass permissions on", stderr: "" };
+		if (args[0] === "pane" && args[1] === "split") return launch;
+		if (args[0] === "pane" && args[1] === "read") {
+			return { code: 0, stdout: "bypass permissions on", stderr: "" };
+		}
 		if (bin === "powershell") return { code: 0, stdout: "0", stderr: "" };
 		return { code: 0, stdout: "", stderr: "" };
 	};
@@ -110,11 +116,11 @@ function fakeWezterm(options: {
 
 /** True when a call started a pane. */
 function launchedPane(calls: string[][]): boolean {
-	return calls.some((args) => args.includes("split-pane") || args.includes("spawn"));
+	return calls.some((args) => args[0] === "pane" && args[1] === "split");
 }
 
 test("a resume refuses a source run whose pane is still open", async () => {
-	const { exec, calls } = fakeWezterm({ panes: [{ pane_id: 42, tab_id: 1, window_id: 1 }] });
+	const { exec, calls } = fakeWezterm({ panes: { result: { panes: [{ pane_id: "w1:p42", tab_id: "w1:t1" }] } } });
 	const { rt, dir } = freshRuntime(exec);
 	try {
 		const db = rt.openDb();
@@ -139,7 +145,7 @@ test("a resume refuses a source run whose pane is still open", async () => {
 });
 
 test("a resume refuses a source run when the pane list cannot be read", async () => {
-	const { exec, calls } = fakeWezterm({ panes: [], listCode: 1 });
+	const { exec, calls } = fakeWezterm({ panes: { result: { panes: [] } }, listCode: 1 });
 	const { rt, dir } = freshRuntime(exec);
 	try {
 		const db = rt.openDb();
@@ -164,8 +170,8 @@ test("a resume refuses a source run when the pane list cannot be read", async ()
 
 test("a resume goes on when the pane of the source run is gone", async () => {
 	const { exec } = fakeWezterm({
-		panes: [],
-		launch: { code: 1, stdout: "", stderr: "no wezterm" },
+		panes: { result: { panes: [] } },
+		launch: { code: 1, stdout: "", stderr: "the split failed" },
 	});
 	const { rt, dir } = freshRuntime(exec);
 	try {
@@ -188,8 +194,8 @@ test("a resume goes on when the pane of the source run is gone", async () => {
 
 test("a resume of a source run without a pane does not read the pane list", async () => {
 	const { exec, calls } = fakeWezterm({
-		panes: [],
-		launch: { code: 1, stdout: "", stderr: "no wezterm" },
+		panes: { result: { panes: [] } },
+		launch: { code: 1, stdout: "", stderr: "the split failed" },
 	});
 	const { rt, dir } = freshRuntime(exec);
 	try {
@@ -203,7 +209,7 @@ test("a resume of a source run without a pane does not read the pane list", asyn
 		assert.equal(resumed.status, "failed");
 		assert.match(resumed.error ?? "", /split failed/);
 		assert.equal(
-			calls.some((args) => args.includes("list")),
+			calls.some((args) => args[0] === "pane" && args[1] === "list"),
 			false,
 		);
 	} finally {
@@ -213,7 +219,7 @@ test("a resume of a source run without a pane does not read the pane list", asyn
 });
 
 test("a resume refuses a completed source run whose pane is still open", async () => {
-	const { exec, calls } = fakeWezterm({ panes: [{ pane_id: 42, tab_id: 1, window_id: 1 }] });
+	const { exec, calls } = fakeWezterm({ panes: { result: { panes: [{ pane_id: "w1:p42", tab_id: "w1:t1" }] } } });
 	const { rt, dir } = freshRuntime(exec);
 	try {
 		const db = rt.openDb();
@@ -239,7 +245,7 @@ test("a resume refuses a completed source run whose pane is still open", async (
 });
 
 test("a native resume refuses a source run whose pane is still open", async () => {
-	const { exec, calls } = fakeWezterm({ panes: [{ pane_id: 42, tab_id: 1, window_id: 1 }] });
+	const { exec, calls } = fakeWezterm({ panes: { result: { panes: [{ pane_id: "w1:p42", tab_id: "w1:t1" }] } } });
 	const { rt, dir } = freshRuntime(exec);
 	try {
 		const db = rt.openDb();

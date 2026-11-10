@@ -25,7 +25,7 @@ const DIALOG =
 /** A runtime whose polls run only when the test calls them. */
 function fakeRuntime(stateDir: string, paneText: string): { rt: WorkerRuntime; tick: () => void } {
 	const rt = createRuntime(async (_bin, args) => {
-		if (args.includes("get-text")) return { code: 0, stdout: paneText, stderr: "" };
+		if (args[0] === "pane" && args[1] === "read") return { code: 0, stdout: paneText, stderr: "" };
 		return { code: 0, stdout: "", stderr: "" };
 	});
 	rt.config.stateDir = stateDir;

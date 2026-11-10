@@ -25,7 +25,7 @@ import {
 
 test("a takeover of a session without a start time stores the start time of its process", async () => {
 	const { rt, dir } = fakeRuntime(
-		{ starts: { [OWN_PID]: OWN_START, [OLD_PID]: "" }, code: 0, panes: [3] },
+		{ starts: { [OWN_PID]: OWN_START, [OLD_PID]: "" }, code: 0, panes: ["w1:p3"] },
 		{ withoutOwnStart: true },
 	);
 	try {
@@ -48,7 +48,7 @@ test("a takeover of a session without a start time stores the start time of its 
 
 test("a takeover refuses when the session cannot read the start time of its process", async () => {
 	const { rt, dir } = fakeRuntime(
-		{ starts: { [OLD_PID]: "" }, code: 0, panes: [3], failFor: [OWN_PID] },
+		{ starts: { [OLD_PID]: "" }, code: 0, panes: ["w1:p3"], failFor: [OWN_PID] },
 		{ withoutOwnStart: true },
 	);
 	try {
@@ -73,7 +73,7 @@ test("a takeover refuses when the session cannot read the start time of its proc
 
 test("a task taken over with a start time is not a lock", async () => {
 	const first = fakeRuntime(
-		{ starts: { [OWN_PID]: OWN_START, [OLD_PID]: "" }, code: 0, panes: [3] },
+		{ starts: { [OWN_PID]: OWN_START, [OLD_PID]: "" }, code: 0, panes: ["w1:p3"] },
 		{ withoutOwnStart: true },
 	);
 	try {
@@ -90,7 +90,7 @@ test("a task taken over with a start time is not a lock", async () => {
 
 	// The second session finds the first process gone and takes the task over.
 	const second = fakeRuntime(
-		{ starts: { [THIRD_PID]: THIRD_START, [OWN_PID]: "" }, code: 0, panes: [3] },
+		{ starts: { [THIRD_PID]: THIRD_START, [OWN_PID]: "" }, code: 0, panes: ["w1:p3"] },
 		{ stateDir: first.dir, ownProcess: { id: THIRD_PID, startedAt: THIRD_START } },
 	);
 	try {

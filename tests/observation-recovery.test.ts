@@ -11,7 +11,7 @@ import { cleanup, delivered, fakeRuntime, makeDirs, nativeJob } from "./reattach
 
 test("a saved background settlement lets a restored completed run end", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt, tick } = fakeRuntime(dir, [7]);
+	const { rt, tick } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);
@@ -72,7 +72,7 @@ test("a saved background settlement lets a restored completed run end", async ()
 
 test("a completed report does not settle a background row without saved evidence", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt, tick } = fakeRuntime(dir, [7]);
+	const { rt, tick } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);
@@ -106,7 +106,7 @@ test("a completed report does not settle a background row without saved evidence
 
 test("replaying saved observations ignores duplicates and other runs", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);

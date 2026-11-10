@@ -51,8 +51,14 @@ function runtime() {
 	const calls: string[][] = [];
 	const exec: RunFn = async (bin, args) => {
 		calls.push([bin, ...args]);
-		if (args.includes("list")) return { code: 0, stdout: "[]", stderr: "" };
-		if (args.includes("split-pane") || args.includes("spawn")) return { code: 0, stdout: "99", stderr: "" };
+		if (args[0] === "pane" && args[1] === "list")
+			return { code: 0, stdout: JSON.stringify({ result: { panes: [] } }), stderr: "" };
+		if (args[0] === "pane" && args[1] === "split")
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p99", tab_id: "w1:t1" } } }),
+				stderr: "",
+			};
 		if (bin === "powershell") return { code: 0, stdout: "0", stderr: "" };
 		return { code: 0, stdout: "", stderr: "" };
 	};
@@ -96,7 +102,7 @@ test("preset values start an OMP worker and call values override them", async ()
 		assert.equal(missing.isError, true);
 		assert.match(missing.content[0]?.text ?? "", /scout/);
 		assert.equal(
-			calls.some((args) => args.includes("split-pane") || args.includes("spawn")),
+			calls.some((args) => args[0] === "pane" && args[1] === "split"),
 			false,
 		);
 	} finally {

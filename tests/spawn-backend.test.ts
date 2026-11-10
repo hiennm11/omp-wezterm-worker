@@ -172,7 +172,7 @@ test("a spawn with a tool list and the Codex backend is refused before the launc
 	}
 });
 
-test("a spawn with the Codex backend starts a Codex worker and no OMP worker", async () => {
+test("a spawn with the Codex backend refuses because Codex does not run on Herdr yet", async () => {
 	const fake = codexFake();
 	try {
 		const tool = spawnToolOf(fake);
@@ -189,20 +189,13 @@ test("a spawn with the Codex backend starts a Codex worker and no OMP worker", a
 			CONTEXT,
 		);
 
-		assert.notEqual(result.isError, true, result.content[0]?.text);
-		assert.equal(result.details.backend, "codex");
-		assert.match(result.content[0]?.text ?? "", /backend: Codex/);
-		/* The app server and the TUI are the two programs of the worker.
-		   No OMP program started. */
-		assert.equal(fake.programs.length, 2);
-		assert.ok(
-			fake.programs.every((program) => program.includes("codex")),
-			fake.programs.join(", "),
-		);
+		assert.match(result.content[0]?.text ?? "", /does not support Herdr yet/);
+		/* The refusal comes before every pane, so no program started. */
+		assert.deepEqual(fake.programs, []);
 		const job = fake.rt.jobs.get(String(result.details.workerId));
 		assert.ok(job, "the run of the worker is missing");
-		assert.equal(job.backend, "codex");
-		assert.equal(job.nativeSessionId, "thread-1");
+		assert.equal(job.status, "failed");
+		assert.equal(job.paneId, null, "the refused spawn opened a pane");
 	} finally {
 		await fake.closeBridges();
 		fake.rt.closeDb();

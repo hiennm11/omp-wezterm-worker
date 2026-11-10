@@ -85,7 +85,7 @@ test("a second recovery creates no second event", () => {
 });
 
 test("the takeover path creates the event for a taken task", async () => {
-	const { rt, dir, job } = ownedTask({ starts: { [OLD_PID]: "" }, code: 0, panes: [3] });
+	const { rt, dir, job } = ownedTask({ starts: { [OLD_PID]: "" }, code: 0, panes: ["w1:p3"] });
 	try {
 		seedOpenAttempt(rt.openDb(), job.id, "att-1");
 

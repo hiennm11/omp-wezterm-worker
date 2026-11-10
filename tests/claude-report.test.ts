@@ -190,7 +190,7 @@ test("a fresh run does not accept a completed report before its first cycle", ()
 test("the restored run reads and accepts the report saved during release", async () => {
 	const dir = mkdtempSync(join(tmpdir(), "claude-report-restore-"));
 	const sessionDir = join(dir, "session");
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	const fake = await startFake({ postFails: true });
 	try {
 		mkdirSync(sessionDir, { recursive: true });
@@ -216,7 +216,7 @@ test("the restored run reads and accepts the report saved during release", async
 test("the restored report does not match after the run observes a new cycle", async () => {
 	const dir = mkdtempSync(join(tmpdir(), "claude-report-cycle-"));
 	const sessionDir = join(dir, "session");
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		mkdirSync(sessionDir, { recursive: true });
 		const job = nativeJob(sessionDir, { id: "run-1" });
