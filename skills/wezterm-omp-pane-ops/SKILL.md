@@ -1,66 +1,71 @@
 ---
 name: wezterm-omp-pane-ops
-description: Use when driving an OMP session from a WezTerm pane on Windows, or when moving an OMP session between projects. Covers spawning a worker into a pane, sending text into a live pane (the Enter-key problem), reading live worker status, the worker lifecycle (result delivery, pane closing, registry across restarts, resuming a finished worker), relocating a session transcript, and the Windows shell traps (WSL on PATH, path forms, plugin linking). Triggers on WezTerm pane, pane worker, send text to a pane, steer a running worker, worker status, resume a finished worker, move an OMP session, resume a session elsewhere, pack a session, omp plugin link, Git Bash vs WSL.
+description: Use when driving an OMP session from a Herdr pane on Windows, or when moving an OMP session between projects. Covers spawning a worker into a pane, sending text into a live pane (agent prompt and the line-break rule), reading live worker status, the worker lifecycle (result delivery, pane closing, registry across restarts, resuming a finished worker), relocating a session transcript, and the Windows shell traps (WSL on PATH, path forms, plugin linking). Triggers on Herdr pane, pane worker, send text to a pane, steer a running worker, worker status, resume a finished worker, move an OMP session, resume a session elsewhere, pack a session, omp plugin link, Git Bash vs WSL.
 ---
 
-# WezTerm + OMP pane operations (Windows)
+# Herdr + OMP pane operations (Windows)
 
 ## Acknowledging a worker result
 
 A result needs acknowledgement after it is read. A stale no-action event expires after 24 hours by default. Set `eventExpiryMs` in the config file to change the limit, or set `0` to disable expiry. The current task owner closes the event when it loads the task. Results and events that need a decision stay pending. The system records `expired` and keeps the event row.
 
-Operating OMP from WezTerm panes on Windows native. No WSL: WSL holds a
-different `omp` build, and every command here would touch the wrong install.
+Operating OMP from Herdr panes on Windows native. The extension runs only
+inside a Herdr session (`HERDR_ENV=1`). It never starts a Herdr server. No
+WSL: WSL holds a different `omp` build, and every command here would touch the
+wrong install.
 
-## The Enter-key problem
+Only the OMP backend runs on Herdr today. The Claude Code backend and the
+Codex backend refuse to start, and the reply says so (ADR 0025).
 
-`wezterm cli send-text` pastes by default. A pasted block never submits in the
-OMP TUI. The text lands in the composer. The Enter key never arrives, and the
-target waits there forever. Verified side by side:
+## Sending text to a pane
+
+`herdr agent prompt <target> <text>` sends the text and the Enter key in one
+call. A pasted block does not submit in the OMP TUI, and `agent prompt` does
+not paste, so the Enter-key problem of `wezterm cli send-text` is gone.
 
 ```bash
-# paste mode — text lands, nothing submits
-wezterm cli send-text --pane-id 5 "hello"   # composer shows "hello", still running
-
-# key mode — text lands AND submits
-wezterm cli send-text --no-paste --pane-id 5 "hello\r"
+herdr agent prompt wz-1 "Reply with exactly: HELLO"
 ```
 
-`--no-paste` delivers the bytes as individual key events, so the trailing
-`"\r"` arrives as a real Enter. Always use `--no-paste` when the person
-submits the text, and append `"\r"` yourself.
+Measured on Herdr 0.9.5:
 
-Paste mode additionally concatenates onto the previous line without a
-separator. Evidence: sending `"TAB\tHERE"` then, in paste mode, `"PASTED"`
-produced `TAB        HEREPASTED` on one line.
-
-### What survives the key path
-
-`--no-paste` types characters. It does not run a shell. Verified:
-
-| Payload | Arrives as |
+| Case | Result |
 |---|---|
-| `XIN CHÀO 你好` | `XIN CHÀO 你好` — non-ASCII intact |
-| `A&B;C\|D>E*F$(G)` | `A&B;C\|D>E*F$(G)` — no shell interpretation |
-| `BACK\SLASH` | `BACK\SLASH` — one backslash |
-| `TAB\tHERE` | a tab, expanded to spaces by the terminal |
-| `LINE1\nLINE2` | `LINE1LINE2` — **the newline is swallowed** |
+| `agent prompt` while OMP runs a turn | Returns at once. The agent stays `working`. OMP queues the text. The text does not interrupt the turn. |
+| A text with line breaks, quotes and `$(...)` | Arrives as one user message. The line breaks stay. |
+| `pane send-keys <pane> /restart` | Refused: `send-keys` takes key names, not text. Use `pane send-text` for text, then `pane send-keys <pane> enter`. |
 
-A payload containing a literal newline arrives as one run-on line. Split it
-into separate sends, one per line.
+## The line-break rule
+
+`herdr agent start` refuses an argument with a line break, a carriage return
+or a tab: `agent arguments cannot be encoded safely for the target shell`. A
+real task has line breaks. So the extension starts OMP with no task in the
+argv, waits until the agent is ready, and sends the task with `agent prompt`.
+A launch that fails after the pane opened closes that pane.
+
+The Claude Code backend gives a contract of many lines in
+`--append-system-prompt`. That argument cannot reach Herdr, so the backend
+refuses until the contract travels in a file.
 
 ## Spawning into a pane
 
-`split-pane` divides the current pane. `spawn` opens a new tab in the current
-window. Both take `--cwd` and both accept an argv array after `--`:
+`herdr pane split` divides a pane. `herdr tab create` opens a new tab. Both
+take `--cwd` and `--env`. `herdr agent start` then runs the program in that
+pane. Every value after `--` is its own argv element:
 
 ```bash
-wezterm cli split-pane --right --cwd "C:/work/repo" -- omp --no-title --cwd "C:/work/repo" "the task"
-wezterm cli spawn --cwd "C:/work/repo" -- omp --no-title --cwd "C:/work/repo" "the task"
+herdr pane split --current --direction right --cwd "C:/work/repo" --no-focus
+herdr agent start wz-1 --kind omp --pane w1:p2 -- --no-title --cwd "C:/work/repo"
 ```
 
-Each pane id prints on stdout. Every value after `--` is its own argv element.
-A task with a space, a quote or `$(...)` needs no escape and no shell.
+The reply of a pane holds the pane id, such as `w1:p2`. Herdr names the pane,
+and the extension never builds an id. Never use `herdr pane run`: it joins its
+words into one shell string and loses the argv. Never give `tab_id` to the
+socket method `layout.apply`: it replaces the panes of that tab.
+
+`herdr agent start` picks the program by `--kind` from the PATH. The keys
+`ompBin`, `claudeBin` and `codexBin` of the config file do not change the
+program that Herdr starts. Put the program that you want first on the PATH.
 
 The flag `--thinking <level>` sets the thinking level of an OMP worker. The
 values are `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` and
@@ -71,18 +76,19 @@ that the plugin asked for.
 
 The spawn tool also accepts the optional parameter `preset`. Presets come from the `presets` key in the configuration file. A call parameter wins over its preset. The preset wins over the global configuration, which wins over the default. The OMP worker always receives `wezterm_worker_report`, `wezterm_worker_note_to_main` and `wezterm_worker_notes_from_main` when a non-empty restricted tool list omits them.
 
-`wezterm cli list --format json` reports `pane_id`, `tab_id`, `window_id`,
-`title`, `cwd` and `workspace` per pane. Use it to check a pane is still
-alive.
+`herdr pane list` reports `pane_id`, `tab_id`, `workspace_id` and `agent_status`
+per pane. Use it to check a pane is still alive. Herdr has no window id, so the
+field `windowId` of a job holds null.
 
 A process started this way gets a real TTY, so a full interactive TUI runs in
 the pane.
 
 ## Reading a pane
 
-`wezterm cli get-text --pane-id N` returns the rendered screen. It is a
-**read-only view**: useful for debugging a stuck process, never a source of
-truth for a result. A result belongs in the session transcript.
+`herdr pane read <pane> --source recent-unwrapped --lines N` returns the
+rendered screen. It is a **read-only view**: useful for debugging a stuck
+process, never a source of truth for a result. A result belongs in the session
+transcript.
 
 ## Session relocation
 
@@ -249,7 +255,7 @@ output.
 
 For a worker running in a pane, the live signals are:
 
-- the pane still listed by `wezterm cli list --format json`
+- the pane still listed by `herdr pane list`
 - the session transcript becomes longer
 - the transcript's last assistant message: a text-only message ends the turn.
   a message that also carries a tool call is a preamble, not an answer
@@ -379,7 +385,7 @@ A report is the only evidence that the supervisor accepts. Answer text, pane
 text, and transcript growth prove nothing. The launch appends a system
 prompt that states the reporting contract, and the launch sets
 `OMP_WORKER_SESSION_DIR` so the worker process knows that it is a worker.
-A WezTerm pane inherits the environment of the process that started it.
+A Herdr pane inherits the environment of the process that started it.
 
 **A launch that lost its receipt does not start a second worker**. A crash
 between the pane creation and the receipt leaves a launch attempt without a
@@ -418,11 +424,9 @@ tool lists the changed paths, because those changes are the worker's output.
 commits survive the worktree.
 
 **The extension confirms a steering message. It never guesses.**
-`wezterm cli send-text`
-returns success when the keystrokes reach the pane. A worker needs a
-few seconds to start its interface, and keystrokes that arrive before that
-go nowhere. Thus the extension sends the instruction once and reads the
-worker's transcript after the send.
+`herdr agent prompt` returns success when Herdr accepts the text. Thus the
+extension sends the instruction once and reads the worker's transcript after
+the send.
 
 The transcript confirms the delivery only
 when it records the requested text. Any other growth of the transcript is not
@@ -430,10 +434,9 @@ a confirmation. A delivery that the transcript does not confirm stays
 unconfirmed, and the extension never sends the instruction again. A second
 copy of the same instruction reaches the worker as a second instruction.
 
-**The extension confirms a cancel and a deadline stop.** `kill-pane` returns
-success
-when WezTerm accepts the request, not when the pane is gone. The extension
-polls the pane list and ends the job only when the pane is gone. An
+**The extension confirms a cancel and a deadline stop.** `herdr pane close`
+returns success when Herdr accepts the request, not when the pane is gone. The
+extension polls the pane list and ends the job only when the pane is gone. An
 unreadable list means unknown, never gone. An unconfirmed stop leaves the job
 `running`. Call `wezterm_worker_cancel` again to retry.
 
@@ -479,10 +482,10 @@ the same ADR number.
 `git cherry-pick` first. Compare its tree with the tree that passed the check.
 The diff must be empty. Then the check does not need a second run.
 
-**`wezterm cli list` and `kill-pane` can hang.** Several calls took 5 minutes and
-returned nothing. Stop a worker by the process id when the pane command hangs.
-Find the id from the command line, which holds the run id. A hung `wezterm cli`
-process can stay behind and must be stopped too.
+**A Herdr call can hang.** If `herdr pane list` or `herdr pane close` returns
+nothing for minutes, stop a worker by the process id. Find the id from the
+command line, which holds the run id. A hung `herdr` process can stay behind
+and must be stopped too.
 
 **Remove a `node_modules` junction with `cmd /c rmdir`.** `rm` does not remove
 the link in Git Bash. The first removal looked successful and the link stayed.
