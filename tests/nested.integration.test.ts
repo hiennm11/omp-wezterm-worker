@@ -135,7 +135,7 @@ test("a spawn over the active worker limit is refused", {
 								workerId: typeof row.workerId === "string" ? row.workerId : workerId,
 								status: typeof row.status === "string" ? row.status : "unknown",
 								error: typeof row.error === "string" ? row.error : null,
-								paneId: typeof row.paneId === "number" ? row.paneId : null,
+								paneId: typeof row.paneId === "string" ? row.paneId : null,
 							};
 						}
 					}
