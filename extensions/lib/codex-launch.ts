@@ -19,7 +19,7 @@ import type { CodexReportLaunch } from "./codex-report.ts";
 import { attachCodexEvents } from "./codex-session.ts";
 import { resumeThread, startThread, turnStartParams } from "./codex-thread.ts";
 import type { CodexIdentity, Job } from "./job.ts";
-import { launchProgram } from "./pane.ts";
+import { launchProgram, openProgramTab } from "./pane.ts";
 import { delay } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 
@@ -196,9 +196,9 @@ async function waitForServerProcess(
 /**
  * Start the app server of Codex in a pane of its own.
  *
- * The pane starts through the command `wezterm cli spawn`, because the server
- * is not the program of the worker pane. The function returns the pane id, or
- * null when the pane did not start.
+ * The pane starts through a layout, because the server is not the program of
+ * the worker pane. The function returns the pane id, or null when the pane
+ * did not start.
  */
 async function startServerPane(
 	rt: WorkerRuntime,
@@ -206,24 +206,20 @@ async function startServerPane(
 	binary: CodexBinary,
 	port: number,
 	report: CodexReportLaunch,
-): Promise<number | null> {
-	const res = await rt.wezterm(
-		[
-			"spawn",
-			"--cwd",
-			job.cwd,
-			"--",
+): Promise<string | null> {
+	const pane = await openProgramTab({
+		cwd: job.cwd,
+		command: [
 			binary.bin,
 			"app-server",
 			"--listen",
 			`ws://127.0.0.1:${port}`,
 			...report.args,
 		],
-		report.env,
-	);
-	if (res.code !== 0) return null;
-	const paneId = Number.parseInt(res.stdout.trim(), 10);
-	return Number.isFinite(paneId) ? paneId : null;
+		env: report.env,
+		label: "codex app server",
+	});
+	return pane?.paneId ?? null;
 }
 
 /**
@@ -239,7 +235,7 @@ async function startTuiPane(
 	binary: CodexBinary,
 	port: number,
 	threadId: string,
-): Promise<number | null> {
+): Promise<string | null> {
 	const args = ["--remote", `ws://127.0.0.1:${port}`, "resume", threadId];
 	if (job.model) args.push("-m", job.model);
 	const failure = await launchProgram(rt, job, binary.bin, args);

@@ -106,7 +106,8 @@ export interface WorkerRuntime {
 	 */
 	closeDb: () => void;
 	exec: RunFn;
-	wezterm: (args: string[], env?: NodeJS.ProcessEnv) => Promise<RunResult>;
+	/** The seam of the pane runtime. The extension calls Herdr through it. */
+	herdr: (args: string[], env?: NodeJS.ProcessEnv) => Promise<RunResult>;
 	git: (cwd: string, args: string[]) => Promise<RunResult>;
 	/** Start a poll. A throw inside the callback is recorded and the poll keeps running. */
 	startInterval: (fn: () => void, ms: number) => NodeJS.Timeout;
@@ -281,7 +282,7 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 			rt.ownerTools.set(definition.name, definition);
 		},
 		exec,
-		wezterm: (args, env) => exec(rt.config.weztermBin, ["cli", ...args], undefined, env),
+		herdr: (args, env) => exec(rt.config.herdrBin, args, undefined, env),
 		git: (cwd, args) => exec("git", args, cwd),
 		startInterval(fn, ms) {
 			return rt.timers.setInterval(() => {

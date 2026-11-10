@@ -203,7 +203,7 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 		rt.claudeStates.delete(jobId);
 		return job;
 	}
-	attachAttempt(db, attemptId, job.paneId ?? -1, job.sessionFile, null, Date.now());
+	attachAttempt(db, attemptId, job.paneId, job.sessionFile, null, Date.now());
 
 	/* A resumed session asks the startup questions again when it does not
 	   know the workspace or the integrations. The person answers them in the

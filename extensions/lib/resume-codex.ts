@@ -144,7 +144,7 @@ export async function resumeCodexWorker(
 		rt.claudeStates.delete(jobId);
 		return failed(rt, job, launch.error);
 	}
-	attachAttempt(db, attemptId, job.paneId ?? -1, job.sessionFile, launch.threadId, Date.now());
+	attachAttempt(db, attemptId, job.paneId, job.sessionFile, launch.threadId, Date.now());
 	rt.persist();
 	return job;
 }

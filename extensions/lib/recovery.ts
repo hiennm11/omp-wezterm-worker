@@ -16,7 +16,7 @@ import type { WorkerRuntime } from "./runtime.ts";
 /** The reason a recovery resolved an attempt. */
 export type RecoveryOutcome =
 	/** The attempt found its worker and the receipt is repaired. */
-	| { kind: "attached"; attemptId: string; jobId: string; paneId: number | null }
+	| { kind: "attached"; attemptId: string; jobId: string; paneId: string | null }
 	/** The attempt found no worker. The owner resolves it. */
 	| { kind: "unresolved"; attemptId: string; jobId: string }
 	/** The attempt was already settled. */
@@ -30,7 +30,7 @@ export type RecoveryOutcome =
  */
 export interface FoundWorker {
 	jobId: string;
-	paneId: number | null;
+	paneId: string | null;
 	sessionId: string | null;
 	sessionFile: string | null;
 }

@@ -55,7 +55,7 @@ interface StatusRow {
 	label: string;
 	status: JobStatus;
 	backend: string;
-	paneId: number | null;
+	paneId: string | null;
 	cwd: string;
 	model: string | null;
 	transcript: string;

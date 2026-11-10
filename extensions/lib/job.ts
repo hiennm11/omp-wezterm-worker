@@ -29,9 +29,9 @@ export interface CodexIdentity {
 	/** The id of the thread of the turn. */
 	threadId: string;
 	/** The pane of the app server. */
-	serverPaneId: number | null;
+	serverPaneId: string | null;
 	/** The pane of the TUI. */
-	tuiPaneId: number | null;
+	tuiPaneId: string | null;
 	/** The path of the Codex program. */
 	binaryPath: string;
 	/** The version of the Codex program. */
@@ -63,9 +63,12 @@ export interface Job {
 	 */
 	thinking?: ThinkingLevel | null;
 	status: JobStatus;
-	paneId: number | null;
-	tabId: number | null;
-	windowId: number | null;
+	/** The id of the pane of the worker. Herdr names it like `w4:p1`. */
+	paneId: string | null;
+	/** The id of the tab of the worker. Herdr names it like `w4:t1`. */
+	tabId: string | null;
+	/** Herdr has no window. The field stays and always holds null. */
+	windowId: string | null;
 	placement: Placement;
 	sessionDir: string;
 	sessionFile: string | null;

@@ -146,7 +146,7 @@ export async function checkStartupBlock(
  * A pane that cannot be read gives an empty text. The empty text names no
  * cause, so the run raises no event.
  */
-async function readPaneText(rt: WorkerRuntime, paneId: number): Promise<string> {
+async function readPaneText(rt: WorkerRuntime, paneId: string): Promise<string> {
 	try {
 		return await paneTail(rt, paneId, PANE_LINES);
 	} catch {

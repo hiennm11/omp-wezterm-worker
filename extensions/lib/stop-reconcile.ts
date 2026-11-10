@@ -77,9 +77,9 @@ export async function reconcileStopIntents(
 	if (owned.length === 0) return outcome;
 
 	const paneIds = [
-		...new Set(owned.map((entry) => entry.job.paneId).filter((id): id is number => id !== null)),
+		...new Set(owned.map((entry) => entry.job.paneId).filter((id): id is string => id !== null)),
 	];
-	const states = paneIds.length > 0 ? await paneStatesOf(rt, paneIds) : new Map<number, PaneState>();
+	const states = paneIds.length > 0 ? await paneStatesOf(rt, paneIds) : new Map<string, PaneState>();
 
 	for (const entry of owned) {
 		const paneId = entry.job.paneId;

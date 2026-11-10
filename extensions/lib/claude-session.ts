@@ -145,7 +145,7 @@ export async function validatePlugin(
  */
 export async function typeFollowUp(
 	rt: WorkerRuntime,
-	paneId: number,
+	paneId: string,
 	message: string,
 ): Promise<string | null> {
 	let last = "";
@@ -157,10 +157,10 @@ export async function typeFollowUp(
 			   Enter. The text and the Enter go in two steps, and the
 			   composer settles before the Enter arrives. */
 			await delay(COMPOSER_SETTLE_MS);
-			const typed = await rt.wezterm(["send-text", "--no-paste", "--pane-id", String(paneId), message]);
+			const typed = await rt.herdr(["pane", "send-text", paneId, message]);
 			if (typed.code !== 0) return describeFailure(typed);
 			await delay(COMPOSER_POLL_MS);
-			const entered = await rt.wezterm(["send-text", "--no-paste", "--pane-id", String(paneId), "\r"]);
+			const entered = await rt.herdr(["pane", "send-keys", paneId, "enter"]);
 			if (entered.code !== 0) return describeFailure(entered);
 			/* The pane text is a diagnostic view. It never proves that the
 			   session took the instruction, because a submitted instruction
@@ -174,8 +174,8 @@ export async function typeFollowUp(
 }
 
 /** The text of the pane of a session. */
-async function composerText(rt: WorkerRuntime, paneId: number): Promise<string> {
-	const res = await rt.wezterm(["get-text", "--pane-id", String(paneId)]);
+async function composerText(rt: WorkerRuntime, paneId: string): Promise<string> {
+	const res = await rt.herdr(["pane", "read", paneId, "--source", "recent-unwrapped", "--lines", "200"]);
 	if (res.code !== 0) return "";
 	return res.stdout;
 }
@@ -189,7 +189,7 @@ async function composerText(rt: WorkerRuntime, paneId: number): Promise<string> 
  */
 export async function waitForComposer(
 	rt: WorkerRuntime,
-	paneId: number | null,
+	paneId: string | null,
 	deadlineMs = COMPOSER_TIMEOUT_MS,
 ): Promise<boolean> {
 	if (paneId === null) return false;

@@ -18,6 +18,7 @@ import { createClaudeRunState } from "./claude-run-state.ts";
 import { checkClaude, claudeArgv, preparePlugin, validatePlugin } from "./claude-session.ts";
 import { createGroup, setGroupWorktree } from "./groups.ts";
 import { freshRunState, type Job } from "./job.ts";
+import { herdrSessionRefusal } from "./herdr-session.ts";
 import { finalizeJob } from "./lifecycle.ts";
 import { observeNative } from "./native-ledger.ts";
 import { launchProgram } from "./pane.ts";
@@ -75,6 +76,13 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 	};
 	rt.jobs.set(jobId, job);
 	rt.persist();
+
+	// A pane can only open inside a Herdr session.
+	const sessionRefusal = herdrSessionRefusal(process.env);
+	if (sessionRefusal) {
+		await finalizeJob(rt, job, "failed", sessionRefusal, null);
+		return job;
+	}
 
 	const missing = await checkClaude(rt, config.claudeBin);
 	if (missing) {
@@ -162,7 +170,7 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 		rt.claudeStates.delete(jobId);
 		return job;
 	}
-	attachAttempt(db, attemptId, job.paneId ?? -1, job.sessionFile, null, Date.now());
+	attachAttempt(db, attemptId, job.paneId, job.sessionFile, null, Date.now());
 	setGroupWorktree(db, groupId, job.worktreePath, job.worktreeOrigin, job.worktreeBranch, Date.now());
 	rt.persist();
 	return job;
