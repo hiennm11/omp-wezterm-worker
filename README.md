@@ -1305,7 +1305,6 @@ so the suite needs no build step and no test framework.
 | `npm run proof:claude` | Run the compatibility probe against a real Claude Code session. It needs an evidence directory. |
 | `npm run proof:codex` | Run the compatibility probe against a real Codex session. It starts an app server and a TUI. It needs an evidence directory. |
 | `npm run smoke:claude` | Run the smoke test of the Claude Code backend. It starts a real session, reports, resumes, steers and cancels. It closes only the panes and the processes that it created. |
-| `npm run smoke:codex` | Run the smoke test of the Codex backend. It starts a real app server and a real TUI, reports, steers and cancels. |
 | `npm run typecheck` | Type check the extension, the tools and the tests. |
 | `npm run check` | Run the lint, the type check, the scores and the tests. |
 
