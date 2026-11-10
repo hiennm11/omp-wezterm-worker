@@ -29,7 +29,7 @@ export type SourcePaneKind = "tui" | "server";
  */
 export function sourcePaneRefusal(
 	state: PaneState,
-	paneId: number,
+	paneId: string,
 	kind: SourcePaneKind = "tui",
 ): string | null {
 	if (state === "present") {
@@ -53,7 +53,7 @@ export function sourcePaneRefusal(
 export async function checkSourcePane(rt: WorkerRuntime, source: Job): Promise<string | null> {
 	const tuiPaneId = source.paneId;
 	const serverPaneId = source.codex?.serverPaneId ?? null;
-	const ids = [tuiPaneId, serverPaneId].filter((id): id is number => id !== null);
+	const ids = [tuiPaneId, serverPaneId].filter((id): id is string => id !== null);
 	if (ids.length === 0) return null;
 	const states = await paneStatesOf(rt, ids);
 	if (tuiPaneId !== null) {

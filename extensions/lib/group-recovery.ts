@@ -27,7 +27,7 @@ import type { WorkerRuntime } from "./runtime.ts";
 export function groupsToRelease(
 	groups: ResourceGroup[],
 	jobs: Job[],
-	states: ReadonlyMap<number, PaneState>,
+	states: ReadonlyMap<string, PaneState>,
 ): ResourceGroup[] {
 	const byId = new Map(jobs.map((job) => [job.id, job]));
 	return groups.filter((group) => {
@@ -50,7 +50,7 @@ export async function releaseEndedGroups(rt: WorkerRuntime, jobs: Job[], now: nu
 	const db = rt.openDb();
 	const groups = heldGroups(db);
 	const byId = new Map(jobs.map((job) => [job.id, job]));
-	const paneIds: number[] = [];
+	const paneIds: string[] = [];
 	for (const group of groups) {
 		const holder = group.executionHolder;
 		if (holder === null) continue;
@@ -59,7 +59,7 @@ export async function releaseEndedGroups(rt: WorkerRuntime, jobs: Job[], now: nu
 		if (job.paneId === null || job.paneClosed) continue;
 		if (!paneIds.includes(job.paneId)) paneIds.push(job.paneId);
 	}
-	const states = paneIds.length > 0 ? await paneStatesOf(rt, paneIds) : new Map<number, PaneState>();
+	const states = paneIds.length > 0 ? await paneStatesOf(rt, paneIds) : new Map<string, PaneState>();
 
 	const released = groupsToRelease(groups, jobs, states);
 	const holders = new Set(released.map((group) => group.executionHolder).filter((id) => id !== null));

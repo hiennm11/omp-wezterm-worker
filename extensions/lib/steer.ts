@@ -90,7 +90,7 @@ function freshMessages(before: string[], after: string[]): string[] {
 export async function steerWorker(
 	rt: WorkerRuntime,
 	job: Job,
-	paneId: number,
+	paneId: string,
 	message: string,
 	options: SteerOptions = {},
 ): Promise<SteerOutcome> {
@@ -101,7 +101,7 @@ export async function steerWorker(
 		return {
 			ok: false,
 			error:
-				`WezTerm refused to send the text into pane ${paneId}: ${sent.error}. ` +
+				`Herdr refused to send the text into pane ${paneId}: ${sent.error}. ` +
 				"The worker did not receive the instruction.",
 			attempts: 1,
 		};
@@ -117,7 +117,7 @@ export async function steerWorker(
 	return {
 		ok: false,
 		error:
-			`WezTerm accepted the text for pane ${paneId}, but the worker's transcript does not record the instruction. ` +
+			`Herdr accepted the text for pane ${paneId}, but the worker's transcript does not record the instruction. ` +
 			"The delivery is unconfirmed.",
 		attempts: 1,
 	};

@@ -184,10 +184,10 @@ export async function endCodexProcesses(
  * read of the pane list. The function returns the reason of a failure, or
  * null when the pane is closed or was already gone.
  */
-async function closePane(rt: WorkerRuntime, paneId: number): Promise<string | null> {
+async function closePane(rt: WorkerRuntime, paneId: string): Promise<string | null> {
 	const state = await paneState(rt, paneId);
 	if (state === "gone") return null;
-	const closed = await rt.wezterm(["kill-pane", "--pane-id", String(paneId)]);
+	const closed = await rt.herdr(["pane", "close", paneId]);
 	if (closed.code === 0) return null;
 	if ((await paneState(rt, paneId)) === "gone") return null;
 	return describeFailure(closed);

@@ -28,7 +28,7 @@ export interface LaunchAttempt {
 	state: AttemptState;
 	sessionFile: string | null;
 	sessionId: string | null;
-	paneId: number | null;
+	paneId: string | null;
 	createdAt: number;
 	updatedAt: number;
 }
@@ -83,7 +83,7 @@ export function markIssued(db: LifecycleDb, id: string, now: number): void {
 export function attachAttempt(
 	db: LifecycleDb,
 	id: string,
-	paneId: number,
+	paneId: string | null,
 	sessionFile: string | null,
 	sessionId: string | null,
 	now: number,
@@ -160,7 +160,7 @@ export function readAttempt(db: LifecycleDb, id: string): LaunchAttempt | null {
 		state: String(row.state) as AttemptState,
 		sessionFile: row.session_file === null ? null : String(row.session_file),
 		sessionId: row.session_id === null ? null : String(row.session_id),
-		paneId: row.pane_id === null ? null : Number(row.pane_id),
+		paneId: row.pane_id === null ? null : String(row.pane_id),
 		createdAt: Number(row.created_at),
 		updatedAt: Number(row.updated_at),
 	};
@@ -179,7 +179,7 @@ export function attemptsOfJob(db: LifecycleDb, jobId: string): LaunchAttempt[] {
 		state: String(row.state) as AttemptState,
 		sessionFile: row.session_file === null ? null : String(row.session_file),
 		sessionId: row.session_id === null ? null : String(row.session_id),
-		paneId: row.pane_id === null ? null : Number(row.pane_id),
+		paneId: row.pane_id === null ? null : String(row.pane_id),
 		createdAt: Number(row.created_at),
 		updatedAt: Number(row.updated_at),
 	}));
@@ -198,7 +198,7 @@ export function openAttempts(db: LifecycleDb): LaunchAttempt[] {
 		state: String(row.state) as AttemptState,
 		sessionFile: row.session_file === null ? null : String(row.session_file),
 		sessionId: row.session_id === null ? null : String(row.session_id),
-		paneId: row.pane_id === null ? null : Number(row.pane_id),
+		paneId: row.pane_id === null ? null : String(row.pane_id),
 		createdAt: Number(row.created_at),
 		updatedAt: Number(row.updated_at),
 	}));

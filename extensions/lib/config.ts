@@ -23,7 +23,8 @@ export interface WorkerConfig {
 	claudeBin: string;
 	/** The binary of Codex. A Codex worker runs this program. */
 	codexBin: string;
-	weztermBin: string;
+	/** The binary of Herdr. Herdr opens the pane of a worker. */
+	herdrBin: string;
 	placement: Placement;
 	stateDir: string;
 	defaultCwd: string;
@@ -62,7 +63,7 @@ export const DEFAULT_CONFIG: WorkerConfig = {
 	ompBin: "omp",
 	claudeBin: "claude",
 	codexBin: "codex",
-	weztermBin: "wezterm",
+	herdrBin: "herdr",
 	placement: "split",
 	stateDir: join(homedir(), ".omp", "agent", "wezterm-workers"),
 	defaultCwd: process.cwd(),
@@ -88,7 +89,7 @@ const CONFIG_STRING_KEYS = [
 	"ompBin",
 	"claudeBin",
 	"codexBin",
-	"weztermBin",
+	"herdrBin",
 	"stateDir",
 	"defaultCwd",
 ] as const;
@@ -229,7 +230,7 @@ export function loadConfig(file?: string, env: NodeJS.ProcessEnv = process.env):
 	}
 	// Environment overrides win over the file so a caller can retarget binaries.
 	if (env.OMP_WORKER_OMP_BIN) cfg.ompBin = env.OMP_WORKER_OMP_BIN;
-	if (env.OMP_WORKER_WEZTERM_BIN) cfg.weztermBin = env.OMP_WORKER_WEZTERM_BIN;
+	if (env.OMP_WORKER_HERDR_BIN) cfg.herdrBin = env.OMP_WORKER_HERDR_BIN;
 	if (env.OMP_WORKER_STATE_DIR) cfg.stateDir = env.OMP_WORKER_STATE_DIR;
 	// A file can hold more than one problem. Every message reaches the user.
 	if (guidance.length > 0) lastGuidance = guidance.join(" ");

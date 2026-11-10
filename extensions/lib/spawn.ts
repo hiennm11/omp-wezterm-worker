@@ -21,6 +21,7 @@ import {
 	setGroupWorktree,
 } from "./groups.ts";
 import { freshRunState, type Job } from "./job.ts";
+import { herdrSessionRefusal } from "./herdr-session.ts";
 import { finalizeJob } from "./lifecycle.ts";
 import { launchPane } from "./pane.ts";
 import { withWorkerTools } from "./preset.ts";
@@ -100,6 +101,13 @@ export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promi
 	rt.jobs.set(jobId, job);
 	rt.persist();
 
+	// A pane can only open inside a Herdr session.
+	const sessionRefusal = herdrSessionRefusal(process.env);
+	if (sessionRefusal) {
+		await finalizeJob(rt, job, "failed", sessionRefusal, null);
+		return job;
+	}
+
 	if (!existsSync(job.cwd)) {
 		await finalizeJob(rt, job, "failed", `cwd does not exist: ${job.cwd}`, null);
 		return job;
@@ -168,7 +176,7 @@ export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promi
 		await finalizeJob(rt, job, "failed", failure, null);
 		return job;
 	}
-	attachAttempt(db, attemptId, job.paneId ?? -1, job.sessionFile, null, Date.now());
+	attachAttempt(db, attemptId, job.paneId, job.sessionFile, null, Date.now());
 
 	// Persist again now that the pane id is known. The first write happened
 	// before the pane existed, so without this the registry would record a
@@ -327,7 +335,7 @@ export async function resumeWorker(
 		// source run becomes free again.
 		releaseExecutionByHolder(db, jobId, Date.now());
 	}
-	attachAttempt(db, attemptId, job.paneId ?? -1, job.sessionFile, null, Date.now());
+	attachAttempt(db, attemptId, job.paneId, job.sessionFile, null, Date.now());
 	rt.persist();
 	return job;
 }

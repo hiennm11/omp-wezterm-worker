@@ -19,6 +19,7 @@ import { type CodexLaunchDeps, launchCodex } from "./codex-launch.ts";
 import { codexReportLaunch } from "./codex-report.ts";
 import { createGroup, setGroupWorktree } from "./groups.ts";
 import { freshRunState, type Job } from "./job.ts";
+import { herdrSessionRefusal } from "./herdr-session.ts";
 import { finalizeJob } from "./lifecycle.ts";
 import { observeNative } from "./native-ledger.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -79,6 +80,13 @@ export async function spawnCodexWorker(
 	};
 	rt.jobs.set(jobId, job);
 	rt.persist();
+
+	// A pane can only open inside a Herdr session.
+	const sessionRefusal = herdrSessionRefusal(process.env);
+	if (sessionRefusal) {
+		await finalizeJob(rt, job, "failed", sessionRefusal, null);
+		return job;
+	}
 
 	const binary = await findCodexBinary(rt.exec, config.codexBin);
 	if (!binary) {
@@ -150,7 +158,7 @@ export async function spawnCodexWorker(
 		return job;
 	}
 
-	attachAttempt(db, attemptId, job.paneId ?? -1, job.sessionFile, launch.threadId, Date.now());
+	attachAttempt(db, attemptId, job.paneId, job.sessionFile, launch.threadId, Date.now());
 	setGroupWorktree(db, groupId, job.worktreePath, job.worktreeOrigin, job.worktreeBranch, Date.now());
 	rt.persist();
 	return job;
