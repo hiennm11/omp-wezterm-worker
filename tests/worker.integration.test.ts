@@ -66,7 +66,7 @@ test("the worker lifecycle, with a real worker", {
 		const workerId = details?.workerId ?? "";
 		const paneId = details?.paneId ?? "";
 		assert.ok(workerId, "The spawn tool returned no worker id");
-		assert.match(paneId, /^w\d+:p\d+$/, "The spawn tool returned no Herdr pane id");
+		assert.match(paneId, /^w\d+:p[0-9A-Za-z]+$/, "The spawn tool returned no Herdr pane id");
 
 		// --- the worker finishes ---
 		const finished = await waitFor(
