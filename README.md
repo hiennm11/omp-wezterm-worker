@@ -1,12 +1,12 @@
 # omp-wezterm-worker
 
-Spawn an **OMP worker session inside a Herdr pane or tab** that runs on its
-own. The user sees it live while the main agent keeps working. The main session
-receives the final result of the worker automatically.
+Spawn an **OMP worker session inside a Herdr or WezTerm pane or tab** that runs
+on its own. The user sees it live while the main agent keeps working. The main
+session receives the final result of the worker automatically.
 
 Verified against **omp 18.12.3** on **Windows native** (no WSL), Herdr
-**0.9.5**. The extension runs only inside a Herdr session. Only the OMP
-backend runs on Herdr today. The Claude Code backend refuses to start, and
+**0.9.5**. The extension runs only inside a Herdr or a WezTerm session. Only
+the OMP backend runs today. The Claude Code backend refuses to start, and
 the reply says so. See
 [ADR 0025](docs/adr/0025-herdr-replaces-wezterm-as-the-pane-runtime.md).
 
@@ -17,8 +17,8 @@ Three distinct mechanisms. They are not interchangeable:
 | Mechanism | What it is | Pane? | Result delivery | Where to see it |
 |---|---|---|---|---|
 | Native subagent (`task` tool) | In-process child OMP session | No | OMP-managed async job injection | Agent Hub (`Alt+A`), pinned Subagents block |
-| **Herdr worker (this plugin)** | A **separate `omp` process** in a Herdr pane, own model/tools/session file | **Yes** | `pi.sendUserMessage` back into the main session | The pane itself, live |
-| Pane transcript view | `herdr pane read` — rendered screen text only | — | Not a result source | Read-only text dump |
+| **Pane worker (this plugin)** | A **separate `omp` process** in a Herdr or WezTerm pane, own model/tools/session file | **Yes** | `pi.sendUserMessage` back into the main session | The pane itself, live |
+| Pane transcript view | `herdr pane read` or `wezterm cli get-text` - rendered screen text only | - | Not a result source | Read-only text dump |
 
 This plugin creates a **real, interactive OMP TUI** in the pane. It is not a
 transcript replay and not a fake TUI. The user can click into the pane and speak
@@ -407,6 +407,7 @@ Environment overrides:
 
 - `OMP_WORKER_OMP_BIN`: the `omp` program that a worker runs.
 - `OMP_WORKER_HERDR_BIN`: the `herdr` program that opens the pane.
+- `OMP_WORKER_WEZTERM_BIN`: the `wezterm` program that opens the pane.
 - `OMP_WORKER_STATE_DIR`: the folder that holds the registry and the
   transcripts.
 - `OMP_WORKER_CONFIG_FILE`: the path of the config file. The default is
@@ -416,6 +417,12 @@ Environment overrides:
 
 The keys of the config file:
 
+- `runtime` — the program that opens the pane of a worker. The values are
+  `herdr`, `wezterm` and `auto`. The default is `auto`. The value `auto`
+  reads the environment: the variable `HERDR_ENV` with the value `1` names
+  Herdr, and a non-empty variable `WEZTERM_PANE` names WezTerm. A worker
+  keeps the runtime that started it, so a tool that acts on that worker
+  later uses the same runtime.
 - `model` — the model that every worker uses. `null` uses the default of OMP.
 - `tools` — the tool list that every worker gets. `null` uses the default of
   OMP.
@@ -923,8 +930,14 @@ omp-wezterm-worker/
 │   │   ├── runtime.ts           the shared state and the services (the test seam)
 │   │   ├── process.ts           running a child process
 │   │   ├── host.ts              the shape of the OMP extension API
-│   │   ├── pane.ts              the Herdr panes: state, read, steer and close
-│   │   ├── herdr-launch.ts      opening a pane and starting a worker in it
+│   │   ├── pane.ts              the panes of a worker: state, read, steer and close
+│   │   ├── pane-herdr.ts        the Herdr panes
+│   │   ├── pane-wezterm.ts      the WezTerm panes
+│   │   ├── pane-runtime.ts      the selection of the pane runtime
+│   │   ├── pane-session.ts      the guard of a pane session
+│   │   ├── pane-id.ts           the pane id at the boundary of the CLI
+│   │   ├── pane-launch.ts       opening a pane and starting a worker in it
+│   │   ├── pane-launch-wezterm.ts opening a WezTerm pane for a worker
 │   │   ├── claude-herdr.ts      the refusal of the Claude Code backend on Herdr
 │   │   ├── worktree.ts          the isolated git worktree
 │   │   ├── spawn.ts             starting and resuming a worker
