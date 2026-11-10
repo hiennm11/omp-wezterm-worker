@@ -1,15 +1,22 @@
 # Pane Workers
 
-An OMP extension that runs a worker session independently inside a Herdr pane
-or tab. The user sees a long task run live, and the main agent keeps working.
-The worker runs in OMP or in Claude Code CLI.
+An OMP extension that runs a worker session independently inside a Herdr or
+WezTerm pane or tab. The user sees a long task run live, and the main agent
+keeps working. The worker runs in OMP or in Claude Code CLI.
 
 ## Language
 
 **Worker**:
-A separate CLI session that runs a task in a Herdr pane and reports to a
+A separate CLI session that runs a task in a pane and reports to a
 main session. It does not inherit the main conversation.
 _Avoid_: Agent, subtask, background job
+
+**Pane runtime**:
+The program that opens the pane of a worker: Herdr or WezTerm. A worker keeps
+the runtime that started it, so a tool that acts on that worker later uses the
+same runtime. A run that the database holds from before the runtime existed
+has no runtime, and the extension never guesses one for it.
+_Avoid_: Pane program, terminal, backend
 
 **Main session**:
 The OMP session that spawned the worker and receives its events.
@@ -108,7 +115,7 @@ _Avoid_: Untouched worktree, pristine worktree
 
 **Stopped**:
 The state of a worker whose pane the pane list confirms is gone. A close
-request that Herdr accepted is not enough.
+request that the pane runtime accepted is not enough.
 _Avoid_: Killed, terminated, closed
 
 **Launch**:
