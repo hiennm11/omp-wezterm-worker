@@ -12,6 +12,9 @@ import { createRuntime } from "../extensions/lib/runtime.ts";
 import { spawnClaudeWorker } from "../extensions/lib/spawn-claude.ts";
 import { spawnCodexWorker } from "../extensions/lib/spawn-codex.ts";
 
+/** The reason that the Claude tests do not run. */
+const CLAUDE_ON_HERDR = "The Claude Code backend does not run on Herdr yet. Issue 159 brings it back.";
+
 const FAIL_TEXT = "json: Invalid JSON syntax: Unexpected EOF";
 
 function setup(exec: RunFn) {
@@ -52,7 +55,9 @@ function job(id: string, sessionDir: string): Job {
 	};
 }
 
-test("spawn refuses an invalid plugin before bridge, group, attempt, or pane creation", async () => {
+test("spawn refuses an invalid plugin before bridge, group, attempt, or pane creation", {
+	skip: CLAUDE_ON_HERDR,
+}, async () => {
 	const calls: { bin: string; args: string[] }[] = [];
 	const exec: RunFn = async (bin, args) => {
 		calls.push({ bin, args });
@@ -116,7 +121,7 @@ test("spawn refuses an invalid plugin before bridge, group, attempt, or pane cre
 	}
 });
 
-test("resume accepts a validated plugin and launches the worker", async () => {
+test("resume accepts a validated plugin and launches the worker", { skip: CLAUDE_ON_HERDR }, async () => {
 	const calls: { bin: string; args: string[] }[] = [];
 	const exec: RunFn = async (bin, args) => {
 		calls.push({ bin, args });
@@ -173,7 +178,7 @@ test("Codex backend does not validate the Claude plugin", async () => {
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
-test("spawn accepts validation warnings and launches the worker", async () => {
+test("spawn accepts validation warnings and launches the worker", { skip: CLAUDE_ON_HERDR }, async () => {
 	const calls: { bin: string; args: string[] }[] = [];
 	const exec: RunFn = async (bin, args) => {
 		calls.push({ bin, args });
@@ -207,7 +212,9 @@ test("spawn accepts validation warnings and launches the worker", async () => {
 	}
 });
 
-test("spawn reports a validation execution error and does not launch", async () => {
+test("spawn reports a validation execution error and does not launch", {
+	skip: CLAUDE_ON_HERDR,
+}, async () => {
 	const calls: { bin: string; args: string[] }[] = [];
 	const exec: RunFn = async (bin, args) => {
 		calls.push({ bin, args });
@@ -240,7 +247,9 @@ test("spawn reports a validation execution error and does not launch", async () 
 	}
 });
 
-test("resume refuses an invalid plugin and releases the resource group", async () => {
+test("resume refuses an invalid plugin and releases the resource group", {
+	skip: CLAUDE_ON_HERDR,
+}, async () => {
 	const calls: { bin: string; args: string[] }[] = [];
 	const exec: RunFn = async (bin, args) => {
 		calls.push({ bin, args });

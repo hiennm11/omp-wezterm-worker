@@ -14,14 +14,15 @@ import { mkdirSync } from "node:fs";
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
 import { handoverFile, writeHandover } from "./bridge-handover.ts";
 import { startBridge } from "./claude-bridge.ts";
+import { claudeHerdrRefusal } from "./claude-herdr.ts";
 import { createClaudeRunState } from "./claude-run-state.ts";
 import { checkClaude, claudeArgv, preparePlugin, validatePlugin } from "./claude-session.ts";
 import { createGroup, setGroupWorktree } from "./groups.ts";
+import { launchProgram } from "./herdr-launch.ts";
 import { herdrSessionRefusal } from "./herdr-session.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { finalizeJob } from "./lifecycle.ts";
 import { observeNative } from "./native-ledger.ts";
-import { launchProgram } from "./pane.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { writeRunContext } from "./worker-context.ts";
 import { createWorktree } from "./worktree.ts";
@@ -76,6 +77,14 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 	};
 	rt.jobs.set(jobId, job);
 	rt.persist();
+
+	// The Claude Code backend cannot start on Herdr yet. The refusal comes
+	// before any pane opens and before any program starts.
+	const herdrRefusal = claudeHerdrRefusal();
+	if (herdrRefusal) {
+		await finalizeJob(rt, job, "failed", herdrRefusal, null);
+		return job;
+	}
 
 	// A pane can only open inside a Herdr session.
 	const sessionRefusal = herdrSessionRefusal(process.env);

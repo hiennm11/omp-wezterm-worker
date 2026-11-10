@@ -20,6 +20,9 @@ import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts"
 import { resumeWorker } from "../extensions/lib/spawn.ts";
 import { readRunContext } from "../extensions/lib/worker-context.ts";
 
+/** The reason that the Claude tests do not run. */
+const CLAUDE_ON_HERDR = "The Claude Code backend does not run on Herdr yet. Issue 159 brings it back.";
+
 /** A runtime with a database in a fresh directory. */
 function freshRuntime(exec: RunFn): { rt: WorkerRuntime; dir: string } {
 	const dir = mkdtempSync(join(tmpdir(), "wt-resume-group-"));
@@ -124,7 +127,9 @@ test("a resume of a resumed run takes the group of the first run", async () => {
 	}
 });
 
-test("a native resume of a resumed run takes the group of the first run", async () => {
+test("a native resume of a resumed run takes the group of the first run", {
+	skip: CLAUDE_ON_HERDR,
+}, async () => {
 	const { exec } = fakeWezterm();
 	const { rt, dir } = freshRuntime(exec);
 	try {
@@ -184,7 +189,7 @@ test("a resume of a source run without a group refuses", async () => {
 	}
 });
 
-test("a native resume of a source run without a group refuses", async () => {
+test("a native resume of a source run without a group refuses", { skip: CLAUDE_ON_HERDR }, async () => {
 	const { exec, calls } = fakeWezterm();
 	const { rt, dir } = freshRuntime(exec);
 	try {
