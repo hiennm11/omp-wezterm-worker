@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { backendRefusal, readBackend } from "../extensions/lib/backend.ts";
+import {
+	backendRefusal,
+	IMPLEMENTED_BACKENDS,
+	isRemovedBackend,
+	KNOWN_BACKENDS,
+	readBackend,
+} from "../extensions/lib/backend.ts";
 import { boundReport, reportsOfCycle } from "../extensions/lib/report-binding.ts";
 import type { WorkerReport } from "../extensions/lib/report-model.ts";
 
@@ -32,14 +38,21 @@ test("a run with an unknown backend field is an OMP run", () => {
 	assert.equal(readBackend({ backend: "something-else" }), "omp");
 });
 
-test("the Codex backend is implemented", () => {
-	assert.equal(backendRefusal("codex"), null);
-});
-
 test("an implemented backend has no refusal", () => {
 	assert.equal(backendRefusal("omp"), null);
 	assert.equal(backendRefusal("claude"), null);
-	assert.equal(backendRefusal("codex"), null);
+});
+
+test("a run of the removed backend keeps its value", () => {
+	assert.equal(readBackend({ backend: "codex" }), "codex");
+	assert.equal(isRemovedBackend({ backend: "codex" }), true);
+	assert.equal(isRemovedBackend({ backend: "claude" }), false);
+	assert.equal(isRemovedBackend({}), false);
+});
+
+test("the removed backend is not a backend that a spawn may name", () => {
+	assert.deepEqual(KNOWN_BACKENDS, ["omp", "claude"]);
+	assert.deepEqual(IMPLEMENTED_BACKENDS, ["omp", "claude"]);
 });
 
 test("a report of the current cycle is the bound report", () => {

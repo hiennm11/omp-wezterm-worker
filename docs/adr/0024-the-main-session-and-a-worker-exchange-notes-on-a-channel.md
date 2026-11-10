@@ -81,10 +81,9 @@ line names the older notes and the tool that reads them. The status tool
 shows one count line per worker, for example `notes: 3 from worker, 1 to
 worker`. It shows no note text.
 
-A Claude Code worker and a Codex worker have no channel today. The four
-tools refuse with a reply that says that the backend does not support the
-channel yet. A tool that fails without a word is a fault that the user
-cannot see.
+A Claude Code worker has no channel today. The four tools refuse with a reply
+that says that the backend does not support the channel yet. A tool that fails
+without a word is a fault that the user cannot see.
 
 ## The reasons
 

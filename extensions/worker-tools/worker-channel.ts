@@ -27,8 +27,8 @@ export function workerSessionDir(): string | null {
 /**
  * The reason that the backend of the worker has no channel, or null.
  *
- * The worker tool uses it, because a Claude Code worker and a Codex worker
- * have no channel today.
+ * The worker tool uses it, because a Claude Code worker has no channel
+ * today.
  */
 export function workerChannelRefusal(backend: string | undefined): string | null {
 	return channelBackendRefusal(backend ?? "omp");

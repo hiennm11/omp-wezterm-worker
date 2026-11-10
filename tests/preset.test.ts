@@ -17,7 +17,7 @@ test("spawn parameters win over every preset field", () => {
 		tools: ["grep"],
 		thinking: "high",
 		isolated: false,
-		backend: "codex",
+		backend: "claude",
 	};
 	assert.deepEqual(resolveSpawn({ scout: preset }, "scout", params), { ...params });
 });

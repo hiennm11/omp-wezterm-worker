@@ -10,7 +10,7 @@ import { acquireOwnership, type Ownership } from "../extensions/lib/ownership.ts
 import { createRuntime } from "../extensions/lib/runtime.ts";
 import { supervisionLine } from "../extensions/lib/supervision.ts";
 import { registerStatusTool } from "../extensions/worker-tools/status.ts";
-import { toolOf } from "./codex-events-helpers.ts";
+import { toolOf } from "./native-run-helpers.ts";
 
 const job: Job = {
 	id: "wz-test",

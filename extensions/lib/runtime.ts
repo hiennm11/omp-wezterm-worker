@@ -11,7 +11,6 @@
 
 import type { BridgeState } from "./claude-bridge.ts";
 import type { ClaudeRunState } from "./claude-run-state.ts";
-import { type CodexClient, connectCodexServer } from "./codex-client.ts";
 import { DEFAULT_CONFIG, type WorkerConfig } from "./config.ts";
 import { databaseFile, type LifecycleDb, openDatabase } from "./db.ts";
 import { LAYOUT_APPLY_VERB, runLayoutApply } from "./herdr-layout.ts";
@@ -199,20 +198,6 @@ export interface WorkerRuntime {
 	 * current cycle, the open calls and the open permission requests.
 	 */
 	readonly claudeStates: Map<string, ClaudeRunState>;
-	/**
-	 * The clients of the runs that talk to Codex.
-	 *
-	 * A run with a Codex backend owns one client. The client sends the
-	 * steering instructions of the owner to the app server.
-	 */
-	readonly codexClients: Map<string, CodexClient>;
-	/**
-	 * Connect to the app server of Codex.
-	 *
-	 * The extension uses the real connection. A test replaces it, so the
-	 * test needs no app server.
-	 */
-	codexConnect: (endpoint: string) => Promise<CodexClient>;
 }
 
 export function createRuntime(exec: RunFn = run): WorkerRuntime {
@@ -239,8 +224,6 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 		pendingActions: new Set(),
 		bridges: new Map(),
 		claudeStates: new Map(),
-		codexClients: new Map(),
-		codexConnect: (endpoint: string) => connectCodexServer(endpoint),
 		async runAction<T>(name: string, fn: () => Promise<T>): Promise<T> {
 			rt.pendingActions.add(name);
 			try {

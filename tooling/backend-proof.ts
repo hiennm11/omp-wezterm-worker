@@ -7,15 +7,13 @@
  *
  * The command is:
  *
- *   node tooling/backend-proof.ts --backend <claude|codex> --scenario <name> --evidence-dir <path>
+ *   node tooling/backend-proof.ts --backend <claude> --scenario <name> --evidence-dir <path>
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { runClaudeProof } from "./backend-proof/claude-run.ts";
-import { findCodexBinary } from "./backend-proof/codex-binary.ts";
-import { runCodexProof } from "./backend-proof/codex-run.ts";
 import { createEvidenceStore, observationsFile } from "./backend-proof/evidence.ts";
 import {
 	ArgumentError,
@@ -46,7 +44,7 @@ async function main(): Promise<number> {
 		console.error("");
 		console.error("The command is:");
 		console.error(
-			"  node tooling/backend-proof.ts --backend <claude|codex> --scenario <name> --evidence-dir <path>",
+			"  node tooling/backend-proof.ts --backend <claude> --scenario <name> --evidence-dir <path>",
 		);
 		return EXIT_MISSING;
 	}
@@ -63,16 +61,12 @@ async function main(): Promise<number> {
 	const observations: Array<{ source: string; payload: unknown }> = [];
 	const evidence = createEvidenceStore(args.evidenceDir, args.backend, runId);
 
-	const binary = args.backend === "codex" ? await findCodexBinary() : null;
-
 	const versions: Record<string, unknown> = {
 		node: process.version,
 		platform: `${process.platform} ${process.arch}`,
 		claude: await programVersion("claude"),
-		codex: binary?.version ?? null,
 		wezterm: await programVersion("wezterm"),
 	};
-	if (binary) versions.codexBinary = binary.bin;
 	evidence.versions(versions);
 
 	const report: string[] = [
@@ -87,28 +81,18 @@ async function main(): Promise<number> {
 		"| :- | :- |",
 		`| node | ${versions.node} |`,
 		`| claude | ${versions.claude ?? "not available"} |`,
-		`| codex | ${versions.codex ?? "not available"} |`,
 		`| wezterm | ${versions.wezterm ?? "not available"} |`,
 		"",
 	];
 
 	let outcome: { verdict: string; results: Array<{ scenario: string; verdict: string; detail: string }> };
 	try {
-		outcome =
-			args.backend === "claude"
-				? await runClaudeProof({
-						args,
-						runId,
-						evidence,
-						observations,
-					})
-				: await runCodexProof({
-						args,
-						runId,
-						evidence,
-						observations: [],
-						binary,
-					});
+		outcome = await runClaudeProof({
+			args,
+			runId,
+			evidence,
+			observations,
+		});
 	} catch (error) {
 		const detail = `the run threw: ${String(error)}`;
 		outcome = {

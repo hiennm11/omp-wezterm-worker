@@ -36,19 +36,18 @@ The extension uses Herdr and no longer uses WezTerm. It keeps one seam for the p
 
 The extension opens a pane with `pane.split` and passes `env` and `cwd`. Then it calls `agent.start` with the `kind` and the `args`. This keeps every argv element intact. It applies to the OMP worker and to the Claude Code worker.
 
-The extension opens a new tab with `layout.apply` and no `tab_id`. The Codex app server pane uses the same call, because the server is not an agent.
+The extension opens a new tab with `layout.apply` and no `tab_id`. A pane that runs a program that is not an agent uses the same call.
 
 The extension never uses `pane.run`. It never gives `tab_id` to `layout.apply`. A `tab_id` replaces the panes of that tab, so the call could close the pane of the main session.
 
-The Codex TUI pane stays open to measurement. The batch for the Codex backend must measure `agent.start` with `--remote ws://127.0.0.1:<port> resume <threadId>` first. Until then, no document may claim that the TUI uses `agent.start`.
+The pane of a TUI stays open to measurement. A batch for a TUI must measure `agent.start` with the real argv first. Until then, no document may claim that the TUI uses `agent.start`.
 
 ### The binary keys
 
-`agent.start` selects the program by `kind` from the `PATH`. The keys `ompBin`, `claudeBin` and `codexBin` stay, because the extension uses them for work that is not a launch:
+`agent.start` selects the program by `kind` from the `PATH`. The keys `ompBin` and `claudeBin` stay, because the extension uses them for work that is not a launch:
 
 - the version check of OMP before a spawn;
-- the check and the plugin validation of Claude Code;
-- the search for the Codex program, and the command of the Codex app server.
+- the check and the plugin validation of Claude Code.
 
 The cost is a split. A key that names a custom path changes the check, but it does not change the program that Herdr starts for an OMP worker or a Claude worker. The README must say that such a program has to come first on the `PATH`.
 
@@ -105,6 +104,6 @@ One idea stays open. The extension could attach a worker to a pane that Herdr re
 - Keep WezTerm and add Herdr. Every supervision rule would have to hold for two runtimes, and the tests would have to cover both.
 - Launch with `pane.run`. It joins the words into one shell string and loses the argv.
 - Launch every pane with `layout.apply`. The pane of the main session could close when a call names its tab.
-- Use `agent.start` for every pane. The Codex app server is not an agent.
+- Use `agent.start` for every pane. A program that is not an agent needs another call.
 - Let Herdr own the resume. The restored command line has no reporting contract.
 - Write the Herdr configuration for the user. The user owns that file.

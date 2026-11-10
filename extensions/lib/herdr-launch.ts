@@ -227,10 +227,9 @@ async function startAgent(
  * of the configuration changes the check of the program, not the program that
  * Herdr starts.
  */
-export function agentKindOf(binary: string): "omp" | "claude" | "codex" | null {
+export function agentKindOf(binary: string): "omp" | "claude" | null {
 	const name = binary.replace(/\\/g, "/").split("/").pop()?.toLowerCase() ?? "";
 	if (name.startsWith("omp")) return "omp";
 	if (name.startsWith("claude")) return "claude";
-	if (name.startsWith("codex")) return "codex";
 	return null;
 }

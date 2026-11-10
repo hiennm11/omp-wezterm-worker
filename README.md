@@ -6,8 +6,8 @@ receives the final result of the worker automatically.
 
 Verified against **omp 18.12.3** on **Windows native** (no WSL), Herdr
 **0.9.5**. The extension runs only inside a Herdr session. Only the OMP
-backend runs on Herdr today. The Claude Code backend and the Codex backend
-refuse to start, and the reply says so. See
+backend runs on Herdr today. The Claude Code backend refuses to start, and
+the reply says so. See
 [ADR 0025](docs/adr/0025-herdr-replaces-wezterm-as-the-pane-runtime.md).
 
 ## What this is (and what it is not)
@@ -146,9 +146,8 @@ line names the older notes and the tool that reads them. The status tool shows
 one count line per worker, for example `notes: 3 from worker, 1 to worker`. It
 shows no note text.
 
-A Claude Code worker and a Codex worker have no channel today. The four tools
-refuse with a reply that says that the backend does not support the channel
-yet. See ADR 0024.
+A Claude Code worker has no channel today. The four tools refuse with a reply
+that says that the backend does not support the channel yet. See ADR 0024.
 
 
 ## Usage
@@ -169,7 +168,7 @@ Then keep working; the result arrives on its own.
 | `task` | string | Required. Self-contained instructions. The worker sees **only** this text. |
 | `cwd` | string | Absolute path. Defaults to the calling session's cwd. |
 | `label` | string | Human label; shown in the pane tab title. |
-| `backend` | `"omp"` \| `"claude"` \| `"codex"` | The CLI that runs the worker. Defaults to `omp`. The extension never falls back to another backend. |
+| `backend` | `"omp"` \| `"claude"` | The CLI that runs the worker. Defaults to `omp`. The extension never falls back to another backend. |
 | `model` | string | Optional model selector, e.g. `omniroute/minimax/MiniMax-M3.1-Flash`. Omit for omp's default. The role aliases `smol`, `task` and `slow` select a model. These aliases apply to an OMP worker only. A Claude Code worker receives the value unchanged. |
 | `tools` | string[] | Optional tool list, e.g. `["read","grep","glob"]`. Omit for the default set. An OMP worker only. |
 | `thinking` | string | Optional thinking level of OMP: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` or `auto`. Omit for the default level of OMP. An OMP worker only. A spawn parameter wins over the config file. |
@@ -223,73 +222,13 @@ report tool and the command bridge.
 The next owner reads the saved Claude report when it restores a released run.
 The report remains bound to its original run.
 
-### The Codex backend
+### The removed Codex backend
 
-A spawn that names `backend: "codex"` starts a real Codex worker. The worker
-runs an app server of Codex in one pane and the TUI of Codex in a second pane.
-The TUI attaches to the thread of the client, and the task is the first turn
-of that thread.
-
-| Rule | Behavior |
-|---|---|
-| The configuration of the user | The worker keeps the settings, the credentials and the projects of the user. The extension never writes into `~/.codex`. |
-| The model | An omitted model uses the default of Codex. A named model is passed through unchanged. |
-| The tool list | A spawn with `tools` and the Codex backend is refused before the launch. A Codex worker uses the tools of Codex. |
-| The thinking level | A spawn with `thinking` and the Codex backend is refused before the launch. A Codex worker uses the thinking level of Codex. |
-| The deadline | A Codex worker takes the `timeoutMs` of its spawn, the same way an OMP worker does. The pane policy of the spawn does not apply, because the TUI needs the app server of its pane. |
-| The report | The report channel loads a stdio MCP server into the app server. The report reaches the run state of the owner. The report names the turn that produced it. |
-| The steering | A steering instruction goes to the model of the running turn through the request `turn/steer`. A running tool is not interrupted. |
-| The usage | The event `thread/tokenUsage/updated` gives the usage of a turn. A count that Codex does not report stays missing. |
-| The resume | The resume continues the thread of the source run, so the worker comes back with its history and a new run id. |
-| The stop | The stop ends the program of the app server, closes both panes and closes the client. A worker that ends on its own ends its app server too. The extension never ends the shared daemon of Codex. |
-
-The report channel of a Codex worker exists. The extension loads a stdio MCP
-server into the app server of Codex. The server posts every report to the
-bridge of the run, and the report reaches the run state of the owner. The
-owner reads the report with the same decision functions that it uses for a
-Claude Code worker. The report server reads the id of the turn from the
-metadata of the call, and it sends that id as the cycle id of the report. A
-report that names no cycle never ends a worker, and it raises one event with
-the condition `missing_report` for the owner.
-
-
-The worker declares a Codex command that outlives its turn with `wezterm_worker_background` and the action `declare`. After it sees the result, the worker calls the tool with `settle` and the status `completed` or `failed`. An open declared command blocks a completed report. Claude workers use the native background signal instead.
-
-The events and the instruction queue of a Codex worker exist. The extension
-reads the messages of the app server and turns them into the observations of
-a native run. A Codex worker therefore fills the same run state as a Claude
-worker, and the status tool shows the same counts. A steering instruction
-goes to the model of the running turn through the request `turn/steer`, and a
-permission request refuses it while the request waits for the person. An
-accepted instruction blocks the completion of the run until the native
-program delivers it, so a report that arrives before the delivery never ends
-the worker.
-
-The stop of a Codex worker exists. The stop ends the open turn, ends the
-program of the app server and closes the pane of the app server and the pane
-of the TUI. The client of the app server closes with the run.
-
-The resume of a Codex worker exists. The resume continues the thread of the
-source run, so the worker comes back with its full history. The new run has
-its own run id, its own bridge and its own report channel, so the report of
-the source run cannot finish it. A resume starts a turn only when the owner
-gave an instruction. A resume without an instruction opens the thread and
-starts no turn. A resume refuses to start while the pane of the TUI of the
-source run is open. It also refuses to start while the pane of the app
-server of the source run is open.
-
-The recovery of a Codex worker after a restart of OMP exists. A new session
-finds the app server through the identity of the job in the registry. The
-extension proves that the process is the same `codex.exe` with three checks:
-the process of the identity must exist, its name must be `codex.exe`, and its
-command line must hold the app server of the port of the identity. A failed
-check stops the worker as failed and names the check that failed. The stop
-never ends a program that the check did not prove, so the program of another
-`codex.exe` of the user stays alive. The new session connects to the app
-server again and resumes the thread of the worker. The client of the app
-server then joins the run state. The owner can steer the worker and stop its
-open turn. The report server of Codex reads the handover file of the session
-directory on every post, so the reports of the worker reach the new owner.
+The Codex backend was removed. A spawn that names `backend: "codex"` is
+refused, and the reply names the known backends. A run that the database
+still holds with the backend `codex` loads as history, and every tool that
+gets it replies that the Codex backend was removed. See
+[ADR 0026](docs/adr/0026-the-codex-backend-is-removed.md).
 
 ### Long tasks
 
@@ -442,7 +381,6 @@ extension never reads the pane screen text to get a result.
 ```json
 {
 	"ompBin": "omp",
-	"codexBin": "codex",
 	"herdrBin": "herdr",
 	"placement": "tab",
 	"stateDir": "C:/Users/<you>/.omp/agent/wezterm-workers",
@@ -460,9 +398,6 @@ extension never reads the pane screen text to get a result.
 	"commsStandard": {
 		"mode": "warn",
 		"minScore": 80
-	},
-	"codex": {
-		"approvalPolicy": null
 	},
 	"ste100Skill": "~/.claude/skills/ste100"
 }
@@ -489,10 +424,6 @@ The keys of the config file:
   `high`, `xhigh`, `max` and `auto`. The parameter of a spawn wins over this
   value.
 - `timeoutMs` — total deadline for a worker, in ms. `0` disables it.
-- `codexBin` — the Codex program that a Codex worker runs. The default is
-  `codex`. An absolute path to a file names the program directly. Any other
-  name is looked up with the command `where`. The extension never runs a
-  shell, because the arguments of the app server would reach the shell first.
 - `idleTimeoutMs` — fail a worker that produced no transcript activity for
   this long, in ms. `0` disables it (the default).
 - `pollMs` — how often the extension checks the worker transcript.
@@ -507,12 +438,6 @@ The keys of the config file:
   last user prompt. The default is `3`. `0` disables the limit.
 - `commsStandard` — the settings of the communication check. The section
   "The communication check" explains them.
-- `codex.approvalPolicy` — the policy of the approval of a Codex worker.
-  The values are `untrusted`, `on-request` and `never`. The default is no
-  value, and the extension then sends no field, so the worker keeps the
-  policy of the user. The setting `untrusted` makes Codex ask the person for
-  the approval of a command. The person answers in the pane of the TUI. See
-  `docs/adr/0020-the-codex-approval-policy-is-a-setting.md`.
 - `ste100Skill` — the folder of the ste100 skill. The default is
   `~/.claude/skills/ste100`. The section "The communication check" explains
   the setting.
@@ -683,12 +608,11 @@ tool `wezterm_worker_cancel` refuses such a task. Its message names
 `wezterm_worker_takeover`.
 
 **A release gives the state of the run away.** The session that releases a
-task keeps no bridge, no client and no run state of the worker. The bridge
-of a native worker closes, and the client of a Codex worker closes. The
-handover file goes too, so the worker waits for its next owner. A closed
-client of an app server delivers no message to its handler. So no
-observation of the worker reaches the session that released it. The release
-never stops the worker, never ends the app server and never closes a pane.
+task keeps no bridge and no run state of the worker. The bridge of a native
+worker closes. The handover file goes too, so the worker waits for its next
+owner. A closed bridge delivers no message to its handler. So no observation
+of the worker reaches the session that released it. The release never stops
+the worker and never closes a pane.
 
 **A released task waits for the takeover tool.** The startup of a session
 does not take the task of a released worker. The takeover tool is the way
@@ -698,23 +622,12 @@ starts finds the released task read-only, and its worker stays as it is.
 **The report file keeps a report that no owner held.** The bridge of a run
 is the live channel of its reports. The bridge closes when the owner
 releases the task, and the next owner starts a new bridge. The report file
-of the session directory is the durable channel. The report server of Codex
-writes every report to that file before it posts to the bridge. A report
-that arrives while no owner holds the task is therefore not lost. The new
-owner reads the report file and the observation file when it builds the run
-state. The hook saves background observations before it posts to the bridge.
+of the session directory is the durable channel. A report that arrives while
+no owner holds the task is therefore not lost. The new owner reads the
+report file and the observation file when it builds the run state. The hook
+saves background observations before it posts to the bridge.
 The owner replays saved observations when it restores a released Claude run.
 The observation file uses the run id and keeps other runs separate.
-
-**A new session takes over a released Codex worker.** The takeover of a Codex
-worker runs the same identity check as the recovery after a restart of OMP.
-The new session finds the app server through the Codex identity, proves the
-process, and connects to that app server again. The new session starts a new
-bridge and writes the handover file again. The report server of Codex reads
-the handover file on every post, so the reports of the worker reach the new
-owner. The worker keeps its id, and no second app server and no second worker
-start. A takeover whose identity check fails stops the worker as `failed`,
-and it ends no program that the check did not prove.
 
 The write compares the generation that the check read. So an ownership that
 moves at the same time refuses the takeover. A takeover of a finished worker
@@ -1016,21 +929,9 @@ omp-wezterm-worker/
 │   │   ├── worktree.ts          the isolated git worktree
 │   │   ├── spawn.ts             starting and resuming a worker
 │   │   ├── spawn-claude.ts      starting a Claude Code worker
-│   │   ├── spawn-codex.ts       starting a Codex worker
 │   │   ├── resume-claude.ts     resuming a Claude Code worker
-│   │   ├── resume-codex.ts      resuming a Codex worker
 │   │   ├── resume-guard.ts      the pane check of the source run of a resume
 │   │   ├── claude-session.ts    the Claude Code session of a worker
-│   │   ├── codex-binary.ts      the Codex program of the machine and its version
-│   │   ├── codex-approval.ts    the approval policy of a Codex worker
-│   │   ├── codex-client.ts      the client of one Codex app server
-│   │   ├── codex-events.ts      the events of a Codex worker
-│   │   ├── codex-session.ts     the session and the instruction queue of a Codex worker
-│   │   ├── codex-launch.ts      the app server, the TUI and the first turn of a Codex worker
-│   │   ├── codex-thread.ts      the thread of a Codex worker and the resume of it
-│   │   ├── codex-process.ts     the processes and the panes of a Codex worker
-│   │   ├── codex-stop.ts        the stop of a Codex worker and the close of its client
-│   │   ├── codex-report.ts      the arguments and the environment of the report channel
 │   │   ├── claude-bridge.ts     the loopback bridge of a native worker
 │   │   ├── claude-run-state.ts  the native state of a Claude Code run
 │   │   ├── native-ledger.ts     the execution ledger of a native run
@@ -1041,7 +942,6 @@ omp-wezterm-worker/
 │   │   ├── restored-run.ts      the words of a restored native run
 │   │   ├── bridge-handover.ts   the handover of a bridge to a new owner
 │   │   ├── reattach-native.ts   the re-attachment of a native worker after a restart
-│   │   ├── reattach-codex.ts    the re-attachment of a Codex worker after a restart
 │   │   ├── release-state.ts     the state of a run that a release gives away
 │   │   ├── steer-native.ts      steering a worker that runs a native backend
 │   │   ├── limits.ts            the launch limits and the nested-worker rule
@@ -1091,8 +991,6 @@ omp-wezterm-worker/
 │   │   │   └── plugin.json      the manifest of the mod
 │   │   └── hooks/
 │   │       └── register.js      the report tool and the command bridge
-│   ├── codex-report/            the report server of a Codex worker
-│   │   └── report-server.ts     the stdio MCP server that posts the reports
 │   └── worker-tools/            one module for each tool
 │       ├── kit.ts               the shared reply and the worker lookup
 │       ├── spawn.ts, status.ts, steer.ts, peek.ts
@@ -1125,30 +1023,6 @@ omp-wezterm-worker/
 │   ├── trial-fixture.ts         the repository that the trial workers use
 │   ├── backend-proof.ts         the compatibility probe of the native backends
 │   ├── backend-proof/           the modules of the probe
-│   │   ├── codex-background.ts  the background scenario of the Codex proof
-│   │   ├── codex-binary.ts      the search of the Codex program of the machine
-│   │   ├── codex-handle.ts      the handle of a Codex scenario and the rules of its evidence
-│   │   ├── codex-dialog.ts      the TUI of a Codex scenario that answers the approval dialogs
-│   │   ├── codex-queue.ts       the queue scenario of the Codex proof
-│   │   ├── codex-resume.ts      the resume scenario of the Codex proof
-│   │   └── codex-tui.ts         the pane evidence and the approval of the Codex TUI
-│   ├── codex-smoke.ts           the smoke test of the Codex backend
-│   ├── codex-smoke-client.ts    the client of one app server of Codex
-│   ├── codex-smoke-config.ts    the comparison of the config file of Codex
-│   ├── codex-smoke-env.ts       the environment of the smoke test of Codex
-│   ├── codex-smoke-home.ts      the home folder of Codex and the rollout files
-│   ├── codex-smoke-ledger.ts    the state of a worker of the smoke test
-│   ├── codex-smoke-machine.ts   the panes and the processes of the machine
-│   ├── codex-smoke-shared.ts    the state that the steps of the smoke test share
-│   ├── codex-smoke-steps.ts     the decisions of the smoke test of Codex
-│   ├── codex-smoke-steps-one.ts the spawn and the refusal of the tool list
-│   ├── codex-smoke-steps-config.ts the config of the user and the model of the TUI
-│   ├── codex-smoke-steps-server.ts the app server and the steering instruction
-│   ├── codex-smoke-steps-pane.ts the direct input, the ledger and the daemon
-│   ├── codex-smoke-steps-recovery.ts the recovery and the resume of a Codex worker
-│   ├── codex-smoke-second.ts    the second session of the recovery step
-│   ├── codex-smoke-second-run.ts the helpers that start the second session
-│   ├── codex-smoke-steps-approval.ts the permission request of a command
 │   ├── claude-smoke.ts          the smoke test of the Claude Code backend
 │   ├── claude-smoke-env.ts      the environment of the smoke test of Claude Code
 │   ├── claude-smoke-home.ts     the home folder of Claude Code and its sessions
@@ -1190,6 +1064,8 @@ omp-wezterm-worker/
 │   ├── worker-channel-helpers.ts the helpers of the tests of the channel
 │   ├── error-drain.test.ts      the report of the errors at the end of a session
 │   ├── backend.test.ts          the backend of a run and the report binding
+│   ├── legacy-codex-run.test.ts a run of the removed backend and its refusals
+│   ├── codex-config.test.ts     a config file of the removed backend
 │   ├── claude-run-state.test.ts the native state of a Claude Code run
 │   ├── spawn-backend.test.ts    the refusals of a spawn with a native backend
 │   ├── native-usage.test.ts     the measured usage of a native run
@@ -1213,37 +1089,12 @@ omp-wezterm-worker/
 │   ├── status-blocker.test.ts   the completion blocker in the status tool
 │   ├── status-list.test.ts      the list of workers that the status tool shows
 │   ├── resume-comms.test.ts     the communication check of the resume tool
-│   ├── proof-codex.test.ts      the source of each Codex protocol message and the rules of the evidence
-│   ├── proof-codex-background.test.ts  the background file of the Codex proof and the verdict of it
-│   ├── proof-codex-binary.test.ts the search of the Codex program of the machine
-│   ├── proof-codex-scenarios.test.ts the queue, no-report and approval scenarios of the Codex proof
-│   ├── codex-binary.test.ts     the Codex program, its version and its refusal
-│   ├── codex-approval-policy.test.ts the approval policy of a Codex worker and its setting
-│   ├── codex-approval-request.test.ts the requests of the app server that carry the policy
-│   ├── codex-spawn.test.ts      the spawn of a Codex worker and its cleanup
-│   ├── codex-spawn-helpers.ts   the fakes of the tests of a Codex spawn
-│   ├── codex-stop.test.ts       the stop of a Codex worker and the close of its client
-│   ├── codex-resume.test.ts     the resume of a Codex worker
-│   ├── codex-resume-helpers.ts  the helpers of the tests of a Codex resume
 │   ├── takeover.test.ts         the takeover of a task of another session
 │   ├── takeover-process.test.ts the process record of the new owner of a task
 │   ├── takeover-helpers.ts      the helpers of the takeover tests
-│   ├── codex-takeover.test.ts   the takeover of a running Codex worker
-│   ├── codex-release.test.ts    the release of a running Codex worker
-│   ├── codex-smoke-order.test.ts the order of the events of a steering instruction
-│   ├── codex-smoke-dialog.test.ts the dialog of a command in the pane of a worker
-│   ├── codex-smoke-config.test.ts the comparison of the config file of Codex
-│   ├── codex-permission-event.test.ts the event of a permission request of a Codex worker
-│   ├── codex-events-ledger.test.ts the events of a Codex worker and the ledger of its runs
-│   ├── codex-usage-status.test.ts the usage of a Codex worker and the text of the status tool
-│   ├── codex-events-helpers.ts the helpers of the tests of the events and the usage
-│   ├── codex-takeover-helpers.ts the helpers of the tests of the takeover
-│   ├── codex-websocket-server.ts the WebSocket server of the tests of the Codex client
 │   ├── reattach-native.test.ts  the re-attachment of a native worker after a restart
 │   ├── reattach-native-stop.test.ts the stop of a native worker whose re-attachment fails
 │   ├── reattach-native-helpers.ts the helpers of the re-attachment tests
-│   ├── reattach-codex.test.ts   the re-attachment of a Codex worker after a restart
-│   ├── codex-report-handover.test.ts the handover file of the report server of a Codex worker
 │   ├── restored-run.test.ts    the usage of a native run that a restart restored
 │   ├── restored-run-text.test.ts the texts of a restored native run
 │   ├── recover-task.test.ts    the replay of a result that a restart lost
@@ -1272,7 +1123,7 @@ omp-wezterm-worker/
 │   ├── mixed-resume.test.ts    the resume of a Claude Code worker
 │   ├── mixed-resource.test.ts  the resource exclusion of workers of three backends
 │   ├── mixed-cancel.test.ts    the cancel of a worker of one backend
-│   ├── mixed-cleanup.test.ts   the cleanup of a Codex run with a pending event
+│   ├── mixed-cleanup.test.ts   the cleanup of a run with a pending event
 │   ├── mixed-helpers.ts        the helpers of the tests of the mixed backends
 │   ├── mixed-machine.ts        the fake machine of the tests of the mixed backends
 │   ├── worker.integration.test.ts    a real worker in a real pane
@@ -1310,7 +1161,6 @@ so the suite needs no build step and no test framework.
 | `npm run ste100` | Score every agent-facing document with the checker of the ste100 skill. The score must reach 80. |
 | `npm run trial` | Run the Windows trial with real workers. It writes `docs/trials/windows-trial.md`. |
 | `npm run proof:claude` | Run the compatibility probe against a real Claude Code session. It needs an evidence directory. |
-| `npm run proof:codex` | Run the compatibility probe against a real Codex session. It starts an app server and a TUI. It needs an evidence directory. |
 | `npm run smoke:claude` | Run the smoke test of the Claude Code backend. It starts a real session, reports, resumes, steers and cancels. It closes only the panes and the processes that it created. |
 | `npm run typecheck` | Type check the extension, the tools and the tests. |
 | `npm run check` | Run the lint, the type check, the scores and the tests. |
@@ -1367,11 +1217,13 @@ breaks a test.
 | `trial-paths.test.ts` | A path under the project becomes a relative path. A path outside it becomes a placeholder. The name of the user never appears. |
 | `registration.test.ts` | The extension registers the eight tools that the agent needs. It registers the roster command. |
 | `error-drain.test.ts` | The errors of a session reach the logger when the session shuts down. The extension registers no handler for `session_end`, because OMP emits no such event. |
-| `backend.test.ts` | A run without a backend field is an OMP run. The Codex backend is implemented, so no backend of the list is refused. A report of an earlier cycle cannot finish newer work. |
+| `backend.test.ts` | A run without a backend field is an OMP run. A run of the removed backend keeps its value. The removed backend is not a backend that a spawn may name. A report of an earlier cycle cannot finish newer work. |
+| `legacy-codex-run.test.ts` | A run with the backend codex still loads from the database. A run of the removed backend that was active loads as an ended run. The status tool lists it as an ended run. A resume, a steer and a cancel refuse it. The run never looks like a run of OMP. |
+| `codex-config.test.ts` | A config file with codexBin gives guidance that names the key. A config file with a codex section gives guidance that names the key. A config file with both gives one guidance line. A config file without them gives no guidance. |
 | `claude-run-state.test.ts` | A native turn starts the cycle. A call settles only when the same call settles. A failed call leaves the open calls and the completion blocker. A failed call closes its permission request. A permission request holds the completion. An accepted instruction blocks the completion until its cycle carries it. |
-| `spawn-backend.test.ts` | A spawn with an unknown backend is refused. A spawn with a tool list and a native backend is refused before the launch. A spawn with a tool list and the Codex backend is refused before the launch. A spawn with the Codex backend starts a Codex worker and no OMP worker. |
+| `spawn-backend.test.ts` | A spawn with an unknown backend is refused. A spawn with the backend codex is refused and the reply lists the known backends. A spawn with a tool list and a native backend is refused before the launch. |
 | `thinking-argv.test.ts` | A job with a thinking level asks OMP for that level. A job without a level asks for none. A resumed job keeps the level of the source run. |
-| `thinking-spawn.test.ts` | A spawn with an unknown thinking level is refused before the launch. The Claude backend and the Codex backend refuse every level. A spawn asks OMP for the level. The reply names the requested level. A spawn parameter wins over the config file. A spawn without a parameter takes the level of the config file. A resume keeps the level of the source run. |
+| `thinking-spawn.test.ts` | A spawn with an unknown thinking level is refused before the launch. The Claude backend refuses every level. A spawn asks OMP for the level. The reply names the requested level. A spawn parameter wins over the config file. A spawn without a parameter takes the level of the config file. A resume keeps the level of the source run. |
 | `ledger-sync.test.ts` | A call without a result leaves one outstanding row, and the result settles it. A call at or before the baseline turn opens no row. A call to the report tool opens no row. A background call stays outstanding until the async result names its job. A second sync of the same transcript writes nothing. The close of a run turns an open row into unknown and creates one execution loss event. A sync never reopens a row that is unknown. |
 | `native-ledger.test.ts` | An opened native call opens one row. A settled native call settles its row. A failed native call settles its row. A native call without a call id opens no row. A native call to the report tool opens no row. A native settlement without a row creates no row. Another native observation changes no row. Observing a native call updates the state and writes the row. A database error of a native observation does not reach the bridge. |
 | `monitor-native.test.ts` | The native monitor keeps a worker that has an open execution row. The native monitor ends a worker when its execution row settles. |
@@ -1387,27 +1239,11 @@ breaks a test.
 | `status-blocker.test.ts` | The status prints the completion blocker of a worker that cannot end. The status hides the old workers and names the count. The status shows one old worker when the call names it. |
 | `status-list.test.ts` | 12 finished workers show 10 and hide 2. An active worker always shows. A finished worker with a pending event always shows. No hidden worker gives hidden 0. The order is newest first inside each group. No worker appears twice. |
 | `resume-comms.test.ts` | A resume refuses a message that scores below the minimum. A resume with a clean message goes on. A resume without a message runs no checker command. |
-| `proof-codex.test.ts` | A notification gives the source of its method. A request gives the source of its method. A response gives the source of a response and keeps its id. A message without a method and without an id gives the unknown source. The real pane text of the approval dialog shows the dialog. A pane text without a dialog does not show the dialog. An empty pane text does not show the dialog. The real pane text of the command dialog shows the command dialog. The pane text of the MCP dialog does not show the command dialog. An empty pane text does not show the command dialog. The pane text of the command dialog shows the command kind. The pane text of the MCP dialog shows the MCP kind. A pane text without a dialog shows no kind. An empty pane text shows no kind. The newest dialog wins when the command dialog is the last one. The newest dialog wins when the MCP dialog is the last one. The report server options name the proof variables. The report server options hold no token value and no url value. The report server options keep the command and the path. The options of one scenario hold a list of their own. The options of one scenario keep the evidence store of the run. An observation of one scenario stays out of the list of another scenario. A scenario that wrote no evidence does not pass. A scenario that wrote evidence keeps its verdict. A scenario without evidence does not pass even when it failed. A process of a name that is not codex must not end. A process of the name codex may end. A process of a name that holds codex but is not codex must not end. A process without a name must not end. | |
-| `proof-codex-background.test.ts` | The background task names the absolute path of the file. A background file that appears after the report passes. A background file that appears before the report fails. A background file that never appears fails. A background turn without a report fails. A background file with a wrong content fails. A background turn without a command fails. A file that was written before the report keeps the time of its write. A file that never existed has no time. The time of a file is the time of its last write. The background task asks the model not to wait for the process. The evidence of the background scenario holds the end of the turn. |
-| `proof-codex-scenarios.test.ts` | The task of the queue scenario keeps the turn busy. The queue scenario sends its instruction with a client id. The queue scenario counts a delivered instruction by its client id. The queue scenario passes when an accepted entry became a delivered input. The queue scenario fails when the native program refused the instruction. The queue scenario fails when the accepted entry never reached the model. The task of the no-report scenario forbids a tool. The no-report scenario fails when a report arrived. The no-report scenario passes when a turn ended and no report arrived. The no-report scenario stays unavailable when the turn never ended. The approval scenario pins a policy that asks the person. |
-| `codex-stop.test.ts` | A cancel of a Codex worker ends the program of the app server, closes both panes and closes the client. A cancel interrupts the open turn. A cancel without an open turn sends no interrupt. A cancel after the turn ended sends no interrupt. A cancel that cannot end a step leaves the worker running, and a retry confirms it. A run that completes closes its client. A run that completes ends the program of the app server and closes both panes. A Codex worker closes its panes even when the spawn keeps the pane open. A cancel of an OMP worker and of a Claude worker ends no program of Codex. |
 | `takeover.test.ts` | A released task of another session is taken over. A dead owner process gives the task. A live owner process keeps the task. An unreadable process table refuses the takeover. A session that owns an active task refuses the takeover. A session that owns a releasing task refuses the takeover. A session takes back a task that it released. A native worker is taken over and gets a bridge. An ownership that changes during the check refuses the takeover. A takeover of a live worker starts the monitor. A takeover of a worker whose pane is gone ends the worker. A session that takes back a released task of a worker whose pane is gone ends the worker. A takeover of a finished worker keeps its status and starts no monitor. A takeover of a task with an open attempt settles the attempt. |
 | `takeover-process.test.ts` | A takeover of a session without a start time stores the start time of its process. A takeover refuses when the session cannot read the start time of its process. A task taken over with a start time is not a lock. |
-| `codex-takeover.test.ts` | A second session takes over a released Codex worker. It gets a client, a run state and a handover file. It starts no second app server and no second worker. A second session takes over a Codex worker of a dead first session. A takeover of a Codex worker that fails the identity check stops it as failed, and it ends no program of the user. A second session reads the report that arrived while no owner held the task. A closed client of the app server delivers no message to its handler. |
-| `codex-release.test.ts` | A release of a Codex worker leaves no client and no run state behind. The worker keeps running, and no pane closes and no program ends. The release of an OMP worker closes no bridge and ends no program. The release of a Claude worker closes its bridge and keeps the worker. The release of a worker of another session is refused. |
-| `codex-permission-event.test.ts` | A Codex approval request raises one event of a permission request. A second poll of a Codex approval request creates no second event. The completion of the command closes the request of a permission request. The decision of the person resolves the event of a permission request. |
-| `codex-approval-policy.test.ts` | The default sends no approval policy. A valid policy is kept. Every policy of the protocol is accepted. An unknown policy is refused with guidance. A missing policy gives null. A config file without the codex section gives null. A policy of the wrong type is refused with guidance. A codex section of the wrong type gives null. The reader keeps a valid policy. The reader gives null for a missing value. The reader gives null for an unknown value. The reader gives null for a value of the wrong type. The guard accepts the policies of the protocol. The list of the policies names the values of the protocol. The refusal names the valid policies. |
-| `codex-approval-request.test.ts` | The setting decides the policy of the thread request. The setting decides the policy of the turn request. Only the thread request and the turn request carry the policy. The turn of a resume carries the policy of the setting. |
-| `codex-events-ledger.test.ts` | A Codex worker that stops with an open row raises one event of an execution loss. A second stop raises no second event. A second restart of the owner raises no second event. A second poll keeps the id of the event. The event waits for the owner and leaves the list after the ack. A second ack with the same disposition changes nothing and another disposition is refused. A new owner after a takeover sees the pending event with its id and raises no second event. The event keeps its id after a restart of the host. |
-| `codex-usage-status.test.ts` | A message of the app server changes the usage that the status tool shows. A count that the message does not report stays missing in the text. The usage of two turns is the sum of the changes of the totals. A worker that ends keeps its usage and a later session shows the same counts. A turn that carries no usage shows a partial usage and not a zero. |
-| `codex-smoke-config.test.ts` | The lines of a project hold the header and the trust level. The lines of a project that the config does not name are empty. The lines without a project drop the section of that project. The config holds the same text when nothing changed. The config holds the entry of the fixture when the app server added it. The config holds a change when a line outside the entry changed. The config holds a change when the entry of the fixture is gone. |
-| `codex-smoke-dialog.test.ts` | The dialog is found in a narrow pane that wraps its text. The dialog is found in a wide pane. A pane without a dialog shows no dialog. An empty pane shows no dialog. The dialog of the report server is not the dialog of a command. |
-| `codex-smoke-order.test.ts` | The order of the events of a steering instruction names the four facts of the contract. The order keeps the contract. A delivery before the turn start breaks the order. A report before the delivery breaks the order. An event that never arrived is missing. The text of the order names every event and its time. The text of the order names a missing event. The daemon of the user survives when every process id stays. The daemon of the user fails when a process id is gone. The daemon of the user fails when the machine held no daemon. The panes of the user survive when every pane id stays. The panes of the user fail when a pane id is gone. The status shows the number of cycles of a worker. The status shows no cycles of an unknown worker. The run gives 0 when every step passed. The run gives 0 when a step that could not run names a test file that exists. The run gives 1 when a step that could not run names no test file. The run gives 1 when the test file of a step that could not run is gone. The run gives 1 when a step failed. |
 | `reattach-native.test.ts` | A native worker gets a new bridge and a new handover. The worker follows the new bridge and the old token is refused. The run state keeps the native session id of the worker. Only the open rows of the run become the open calls of the state. The new owner receives the report of the worker and ends the run. An open row blocks the completion until a settlement arrives. attachWorker gives a native worker a bridge and a monitor. attachWorker ends a native worker whose pane is gone. attachWorker keeps the old behaviour for an OMP worker. A handover that cannot be written leaves no bridge and no state. attachWorker fails the worker when the re-attachment fails. |
 | `claude-smoke-decisions.test.ts` | The report of a run is read from the lines of its report file. A report binds to the cycle only when the names are equal. A report with no cycle binds to no cycle. The last turn of a bridge log is the cycle that the run delivered last. A command line that names no model passes the check of the default model. The difference of the home folder names a change of the settings. The difference of the home folder names a missing entry. The verdict of the run fails when a step failed. The verdict of the run fails when a step could not run. The verdict of the run gives zero when every step passed. The descendants of a process include every depth below it. The descendants of a process leave the process itself out. |
 | `reattach-native-stop.test.ts` | A failed re-attachment closes the pane of the native worker, and the open rows of the run become unknown. A failed re-attachment frees the execution of the group. A stop that the pane list does not confirm leaves the worker running with a pending stop and a monitor, and the next poll ends the worker as failed. |
-| `reattach-codex.test.ts` | The identity of a running app server passes the three checks. A process that is gone fails the check of the process. A process of another name fails the check of the name. An app server of another port fails the check of the command line. A restored Codex worker gets a client, a run state and a handover file. A restored worker that fails the identity check is stopped as failed. A stop of a restored worker interrupts the open turn. A stop of a running worker ends no app server of another port. |
-| `codex-report-handover.test.ts` | The report server posts to the address of the handover file. The report server writes the report to the report file of the run. The report server writes the report when the bridge of the run is gone. The report server follows the handover file when it changes. The report server falls back to the environment without a handover file. The report server falls back to the environment with a malformed handover file. |
 | `restored-run.test.ts` | The re-attachment marks the usage of the run with the time of the restart. A restored run with a measured turn has a partial usage, and the note says that the counts start at the restart of OMP. A run that never restarted keeps a measured usage. A restored run without a measured turn stays unknown. A restored run with a turn without usage keeps both reasons. |
 | `restored-run-text.test.ts` | The turn label says that a restart cut the count. The snapshot notice shows only for a restored run without a snapshot. The delivery of a restored native run says since the restart. The status of a live restored run names the missing snapshot. The status of a run that never restarted shows no restart text. The status of a finished restored run still says since the restart. |
 | `recover-task.test.ts` | A finished run without a sent delivery is selected. A cancelled run stays out. A run without a mark is selected. The replay sends only the result that this session owns and never delivered. A delivery that throws does not stop the replay of the next run. The first recovery marks the time and replays no run that ended before it. |

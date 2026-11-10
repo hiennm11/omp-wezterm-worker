@@ -22,9 +22,10 @@ The hook in `extensions/claude-mod/hooks/register.js` sent the report through
 `observe`. That function ignored every post error. Both handlers of the report
 tool returned the completion message even when the post failed.
 
-The Codex report server writes the report file before it posts to the bridge.
-The owner already reads the file through `readReports` in `restoreRunState`.
-The Claude hook had no matching file writer.
+The report server of the removed Codex backend wrote the report file before
+it posted to the bridge. The owner already reads the file through
+`readReports` in `restoreRunState`. The Claude hook had no matching file
+writer.
 
 ## The decision
 

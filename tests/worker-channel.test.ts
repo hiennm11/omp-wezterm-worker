@@ -165,10 +165,10 @@ test("an over-long note and an empty note are refused", async () => {
 	}
 });
 
-test("a Claude worker and a Codex worker have no channel", async () => {
+test("a Claude worker has no channel", async () => {
 	const { rt, dir } = fakeRuntime();
 	try {
-		for (const backend of ["claude", "codex"] as const) {
+		for (const backend of ["claude"] as const) {
 			const job = makeJob(dir, `wz-${backend}`, { backend });
 			rt.jobs.set(job.id, job);
 			seedOwner(rt, job.id, OWN);

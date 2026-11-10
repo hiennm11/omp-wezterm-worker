@@ -20,7 +20,6 @@ import { acquireTask, bindSession, maySupervise } from "../lib/owner.ts";
 import { resolveSpawn, type SpawnPresetValues } from "../lib/preset.ts";
 import { spawnWorker } from "../lib/spawn.ts";
 import { spawnClaudeWorker } from "../lib/spawn-claude.ts";
-import { spawnCodexWorker } from "../lib/spawn-codex.ts";
 import { isSubagent } from "../lib/subagent.ts";
 import { isThinkingLevel, THINKING_LEVELS, type ThinkingLevel, thinkingRefusal } from "../lib/thinking.ts";
 import {
@@ -39,7 +38,7 @@ import {
  */
 function readBackendParam(value: string | undefined): WorkerBackend | null {
 	if (value === undefined) return "omp";
-	if (value === "omp" || value === "claude" || value === "codex") return value;
+	if (value === "omp" || value === "claude") return value;
 	return null;
 }
 
@@ -97,7 +96,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				.optional()
 				.describe(
 					"Tool list for the worker, e.g. ['read','grep','glob']. Omit for the default tool set. " +
-						"Only an OMP worker accepts it. A Claude Code or Codex worker refuses it.",
+						"Only an OMP worker accepts it. A Claude Code worker refuses it.",
 				),
 			thinking: z
 				.string()
@@ -105,15 +104,14 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				.describe(
 					`The thinking level that OMP runs the worker at: ${THINKING_LEVELS.join(", ")}. ` +
 						"Omit for the default level of OMP. " +
-						"Only an OMP worker accepts it. A Claude Code or Codex worker refuses it.",
+						"Only an OMP worker accepts it. A Claude Code worker refuses it.",
 				),
 			backend: z
 				.string()
 				.optional()
 				.describe(
-					"The CLI that runs the worker: 'omp' (default), 'claude' or 'codex'. " +
+					"The CLI that runs the worker: 'omp' (default) or 'claude'. " +
 						"A Claude worker runs a real Claude Code session in its pane. " +
-						"A Codex worker runs a real Codex app server and a Codex TUI in two panes. " +
 						"The extension never falls back to another backend.",
 				),
 			placement: z
@@ -134,7 +132,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				.boolean()
 				.optional()
 				.describe(
-					"Close the worker pane when the worker finishes. Defaults to the config value (true). Set false to keep the pane open for inspection. A Codex worker always closes its panes, because its TUI needs the app server of that pane.",
+					"Close the worker pane when the worker finishes. Defaults to the config value (true). Set false to keep the pane open for inspection.",
 				),
 		}),
 		loadMode: "essential",
@@ -227,18 +225,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 							timeoutMs: spawnParams.timeoutMs,
 							closePaneOnFinish: spawnParams.closePaneOnFinish,
 						})
-					: backend === "codex"
-						? await spawnCodexWorker(rt, {
-								jobId: admitted.jobId,
-								task: spawnParams.task,
-								cwd: resolve(spawnParams.cwd || ctx.cwd),
-								label: spawnParams.label,
-								model: spawnParams.model ?? null,
-								isolated: spawnParams.isolated,
-								timeoutMs: spawnParams.timeoutMs,
-								closePaneOnFinish: spawnParams.closePaneOnFinish,
-							})
-						: await spawnWorker(rt, {
+					: await spawnWorker(rt, {
 								jobId: admitted.jobId,
 								task: spawnParams.task,
 								cwd: spawnParams.cwd || ctx.cwd,

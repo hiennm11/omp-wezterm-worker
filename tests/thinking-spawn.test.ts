@@ -19,7 +19,6 @@ import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts"
 import { resumeWorker, spawnWorker } from "../extensions/lib/spawn.ts";
 import type { ThinkingLevel } from "../extensions/lib/thinking.ts";
 import { registerSpawnTool } from "../extensions/worker-tools/spawn.ts";
-import { codexFake } from "./codex-spawn-helpers.ts";
 
 /** The context of a call of the spawn tool. */
 const CONTEXT = {
@@ -143,68 +142,42 @@ function sourceJob(id: string, sessionDir: string, thinking: string | null): Job
 }
 
 test("a spawn with an unknown thinking level is refused before the launch", async () => {
-	const fake = codexFake();
+	const { rt, dir, calls } = ompRuntime();
 	try {
-		const tool = spawnToolOf(fake);
+		const tool = spawnToolOf({ rt });
 		const result = await tool.execute(
 			"t1",
-			{ task: "Read baseline.txt.", cwd: fake.dir, thinking: "loud" },
+			{ task: "Read baseline.txt.", cwd: dir, thinking: "loud" },
 			undefined,
 			undefined,
 			CONTEXT,
 		);
 		assert.equal(result.isError, true);
 		assert.match(result.content[0]?.text ?? "", /thinking/i);
-		assert.deepEqual(fake.programs, []);
-		assert.equal(fake.panes.size, 0);
+		assert.deepEqual(calls, []);
 	} finally {
-		await fake.closeBridges();
-		fake.rt.closeDb();
-		rmSync(fake.dir, { recursive: true, force: true });
+		rt.closeDb();
+		rmSync(dir, { recursive: true, force: true });
 	}
 });
 
 test("a spawn with a thinking level and the Claude backend is refused before the launch", async () => {
-	const fake = codexFake();
+	const { rt, dir, calls } = ompRuntime();
 	try {
-		const tool = spawnToolOf(fake);
+		const tool = spawnToolOf({ rt });
 		const result = await tool.execute(
 			"t1",
-			{ task: "Read baseline.txt.", cwd: fake.dir, backend: "claude", thinking: "low" },
+			{ task: "Read baseline.txt.", cwd: dir, backend: "claude", thinking: "low" },
 			undefined,
 			undefined,
 			CONTEXT,
 		);
 		assert.equal(result.isError, true);
 		assert.match(result.content[0]?.text ?? "", /Claude Code/);
-		assert.deepEqual(fake.programs, []);
-		assert.equal(fake.panes.size, 0);
+		assert.deepEqual(calls, []);
 	} finally {
-		await fake.closeBridges();
-		fake.rt.closeDb();
-		rmSync(fake.dir, { recursive: true, force: true });
-	}
-});
-
-test("a spawn with a thinking level and the Codex backend is refused before the launch", async () => {
-	const fake = codexFake();
-	try {
-		const tool = spawnToolOf(fake);
-		const result = await tool.execute(
-			"t1",
-			{ task: "Read baseline.txt.", cwd: fake.dir, backend: "codex", thinking: "low" },
-			undefined,
-			undefined,
-			CONTEXT,
-		);
-		assert.equal(result.isError, true);
-		assert.match(result.content[0]?.text ?? "", /Codex/);
-		assert.deepEqual(fake.programs, []);
-		assert.equal(fake.panes.size, 0);
-	} finally {
-		await fake.closeBridges();
-		fake.rt.closeDb();
-		rmSync(fake.dir, { recursive: true, force: true });
+		rt.closeDb();
+		rmSync(dir, { recursive: true, force: true });
 	}
 });
 

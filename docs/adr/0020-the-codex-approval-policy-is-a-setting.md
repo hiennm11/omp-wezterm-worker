@@ -1,5 +1,7 @@
 # The approval policy of a Codex worker is a setting
 
+Status: superseded by ADR 0026. The Codex backend was removed.
+
 The extension starts a turn of a Codex worker without the field `approvalPolicy`.
 The turn then takes the policy `never` of the config of the user, and no command asks the person for an approval.
 

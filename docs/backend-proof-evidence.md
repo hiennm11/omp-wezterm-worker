@@ -1,6 +1,6 @@
 # Backend proof evidence
 
-Status: the Claude Code backend passes every fixed scenario. The Codex backend passes its smoke. The section "Smoke of the Codex backend" names the ten steps of the run of 2026-11-02 and the one step that could not run.
+Status: the Claude Code backend passes every fixed scenario. The Codex backend was removed by ADR 0026. The sections about Codex keep the evidence of the runs of 2026-10-29 to 2026-11-02.
 
 This report records what the compatibility probe observed on Windows native. The raw evidence and the probe code live in the evidence directory that the report names.
 

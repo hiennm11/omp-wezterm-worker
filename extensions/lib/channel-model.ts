@@ -6,6 +6,9 @@
  * functions do not depend on the tool modules.
  */
 
+import { REMOVED_BACKEND } from "./backend.ts";
+import { REMOVED_BACKEND_REFUSAL } from "./removed-backend.ts";
+
 /**
  * The side of a channel.
  *
@@ -45,14 +48,16 @@ export function noteTextRefusal(text: string): string | null {
 /**
  * The reason that a backend has no channel, or null when it has one.
  *
- * A Claude Code worker and a Codex worker have no channel today. The reply
- * says so, because a tool that fails without a word is a fault the user
- * cannot see.
+ * A Claude Code worker has no channel today. The reply says so, because a
+ * tool that fails without a word is a fault the user cannot see.
+ *
+ * A run of the removed backend has no channel either. Its refusal names the
+ * removed backend, so the user knows that the run is old.
  */
 export function channelBackendRefusal(backend: string): string | null {
 	if (backend === "omp") return null;
-	const name = backend === "claude" ? "Claude Code" : "Codex";
-	return `The ${name} backend does not support the worker channel yet.`;
+	if (backend === REMOVED_BACKEND) return REMOVED_BACKEND_REFUSAL;
+	return "The Claude Code backend does not support the worker channel yet.";
 }
 
 /**

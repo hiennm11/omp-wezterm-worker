@@ -9,7 +9,7 @@ names the observation that each test must make.
 
 Long OMP tasks recover after process failure and hand over actionable events without concurrent supervision.
 Use separate review steps and one release gate. Do not publish partial supervision as the complete guarantee.
-Add no daemon, routine LLM watcher, external execution observer, or Claude/Codex adapter.
+Add no daemon, routine LLM watcher, external execution observer, or Claude adapter.
 Guarantee process recovery. Machine shutdown recovery remains best effort.
 
 ## Host capability evidence

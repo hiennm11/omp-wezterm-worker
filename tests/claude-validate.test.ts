@@ -10,7 +10,6 @@ import type { RunFn } from "../extensions/lib/process.ts";
 import { resumeClaudeWorker } from "../extensions/lib/resume-claude.ts";
 import { createRuntime } from "../extensions/lib/runtime.ts";
 import { spawnClaudeWorker } from "../extensions/lib/spawn-claude.ts";
-import { spawnCodexWorker } from "../extensions/lib/spawn-codex.ts";
 
 /** The reason that the Claude tests do not run. */
 const CLAUDE_ON_HERDR = "The Claude Code backend does not run on Herdr yet. Issue 159 brings it back.";
@@ -157,27 +156,6 @@ test("resume accepts a validated plugin and launches the worker", { skip: CLAUDE
 	}
 });
 
-test("Codex backend does not validate the Claude plugin", async () => {
-	const calls: { bin: string; args: string[] }[] = [];
-	const exec: RunFn = async (bin, args) => {
-		calls.push({ bin, args });
-		if (args.includes("--version")) return { code: 0, stdout: "version", stderr: "" };
-		return { code: 0, stdout: "", stderr: "" };
-	};
-	const { rt, dir } = setup(exec);
-	try {
-		await spawnCodexWorker(rt, { jobId: "wz-codex", task: "task", cwd: dir });
-		assert.equal(
-			calls.some(({ args }) => args[0] === "plugin"),
-			false,
-		);
-	} finally {
-		for (const bridge of rt.bridges.values()) await bridge.close();
-		for (const client of rt.codexClients.values()) await client.close();
-		rt.closeDb();
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
 test("spawn accepts validation warnings and launches the worker", { skip: CLAUDE_ON_HERDR }, async () => {
 	const calls: { bin: string; args: string[] }[] = [];
 	const exec: RunFn = async (bin, args) => {

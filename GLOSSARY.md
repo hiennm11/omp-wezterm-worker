@@ -2,7 +2,7 @@
 
 An OMP extension that runs a worker session independently inside a Herdr pane
 or tab. The user sees a long task run live, and the main agent keeps working.
-The worker runs in OMP, in Claude Code CLI, or in Codex CLI.
+The worker runs in OMP or in Claude Code CLI.
 
 ## Language
 
@@ -16,8 +16,14 @@ The OMP session that spawned the worker and receives its events.
 _Avoid_: Parent session, host session
 
 **Worker backend**:
-The CLI that runs the worker: OMP, Claude Code CLI, or Codex CLI.
+The CLI that runs the worker: OMP or Claude Code CLI.
 _Avoid_: Model, provider, agent type
+
+**Removed backend**:
+The Codex backend. It was removed by ADR 0026. A run that the database still
+holds with the backend `codex` loads as history. Every tool that gets such a
+run refuses it.
+_Avoid_: Legacy backend, old backend
 
 **Mod validation**:
 The check that Claude Code accepts the session-scoped mod before a worker starts or resumes. Warnings do not refuse the worker.
@@ -262,7 +268,7 @@ _Avoid_: Completion, callback
 
 
 **Declared background command**:
-A Codex command that outlives its turn and that the worker declares with `wezterm_worker_background`. Its open execution record blocks a completed report until the worker settles it.
+A command that outlives its turn and that the worker declares with `wezterm_worker_background`. Its open execution record blocks a completed report until the worker settles it.
 _Avoid_: Background job
 **Outstanding execution**:
 An execution record that is open or unknown. It blocks a completion report.
@@ -343,7 +349,7 @@ answers it in the pane.
 _Avoid_: Approval, tool check, dialog
 
 **Approval policy**:
-The setting that decides when a Codex worker asks the person for the approval
+The setting that decides when a native worker asks the person for the approval
 of a command. The values are `untrusted`, `on-request` and `never`. No value
 means that the worker keeps the policy of the user.
 _Avoid_: Sandbox mode, permission, approval mode
@@ -400,61 +406,17 @@ _Avoid_: Orphan, unsupervised, ghost
 An external action that the runtime counts until it settles. The release waits for the counted actions that started before it. The end and the stop of a monitor run as counted actions.
 _Avoid_: Operation, call, write
 
-**Codex identity**:
-The record of a Codex worker that names its app server, its TUI, its thread and its Codex program. The payload of the run row holds the whole record, so it needs no column.
-_Avoid_: Codex session, worker handle
-
-**App server**:
-The Codex program that holds the thread of a Codex worker. The extension starts one app server for each worker, and the TUI attaches to the thread of that server.
-_Avoid_: Codex daemon, shared server
-
-**Report channel**:
-The path of a report from a Codex worker to the run state of its owner. The extension loads a stdio MCP server into the app server, and the server posts every report to the bridge of the run. The server reads the id of the turn from the metadata of the call, and it sends that id as the cycle id of the report.
-_Avoid_: Report file, observation queue, webhook
-
-**Codex event**:
-A message of the app server that the extension turns into an observation of a native run. The turn start, the turn end, the items and the permission requests are the events of a Codex worker.
-_Avoid_: Codex message, notification, app server event
-
-**Codex steering instruction**:
-An instruction that the request `turn/steer` sends to the model of the running turn of a Codex worker. The server joins it to the turn, and the model receives it in the same turn.
-_Avoid_: Queued message, prompt, follow-up
-
 **Open turn**:
-The cycle of a run that no completed turn closes. A stop interrupts the open turn of a Codex worker before it ends the program of the app server.
+The cycle of a run that no completed turn closes. A stop interrupts the open turn of a native worker before it ends the program of the worker.
 _Avoid_: Running turn, current cycle
 
-**Codex stop**:
-The stop of a Codex worker. It interrupts the open turn, ends the program of the app server and closes the pane of the app server and the pane of the TUI. The stop is confirmed when no step failed. A worker that ends on its own ends its app server the same way.
-_Avoid_: Pane close, worker stop
-
-**Codex thread**:
-The conversation of a Codex worker. A new worker starts a thread, and a resumed worker continues the thread of its source run. The thread keeps its id and its turns.
-_Avoid_: Codex session, rollout file, app server
-
-**Codex recovery**:
-The act of attaching a Codex worker that a restart of OMP left running. The new session finds the app server through the Codex identity, proves the process, and connects to that app server again.
-_Avoid_: Restart, resume, takeover
-
-**Codex takeover**:
-The act of attaching a Codex worker that another session released. The new session runs the same identity check as the recovery, and connects to the app server of the worker again. The worker keeps its id, and no second app server starts.
-_Avoid_: Restart, resume, recovery
-
 **Released client**:
-A client of an app server that its session closed with a release. A closed client delivers no message to its handler, so the released session receives no observation of the worker.
+A bridge that its session closed with a release. A closed bridge delivers no message to its handler, so the released session receives no observation of the worker.
 _Avoid_: Live client, stale client
 
 **Report file**:
-The file of a session directory that holds the reports of a run. The report server of Codex writes every report to it before it posts to the bridge. The file keeps a report that arrived while no owner held the task.
+The file of a session directory that holds the reports of a run. The file keeps a report that arrived while no owner held the task.
 _Avoid_: Transcript, log, bridge
-
-**Identity check**:
-The proof that a process is the app server of a Codex worker. The process of the identity must exist, its name must be `codex.exe`, and its command line must hold the app server of the port of that identity.
-_Avoid_: Process lookup, name check, port scan
-
-**Rollout file**:
-The file that holds the turns of a Codex thread. The file lives in `~/.codex/sessions`. The extension never removes it, and a cancel of a worker leaves it on the disk.
-_Avoid_: Transcript, log, session file
 
 **Proof**:
 A run of the protocol harness in `tooling/backend-proof/` against a real native program. It shows what the native program does. It never shows what the extension does.

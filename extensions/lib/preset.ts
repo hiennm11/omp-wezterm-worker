@@ -36,7 +36,7 @@ function validField(field: (typeof PRESET_FIELDS)[number], value: unknown): bool
 		case "isolated":
 			return typeof value === "boolean";
 		case "backend":
-			return value === "omp" || value === "claude" || value === "codex";
+			return value === "omp" || value === "claude";
 	}
 }
 

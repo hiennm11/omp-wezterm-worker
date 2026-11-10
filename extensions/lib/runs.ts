@@ -7,6 +7,8 @@
  */
 
 import { controlRefusal } from "./authority.ts";
+import { isRemovedBackend } from "./backend.ts";
+import { removedRunStatus } from "./removed-backend.ts";
 import type { LifecycleDb } from "./db.ts";
 import type { Job, JobStatus } from "./job.ts";
 import { taskKey } from "./owner.ts";
@@ -94,6 +96,9 @@ function writeRun(db: LifecycleDb, job: Job): void {
  * A run that was active when the previous process ended is alive only when
  * its pane exists. A run without a pane has nothing that could be picked up
  * again, so it is history.
+ *
+ * A run of the removed backend is always history. The extension can no
+ * longer attach to it, so it never becomes alive.
  */
 export function loadRuns(db: LifecycleDb): RunRows {
 	const rows = db.handle.prepare("SELECT id, status, payload FROM runs ORDER BY created_at").all() as Array<{
@@ -106,8 +111,11 @@ export function loadRuns(db: LifecycleDb): RunRows {
 	for (const row of rows) {
 		const job = jobOf(row);
 		if (!job) continue;
+		/* A run of the removed backend never runs again. The status becomes
+		   the status of an ended run, so the status tool lists it as history. */
+		job.status = removedRunStatus(job);
 		const active = job.status === "running" || job.status === "queued";
-		if (active && job.paneId !== null) alive.push(job);
+		if (active && job.paneId !== null && !isRemovedBackend(job)) alive.push(job);
 		else finished.push(job);
 	}
 	return { alive, finished };

@@ -17,8 +17,5 @@
 	"commsStandard": {
 		"mode": "warn",
 		"minScore": 80
-	},
-	"codex": {
-		"approvalPolicy": null
 	}
 }

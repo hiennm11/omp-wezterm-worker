@@ -1,5 +1,7 @@
 # Codex backend workers
 
+Status: superseded by ADR 0026. The Codex backend was removed.
+
 Status: accepted design. The owner accepted it on 2026-10-30. The extension has a Codex backend. A spawn that names `codex` starts a Codex worker.
 
 ## Context

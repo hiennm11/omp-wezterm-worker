@@ -11,7 +11,7 @@ import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, resolve, sep } from "node:path";
 
 /** The backends that the proof supports. */
-export const BACKENDS = ["claude", "codex"] as const;
+export const BACKENDS = ["claude"] as const;
 
 /** One backend of the proof. */
 export type Backend = (typeof BACKENDS)[number];
@@ -111,7 +111,7 @@ export function parseArgs(argv: string[]): ProofArgs {
  * native CLI home, because the proof writes files there.
  */
 export function checkEvidenceDir(dir: string): void {
-	const homes = [join(homedir(), ".claude"), join(homedir(), ".codex"), join(homedir(), ".omp")];
+	const homes = [join(homedir(), ".claude"), join(homedir(), ".omp")];
 	for (const home of homes) {
 		if (!home) continue;
 		const inside = resolve(dir).startsWith(resolve(home));
@@ -130,7 +130,7 @@ export function checkEvidenceDir(dir: string): void {
 
 /** The native home directories that the proof must not write into. */
 export function nativeHomes(): string[] {
-	return [join(homedir(), ".claude"), join(homedir(), ".codex")];
+	return [join(homedir(), ".claude")];
 }
 
 /**

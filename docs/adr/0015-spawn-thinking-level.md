@@ -23,9 +23,9 @@ worker. A null value adds nothing to the argv. The resume of a worker keeps
 the level of its source run, because the resume copies the source job and
 builds its argv with the same function.
 
-The Claude backend and the Codex backend refuse the parameter before the
-launch. The error text names the backend. A native worker uses the thinking
-level of its own CLI, so the plugin never passes the level to it.
+The Claude backend refuses the parameter before the launch. The error text
+names the backend. A native worker uses the thinking level of its own CLI, so
+the plugin never passes the level to it.
 
 The plugin never maps a level to another level. OMP maps a level that the
 model lacks. The plugin does not repeat that work.
