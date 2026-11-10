@@ -88,9 +88,9 @@ test("spawn refuses an invalid plugin before bridge, group, attempt, or pane cre
 		);
 		assert.equal(
 			calls.some(
-			({ args }) =>
-				(args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"),
-		),
+				({ args }) =>
+					(args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"),
+			),
 			false,
 		);
 		const db = rt.openDb();
@@ -229,9 +229,9 @@ test("spawn reports a validation execution error and does not launch", async () 
 		assert.match(result.error ?? "", /The mod of the extension could not be checked:.*cannot execute Claude/);
 		assert.equal(
 			calls.some(
-			({ args }) =>
-				(args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"),
-		),
+				({ args }) =>
+					(args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"),
+			),
 			false,
 		);
 	} finally {
@@ -269,9 +269,9 @@ test("resume refuses an invalid plugin and releases the resource group", async (
 		assert.equal(rt.bridges.size, 0);
 		assert.equal(
 			calls.some(
-			({ args }) =>
-				(args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"),
-		),
+				({ args }) =>
+					(args[0] === "pane" && args[1] === "split") || (args[0] === "tab" && args[1] === "create"),
+			),
 			false,
 		);
 		assert.equal(readGroup(db, "grp-wz-source")?.executionState, "free");

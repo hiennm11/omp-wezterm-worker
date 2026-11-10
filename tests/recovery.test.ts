@@ -65,7 +65,7 @@ test("a crash after the pane creation recovers the worker without a duplicate", 
 		);
 		assert.equal(outcomes.length, 1);
 		assert.equal(outcomes[0].kind, "attached");
-		assert.equal(outcomes[0].paneId, 42);
+		assert.equal(outcomes[0].paneId, "w1:p42");
 	} finally {
 		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });

@@ -247,17 +247,7 @@ async function startAgent(
 ): Promise<string | null> {
 	const kind = agentKindOf(binary);
 	if (kind === null) return `Herdr cannot start the program '${binary}' as an agent.`;
-	const res = await rt.herdr([
-		"agent",
-		"start",
-		job.id,
-		"--kind",
-		kind,
-		"--pane",
-		paneId,
-		"--",
-		...args,
-	]);
+	const res = await rt.herdr(["agent", "start", job.id, "--kind", kind, "--pane", paneId, "--", ...args]);
 	if (res.code === 0) return null;
 	return `Herdr did not start the worker in pane ${paneId}: ${describeFailure(res)}`;
 }
@@ -300,7 +290,15 @@ export async function sendToPane(
  * worker's transcript stays the only authority on what the worker produced.
  */
 export async function paneTail(rt: WorkerRuntime, paneId: string, lines: number): Promise<string> {
-	const res = await rt.herdr(["pane", "read", paneId, "--source", "recent-unwrapped", "--lines", String(lines)]);
+	const res = await rt.herdr([
+		"pane",
+		"read",
+		paneId,
+		"--source",
+		"recent-unwrapped",
+		"--lines",
+		String(lines),
+	]);
 	if (res.code !== 0) return "";
 	const rows = res.stdout.split("\n").filter((l) => l.trim());
 	return rows.slice(-lines).join("\n");

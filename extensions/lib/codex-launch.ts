@@ -209,13 +209,7 @@ async function startServerPane(
 ): Promise<string | null> {
 	const pane = await openProgramTab(rt, {
 		cwd: job.cwd,
-		command: [
-			binary.bin,
-			"app-server",
-			"--listen",
-			`ws://127.0.0.1:${port}`,
-			...report.args,
-		],
+		command: [binary.bin, "app-server", "--listen", `ws://127.0.0.1:${port}`, ...report.args],
 		env: report.env,
 		label: "codex app server",
 	});

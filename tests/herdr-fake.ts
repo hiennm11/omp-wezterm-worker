@@ -150,7 +150,9 @@ export function herdrFake(options: HerdrFakeOptions = {}): HerdrFake {
 			state.panes.add(pane.paneId);
 			return {
 				code: 0,
-				stdout: JSON.stringify({ result: { layout: { root: { pane_id: pane.paneId, tab_id: pane.tabId } } } }),
+				stdout: JSON.stringify({
+					result: { layout: { root: { pane_id: pane.paneId, tab_id: pane.tabId } } },
+				}),
 				stderr: "",
 			};
 		}

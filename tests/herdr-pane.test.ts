@@ -25,7 +25,7 @@ import {
 	sendToPane,
 } from "../extensions/lib/pane.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
-import { herdrFake, type HerdrFake } from "./herdr-fake.ts";
+import { type HerdrFake, herdrFake } from "./herdr-fake.ts";
 
 /** A job of a worker that runs. */
 function worker(): Job {
