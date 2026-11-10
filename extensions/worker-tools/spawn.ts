@@ -226,18 +226,18 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 							closePaneOnFinish: spawnParams.closePaneOnFinish,
 						})
 					: await spawnWorker(rt, {
-								jobId: admitted.jobId,
-								task: spawnParams.task,
-								cwd: spawnParams.cwd || ctx.cwd,
-								label: spawnParams.label,
-								model: spawnParams.model,
-								tools: spawnParams.tools,
-								thinking,
-								placement,
-								isolated: spawnParams.isolated,
-								timeoutMs: spawnParams.timeoutMs,
-								closePaneOnFinish: spawnParams.closePaneOnFinish,
-							});
+							jobId: admitted.jobId,
+							task: spawnParams.task,
+							cwd: spawnParams.cwd || ctx.cwd,
+							label: spawnParams.label,
+							model: spawnParams.model,
+							tools: spawnParams.tools,
+							thinking,
+							placement,
+							isolated: spawnParams.isolated,
+							timeoutMs: spawnParams.timeoutMs,
+							closePaneOnFinish: spawnParams.closePaneOnFinish,
+						});
 
 			if (job.status === "failed") {
 				return reply(

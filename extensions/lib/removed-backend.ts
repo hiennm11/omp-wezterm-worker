@@ -13,8 +13,7 @@ import { isRemovedBackend } from "./backend.ts";
 import type { JobStatus } from "./job.ts";
 
 /** The sentence that every tool replies with for a run of the removed backend. */
-export const REMOVED_BACKEND_REFUSAL =
-	"This run used the Codex backend. The Codex backend was removed.";
+export const REMOVED_BACKEND_REFUSAL = "This run used the Codex backend. The Codex backend was removed.";
 
 /**
  * The refusal for a run of the removed backend, or null when the run is of a

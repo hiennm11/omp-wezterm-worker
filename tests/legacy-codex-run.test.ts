@@ -14,8 +14,8 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
-import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { loadRuns, persistRuns } from "../extensions/lib/runs.ts";
+import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { registerCancelTool } from "../extensions/worker-tools/cancel.ts";
 import { registerNoteToWorkerTool } from "../extensions/worker-tools/note-to-worker.ts";
 import { registerResumeTool } from "../extensions/worker-tools/resume.ts";

@@ -99,9 +99,7 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime, lease: 
 	/* A native worker reports its usage through its bridge. The OMP reader
 	   finds no transcript, so the native totals are the measured ones. */
 	const measured =
-		removed || backend === "omp"
-			? usage
-			: nativeJobUsageReport(j, rt.claudeStates.get(j.id) ?? null);
+		removed || backend === "omp" ? usage : nativeJobUsageReport(j, rt.claudeStates.get(j.id) ?? null);
 	/* A restart cut the counts of a native run. The row says that the
 	   counts start at the restart. */
 	const restored = !removed && isRestored(rt, j);
