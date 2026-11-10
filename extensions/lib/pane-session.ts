@@ -17,9 +17,6 @@ import { type PaneRuntimeSetting, runtimeRefusal } from "./pane-runtime.ts";
  * The function is pure. It takes the environment of the process and it reads
  * no pane and no file. A test checks it without a terminal.
  */
-export function paneSessionRefusal(
-	env: NodeJS.ProcessEnv,
-	configured: PaneRuntimeSetting,
-): string | null {
+export function paneSessionRefusal(env: NodeJS.ProcessEnv, configured: PaneRuntimeSetting): string | null {
 	return runtimeRefusal(env, configured);
 }

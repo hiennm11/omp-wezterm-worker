@@ -84,10 +84,7 @@ export async function paneState(rt: WorkerRuntime, job: Job): Promise<PaneState>
  * entry for every job that it received. A job without a runtime gives
  * "unknown".
  */
-export async function paneStatesOf(
-	rt: WorkerRuntime,
-	jobs: readonly Job[],
-): Promise<Map<string, PaneState>> {
+export async function paneStatesOf(rt: WorkerRuntime, jobs: readonly Job[]): Promise<Map<string, PaneState>> {
 	const states = new Map<string, PaneState>();
 	if (jobs.length === 0) return states;
 	const herdrIds: string[] = [];

@@ -83,9 +83,7 @@ test("a pane runtime goes through its seam", () => {
 		.filter((path) => path !== "extensions/lib/runtime.ts")
 		.filter((path) => path !== "extensions/lib/pane-runtime.ts")
 		.filter((path) =>
-			PANE_PROGRAMS.some((program) =>
-				new RegExp(`exec\\([^)]*${program}`, "i").test(read(path)),
-			),
+			PANE_PROGRAMS.some((program) => new RegExp(`exec\\([^)]*${program}`, "i").test(read(path))),
 		)
 		.map((path) => relative(".", path));
 	assert.deepEqual(offenders, [], "A pane runtime goes through rt.herdr or rt.wezterm.");

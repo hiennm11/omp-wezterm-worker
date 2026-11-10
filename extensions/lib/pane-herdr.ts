@@ -139,10 +139,7 @@ export async function herdrKillPane(rt: WorkerRuntime, paneId: string): Promise<
  * The function returns null when the close is confirmed, else the reason. A
  * failed kill still polls, because "pane not found" means the pane is gone.
  */
-export async function herdrClosePaneConfirmed(
-	rt: WorkerRuntime,
-	paneId: string,
-): Promise<string | null> {
+export async function herdrClosePaneConfirmed(rt: WorkerRuntime, paneId: string): Promise<string | null> {
 	const killFailure = await herdrKillPane(rt, paneId);
 	const { attempts, intervalMs } = rt.stopConfirm;
 	let last: PaneState = "present";
