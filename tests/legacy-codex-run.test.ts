@@ -83,6 +83,7 @@ test("a run with the backend codex that was active loads as an ended run", () =>
 		const job = codexJob("wz-legacy-active", join(dir, "sessions", "wz-legacy-active"), {
 			status: "running",
 			paneId: "w1:p7",
+			runtime: "herdr",
 		});
 		persistRuns(rt.openDb(), null, [job]);
 		const { finished, alive } = loadRuns(rt.openDb());
@@ -133,6 +134,7 @@ test("a steer of a run of the Codex backend is refused", async () => {
 		const job = codexJob("wz-legacy-4", join(dir, "sessions", "wz-legacy-4"), {
 			status: "running",
 			paneId: "w1:p7",
+			runtime: "herdr",
 		});
 		rt.jobs.set(job.id, job);
 		const steer = toolOf(rt, registerSteerTool, "steer");
@@ -151,6 +153,7 @@ test("a cancel of a run of the Codex backend is refused", async () => {
 		const job = codexJob("wz-legacy-5", join(dir, "sessions", "wz-legacy-5"), {
 			status: "running",
 			paneId: "w1:p7",
+			runtime: "herdr",
 		});
 		rt.jobs.set(job.id, job);
 		const cancel = toolOf(rt, registerCancelTool, "cancel");
@@ -170,6 +173,7 @@ test("a note to a run of the Codex backend is refused", async () => {
 		const job = codexJob("wz-legacy-7", join(dir, "sessions", "wz-legacy-7"), {
 			status: "running",
 			paneId: "w1:p7",
+			runtime: "herdr",
 		});
 		rt.jobs.set(job.id, job);
 		const note = toolOf(rt, registerNoteToWorkerTool, "note");
@@ -188,6 +192,7 @@ test("a run of the Codex backend never looks like a run of OMP", async () => {
 		const job = codexJob("wz-legacy-6", join(dir, "sessions", "wz-legacy-6"), {
 			status: "running",
 			paneId: "w1:p7",
+			runtime: "herdr",
 		});
 		rt.jobs.set(job.id, job);
 		const status = toolOf(rt, registerStatusTool, "status");

@@ -117,6 +117,7 @@ function seedRun(stateDir: string, overrides: Partial<Job> = {}): Job {
 		...freshRunState(Date.now()),
 		status: "running",
 		paneId: PANE,
+		runtime: "herdr",
 		startedAt: Date.now(),
 		...overrides,
 	};

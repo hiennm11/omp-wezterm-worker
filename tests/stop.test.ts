@@ -39,6 +39,7 @@ function runningJob(overrides: Partial<Job> = {}): Job {
 		...freshRunState(0),
 		status: "running",
 		paneId: "w1:p7",
+		runtime: "herdr",
 		...overrides,
 	};
 }

@@ -57,6 +57,7 @@ function jobOf(id: string, overrides: Partial<Job> = {}): Job {
 		...freshRunState(0),
 		status: "running",
 		paneId: "w1:p7",
+		runtime: "herdr",
 		...overrides,
 	};
 }
@@ -138,6 +139,7 @@ test("a failed launch of a resume frees the group of the source run", async () =
 			sessionFile: transcript,
 			sessionDir,
 			paneId: null,
+			runtime: "herdr",
 		});
 
 		const resumed = await resumeWorker(rt, source, { jobId: "wz-resume-1" });

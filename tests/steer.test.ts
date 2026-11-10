@@ -43,6 +43,7 @@ function worker(sessionDir: string): Job {
 		...freshRunState(0),
 		status: "running",
 		paneId: "w1:p7",
+		runtime: "herdr",
 	};
 }
 

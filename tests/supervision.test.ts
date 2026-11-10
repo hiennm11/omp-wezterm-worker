@@ -31,6 +31,7 @@ const job: Job = {
 	...freshRunState(1),
 	status: "running",
 	paneId: "w1:p7",
+	runtime: "herdr",
 };
 
 function owner(overrides: Partial<Ownership> = {}): Ownership {

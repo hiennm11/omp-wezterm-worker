@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Job } from "../extensions/lib/job.ts";
-import { ompArgv } from "../extensions/lib/spawn.ts";
+import { ompArgv } from "../extensions/lib/omp-argv.ts";
 
 /** A job that holds a thinking level. */
 function jobWith(thinking: string | null): Job {

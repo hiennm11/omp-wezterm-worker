@@ -75,6 +75,7 @@ function finishedJob(id: string, sessionDir: string): Job {
 		...freshRunState(0),
 		status: "completed",
 		paneId: null,
+		runtime: "herdr",
 	};
 }
 

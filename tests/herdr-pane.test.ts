@@ -15,9 +15,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { launchProgram } from "../extensions/lib/herdr-launch.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { closePaneConfirmed, killPane, paneState, paneStatesOf, sendToPane } from "../extensions/lib/pane.ts";
+import { launchProgram } from "../extensions/lib/pane-launch.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { type HerdrFake, herdrFake } from "./herdr-fake.ts";
 
@@ -42,6 +42,7 @@ function worker(): Job {
 		...freshRunState(0),
 		status: "running",
 		paneId: "w4:p1",
+		runtime: "herdr",
 	};
 }
 
@@ -49,6 +50,7 @@ function worker(): Job {
 function runtimeWith(fake: HerdrFake): WorkerRuntime {
 	const rt = createRuntime(async () => ({ code: 0, stdout: "", stderr: "" }));
 	rt.herdr = async (args) => fake.answer(args);
+	rt.paneRuntime = "herdr";
 	return rt;
 }
 
@@ -56,8 +58,8 @@ test("a pane of the pane list is present", async () => {
 	const fake = herdrFake({ panes: [{ paneId: "w4:p1", tabId: "w4:t1" }] });
 	const rt = runtimeWith(fake);
 	try {
-		assert.equal(await paneState(rt, "w4:p1"), "present");
-		assert.equal(await paneState(rt, "w4:p9"), "gone");
+		assert.equal(await paneState(rt, worker()), "present");
+		assert.equal(await paneState(rt, { ...worker(), paneId: "w4:p9" }), "gone");
 	} finally {
 		rt.closeDb();
 	}
@@ -67,7 +69,7 @@ test("an unreadable pane list is unknown and never gone", async () => {
 	const fake = herdrFake({ listCode: 1 });
 	const rt = runtimeWith(fake);
 	try {
-		assert.equal(await paneState(rt, "w4:p1"), "unknown");
+		assert.equal(await paneState(rt, worker()), "unknown");
 	} finally {
 		rt.closeDb();
 	}
@@ -77,7 +79,7 @@ test("a pane list that holds no pane list is unknown and never gone", async () =
 	const fake = herdrFake({ brokenList: true });
 	const rt = runtimeWith(fake);
 	try {
-		assert.equal(await paneState(rt, "w4:p1"), "unknown");
+		assert.equal(await paneState(rt, worker()), "unknown");
 	} finally {
 		rt.closeDb();
 	}
@@ -87,7 +89,7 @@ test("the state of every pane id comes from one pane list", async () => {
 	const fake = herdrFake({ panes: [{ paneId: "w4:p1", tabId: "w4:t1" }] });
 	const rt = runtimeWith(fake);
 	try {
-		const states = await paneStatesOf(rt, ["w4:p1", "w4:p2"]);
+		const states = await paneStatesOf(rt, [worker(), { ...worker(), paneId: "w4:p2" }]);
 		assert.equal(states.get("w4:p1"), "present");
 		assert.equal(states.get("w4:p2"), "gone");
 		const lists = fake.calls.filter((args) => args[0] === "pane" && args[1] === "list");
@@ -102,7 +104,7 @@ test("a close is confirmed only when the pane list no longer holds the pane", as
 	const rt = runtimeWith(fake);
 	rt.stopConfirm = { attempts: 3, intervalMs: 1 };
 	try {
-		const reason = await closePaneConfirmed(rt, "w4:p1");
+		const reason = await closePaneConfirmed(rt, worker());
 		assert.equal(reason, null, `the close was not confirmed: ${reason}`);
 		assert.deepEqual(fake.closed, ["w4:p1"]);
 		assert.equal(fake.panes.has("w4:p1"), false, "the pane stayed in the list");
@@ -116,7 +118,7 @@ test("a close that the pane list cannot confirm is not confirmed", async () => {
 	const rt = runtimeWith(fake);
 	rt.stopConfirm = { attempts: 2, intervalMs: 1 };
 	try {
-		const reason = await closePaneConfirmed(rt, "w4:p1");
+		const reason = await closePaneConfirmed(rt, worker());
 		assert.ok(reason, "the close was confirmed without a readable pane list");
 		assert.match(reason, /pane list cannot be read/);
 	} finally {
@@ -128,7 +130,7 @@ test("a steering message goes through the agent prompt and sends the text once",
 	const fake = herdrFake();
 	const rt = runtimeWith(fake);
 	try {
-		const sent = await sendToPane(rt, "w4:p1", "focus on the parser only");
+		const sent = await sendToPane(rt, worker(), "focus on the parser only");
 		assert.equal(sent.ok, true);
 		assert.deepEqual(fake.prompts, ["focus on the parser only"]);
 		const prompts = fake.calls.filter((args) => args[0] === "agent" && args[1] === "prompt");
@@ -142,7 +144,7 @@ test("a refused steering message is not a delivery", async () => {
 	const fake = herdrFake({ failAgentPrompt: true });
 	const rt = runtimeWith(fake);
 	try {
-		const sent = await sendToPane(rt, "w4:p1", "focus on the parser only");
+		const sent = await sendToPane(rt, worker(), "focus on the parser only");
 		assert.equal(sent.ok, false);
 		assert.ok(sent.error);
 		assert.deepEqual(fake.prompts, []);
@@ -155,7 +157,7 @@ test("a close of a pane uses the pane close verb", async () => {
 	const fake = herdrFake({ panes: [{ paneId: "w4:p1", tabId: "w4:t1" }] });
 	const rt = runtimeWith(fake);
 	try {
-		assert.equal(await killPane(rt, "w4:p1"), null);
+		assert.equal(await killPane(rt, worker()), null);
 		const closes = fake.calls.filter((args) => args[0] === "pane" && args[1] === "close");
 		assert.deepEqual(closes, [["pane", "close", "w4:p1"]]);
 	} finally {

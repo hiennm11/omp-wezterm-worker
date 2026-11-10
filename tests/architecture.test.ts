@@ -52,7 +52,7 @@ test("only lib/process.ts starts a child process", () => {
 		.filter((path) => path !== "extensions/lib/process.ts")
 		.filter((path) => importsOf(path).includes("node:child_process"))
 		.map((path) => relative(".", path));
-	assert.deepEqual(offenders, [], "Run programs through rt.exec, rt.wezterm or rt.git.");
+	assert.deepEqual(offenders, [], "Run programs through rt.exec, rt.herdr, rt.wezterm or rt.git.");
 });
 
 test("worker-tools modules do not read the module-level runtime", () => {
@@ -67,6 +67,28 @@ test("the entry holds the only runtime", () => {
 		.filter((path) => path !== "extensions/lib/runtime.ts")
 		.filter((path) => /\bcreateRuntime\(/.test(read(path)));
 	assert.deepEqual(creators, ["extensions/wezterm-worker.ts"]);
+});
+
+/**
+ * The programs of a pane runtime that a module may name.
+ *
+ * A module reaches a pane runtime through the seam of the runtime. A module
+ * that names the program of a runtime starts it without the seam, so a test
+ * cannot replace it.
+ */
+const PANE_PROGRAMS = ["herdr", "wezterm"];
+
+test("a pane runtime goes through its seam", () => {
+	const offenders = sourceFiles("extensions")
+		.filter((path) => path !== "extensions/lib/runtime.ts")
+		.filter((path) => path !== "extensions/lib/pane-runtime.ts")
+		.filter((path) =>
+			PANE_PROGRAMS.some((program) =>
+				new RegExp(`exec\\([^)]*${program}`, "i").test(read(path)),
+			),
+		)
+		.map((path) => relative(".", path));
+	assert.deepEqual(offenders, [], "A pane runtime goes through rt.herdr or rt.wezterm.");
 });
 
 /**

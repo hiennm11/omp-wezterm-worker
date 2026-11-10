@@ -55,6 +55,7 @@ test("the status lists the events that wait for the owner", async () => {
 			...freshRunState(0),
 			status: "running",
 			paneId: "w1:p3",
+			runtime: "herdr",
 		};
 		rt.jobs.set(job.id, job);
 

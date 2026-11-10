@@ -73,6 +73,7 @@ test("the status prints the completion blocker of a worker that cannot end", asy
 			...freshRunState(0),
 			status: "running",
 			paneId: "w1:p3",
+			runtime: "herdr",
 		};
 		rt.jobs.set(job.id, job);
 		syncExecutions(rt.openDb(), job.id, readCallLedger(file), 0, 1000);

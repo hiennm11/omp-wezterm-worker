@@ -60,6 +60,7 @@ function sourceJob(id: string, sessionDir: string, overrides: Partial<Job> = {})
 		...freshRunState(0),
 		status: "completed",
 		paneId: "w1:p42",
+		runtime: "herdr",
 		...overrides,
 	};
 }

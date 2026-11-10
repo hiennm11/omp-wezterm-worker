@@ -138,7 +138,7 @@ test("a nonzero idle deadline is refused with guidance", () => {
 	assert.match(lastGuidance ?? "", /idleTimeoutMs is gone/);
 });
 
-test("a zero idle deadline gives no guidance", () => {
+test("the zero idle deadline gives no guidance", () => {
 	const file = configFile({ idleTimeoutMs: 0 });
 	loadConfig(file, {});
 	assert.equal(lastGuidance, null);
@@ -179,4 +179,34 @@ test("two problems in one file give both guidance messages", () => {
 	const guidance = lastGuidance ?? "";
 	assert.match(guidance, /idleTimeoutMs is gone/);
 	assert.match(guidance, /minScore/);
+});
+
+test("the default pane runtime is auto and the default WezTerm binary is wezterm", () => {
+	assert.equal(DEFAULT_CONFIG.runtime, "auto");
+	assert.equal(DEFAULT_CONFIG.weztermBin, "wezterm");
+});
+
+test("the config file names the pane runtime", () => {
+	const file = configFile({ runtime: "wezterm" });
+	const cfg = loadConfig(file, {});
+	assert.equal(cfg.runtime, "wezterm");
+	assert.equal(lastGuidance, null);
+});
+
+test("a wrong pane runtime is refused with guidance", () => {
+	const file = configFile({ runtime: "kitty" });
+	const cfg = loadConfig(file, {});
+	assert.equal(cfg.runtime, "auto");
+	assert.match(lastGuidance ?? "", /runtime/);
+});
+
+test("the config file names the binary of WezTerm", () => {
+	const file = configFile({ weztermBin: "/opt/wezterm" });
+	const cfg = loadConfig(file, {});
+	assert.equal(cfg.weztermBin, "/opt/wezterm");
+});
+
+test("the environment names the binary of WezTerm", () => {
+	const cfg = loadConfig(undefined, { OMP_WORKER_WEZTERM_BIN: "/from/env/wezterm" });
+	assert.equal(cfg.weztermBin, "/from/env/wezterm");
 });

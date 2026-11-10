@@ -56,6 +56,7 @@ function overdue(id: string): Job {
 		...freshRunState(Date.now() - 60_000),
 		status: "running",
 		paneId: "w1:p7",
+		runtime: "herdr",
 		timeoutMs: 1000,
 	});
 }

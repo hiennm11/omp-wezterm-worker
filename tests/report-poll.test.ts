@@ -92,6 +92,7 @@ function runningJob(sessionDir: string): Job {
 		...freshRunState(Date.now()),
 		status: "running",
 		paneId: "w1:p7",
+		runtime: "herdr",
 	};
 }
 
