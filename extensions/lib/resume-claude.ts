@@ -14,6 +14,7 @@ import { mkdirSync } from "node:fs";
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
 import { handoverFile, writeHandover } from "./bridge-handover.ts";
 import { startBridge } from "./claude-bridge.ts";
+import { claudeHerdrRefusal } from "./claude-herdr.ts";
 import { createClaudeRunState } from "./claude-run-state.ts";
 import {
 	checkClaude,
@@ -26,9 +27,9 @@ import {
 } from "./claude-session.ts";
 import { freeEndedHolder } from "./group-holder.ts";
 import { groupOfRun, releaseExecutionByHolder, reserveExecution } from "./groups.ts";
+import { launchProgram } from "./herdr-launch.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { observeNative } from "./native-ledger.ts";
-import { launchProgram } from "./pane.ts";
 import { delay } from "./process.ts";
 import { checkSourcePane } from "./resume-guard.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -68,6 +69,14 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 		...freshRunState(Date.now()),
 	};
 
+	// The Claude Code backend cannot start on Herdr yet. The refusal comes
+	// before the reservation, so a refused resume holds no group.
+	const herdrRefusal = claudeHerdrRefusal();
+	if (herdrRefusal) {
+		const failed: Job = { ...job, status: "failed", error: herdrRefusal, finishedAt: Date.now() };
+		rt.jobs.set(jobId, failed);
+		return failed;
+	}
 	/* The pane of the source run can still write into the shared transcript.
 	   The resume waits until that pane is gone. The check comes before the
 	   reservation, so a refusal holds no group and releases none. */
