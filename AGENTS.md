@@ -16,7 +16,7 @@ These rules add to the global rules in `~/.agents/AGENTS.md`. The tests in
 
 ## Dependencies
 
-- Start a program only through `rt.exec`, `rt.wezterm` or `rt.git`.
+- Start a program only through `rt.exec`, `rt.herdr` or `rt.git`.
 - Import `node:child_process` only in `extensions/lib/process.ts`.
 - Keep shared state in `WorkerRuntime`. Do not add a module-level variable.
 - Create the runtime once, in the entry. A tool receives it through `ToolDeps`.
@@ -86,7 +86,7 @@ These rules add to the global rules in `~/.agents/AGENTS.md`. The tests in
 ## Before you report done
 
 - Run `npm run check`. It runs the lint, the type check, the scores and every test. Run it one time, and not while another check runs.
-- The integration tests need `omp` and `wezterm`. Report a test that did not run.
+- The integration tests need `omp`, `herdr` and a Herdr session. Run them in a throwaway session with `HERDR_SOCKET_PATH` set to that session, so that a test never touches the panes of your own session. Report a test that did not run.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence

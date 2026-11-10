@@ -18,8 +18,8 @@ import {
 import type { CodexReportLaunch } from "./codex-report.ts";
 import { attachCodexEvents } from "./codex-session.ts";
 import { resumeThread, startThread, turnStartParams } from "./codex-thread.ts";
+import { launchProgram, openProgramTab } from "./herdr-launch.ts";
 import type { CodexIdentity, Job } from "./job.ts";
-import { launchProgram, openProgramTab } from "./pane.ts";
 import { delay } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 

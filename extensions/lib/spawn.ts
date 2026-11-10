@@ -20,10 +20,10 @@ import {
 	reserveExecution,
 	setGroupWorktree,
 } from "./groups.ts";
+import { launchPane } from "./herdr-launch.ts";
 import { herdrSessionRefusal } from "./herdr-session.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { finalizeJob } from "./lifecycle.ts";
-import { launchPane } from "./pane.ts";
 import { withWorkerTools } from "./preset.ts";
 import { describeFailure } from "./process.ts";
 import { checkSourcePane } from "./resume-guard.ts";
@@ -55,10 +55,10 @@ export interface SpawnParams {
 /**
  * The omp argv. Every value is its own argv element.
  *
- * `trailing` is the task or the follow-up message. It is a single element:
- * no shell parses it, so there are no quoting hazards.
+ * The task and the follow-up message are not in the argv. Herdr refuses an
+ * argument with a line break, so the launch sends them with the agent prompt.
  */
-export function ompArgv(job: Job, resumeFile: string | null, trailing: string | undefined): string[] {
+export function ompArgv(job: Job, resumeFile: string | null): string[] {
 	const args = ["--no-title", "--cwd", job.cwd, "--session-dir", job.sessionDir];
 	// The worker reports its task state. The prompt tells it how. Without the
 	// prompt the worker never reports, and the supervisor cannot tell a
@@ -72,7 +72,6 @@ export function ompArgv(job: Job, resumeFile: string | null, trailing: string | 
 	// A job without a level asks for no level. OMP then runs the worker at
 	// the default level of OMP.
 	if (job.thinking) args.push("--thinking", job.thinking);
-	if (trailing) args.push(trailing);
 	return args;
 }
 
@@ -168,9 +167,13 @@ export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promi
 	// The worker process needs to know that it is a worker. The environment
 	// variable names its session directory, and the run context in that
 	// directory names the run.
-	const failure = await launchPane(rt, job, ompArgv(job, null, job.task), {
-		OMP_WORKER_SESSION_DIR: job.sessionDir,
-	});
+	const failure = await launchPane(
+		rt,
+		job,
+		ompArgv(job, null),
+		{ OMP_WORKER_SESSION_DIR: job.sessionDir },
+		job.task,
+	);
 	if (failure) {
 		markUnused(db, attemptId, Date.now());
 		await finalizeJob(rt, job, "failed", failure, null);
@@ -323,9 +326,13 @@ export async function resumeWorker(
 	const attemptId = `att-${jobId}`;
 	reserveAttempt(db, attemptId, jobId, Date.now());
 	markIssued(db, attemptId, Date.now());
-	const failure = await launchPane(rt, job, ompArgv(job, sessionFile, params.message), {
-		OMP_WORKER_SESSION_DIR: job.sessionDir,
-	});
+	const failure = await launchPane(
+		rt,
+		job,
+		ompArgv(job, sessionFile),
+		{ OMP_WORKER_SESSION_DIR: job.sessionDir },
+		params.message,
+	);
 	if (failure) {
 		markUnused(db, attemptId, Date.now());
 		job.status = "failed";

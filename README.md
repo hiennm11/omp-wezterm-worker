@@ -1,11 +1,14 @@
 # omp-wezterm-worker
 
-Spawn an **OMP worker session inside a WezTerm pane or tab** that runs on its
+Spawn an **OMP worker session inside a Herdr pane or tab** that runs on its
 own. The user sees it live while the main agent keeps working. The main session
 receives the final result of the worker automatically.
 
-Verified against **omp 18.12.3** on **Windows native** (no WSL), WezTerm
-**20240203-110809-5046fc22**.
+Verified against **omp 18.12.3** on **Windows native** (no WSL), Herdr
+**0.9.5**. The extension runs only inside a Herdr session. Only the OMP
+backend runs on Herdr today. The Claude Code backend and the Codex backend
+refuse to start, and the reply says so. See
+[ADR 0025](docs/adr/0025-herdr-replaces-wezterm-as-the-pane-runtime.md).
 
 ## What this is (and what it is not)
 
@@ -14,8 +17,8 @@ Three distinct mechanisms. They are not interchangeable:
 | Mechanism | What it is | Pane? | Result delivery | Where to see it |
 |---|---|---|---|---|
 | Native subagent (`task` tool) | In-process child OMP session | No | OMP-managed async job injection | Agent Hub (`Alt+A`), pinned Subagents block |
-| **WezTerm worker (this plugin)** | A **separate `omp` process** in a WezTerm pane, own model/tools/session file | **Yes** | `pi.sendUserMessage` back into the main session | The pane itself, live |
-| Pane transcript view | `wezterm cli get-text` — rendered screen text only | — | Not a result source | Read-only text dump |
+| **Herdr worker (this plugin)** | A **separate `omp` process** in a Herdr pane, own model/tools/session file | **Yes** | `pi.sendUserMessage` back into the main session | The pane itself, live |
+| Pane transcript view | `herdr pane read` — rendered screen text only | — | Not a result source | Read-only text dump |
 
 This plugin creates a **real, interactive OMP TUI** in the pane. It is not a
 transcript replay and not a fake TUI. The user can click into the pane and speak
@@ -23,7 +26,7 @@ to the worker directly.
 
 ## Install
 
-You need: omp, WezTerm (`wezterm` on PATH), Git Bash (or any Windows bash).
+You need: omp, Herdr (`herdr` on PATH), Git Bash (or any Windows bash). Start OMP inside a Herdr pane.
 
 ```bash
 git clone <this-repo> D:/repos/omp-wezterm-worker
@@ -340,11 +343,10 @@ delivery that the transcript does not confirm as unconfirmed. The tool never
 sends the instruction a second time. A second copy of the same
 instruction would reach the worker as a second instruction.
 
-Implementation note: `wezterm cli send-text` pastes by default. A pasted block
-never submits in the OMP TUI. The text lands in the composer but the Enter
-key never arrives. So steering uses `--no-paste`, which delivers the bytes
-as individual key events. Steering also adds a trailing `"\r"` that the worker
-receives as a real Enter.
+Implementation note: `herdr agent prompt` sends the text and the Enter key
+in one call, so steering needs no key handling. A steering message that arrives
+while the worker runs a turn waits in the queue of the worker. It does not
+interrupt the turn.
 
 ### Watching a worker
 
@@ -414,11 +416,13 @@ new session id, and attach tasks that the new session already owns. See
 
 ## How it works
 
-1. `wezterm cli split-pane` (or `wezterm cli spawn`) creates the pane and runs
-   `omp --no-title --cwd <cwd> --session-dir <job dir> [--model M] [--tools T] [--thinking L] "<task>"`.
+1. `herdr pane split` (or `herdr tab create`) opens the pane. `herdr agent start`
+   then runs `omp --no-title --cwd <cwd> --session-dir <job dir> [--model M] [--tools T] [--thinking L]`.
    Every value is a **separate argv element**. The extension never mixes the
    task into a shell command. So a quote cannot break the command, and nobody
-   can put extra text into it.
+   can put extra text into it. The task is not an argv element: Herdr refuses an
+   argument with a line break, and a real task has line breaks. The extension
+   sends the task with `herdr agent prompt` after the worker is ready.
 2. The worker runs the real OMP TUI. It gets its own model, tools and session
    file. It does **not** inherit the main conversation (OMP child sessions never
    inherit history).
@@ -439,7 +443,7 @@ extension never reads the pane screen text to get a result.
 {
 	"ompBin": "omp",
 	"codexBin": "codex",
-	"weztermBin": "wezterm",
+	"herdrBin": "herdr",
 	"placement": "split",
 	"stateDir": "C:/Users/<you>/.omp/agent/wezterm-workers",
 	"defaultCwd": "C:/Users/<you>",
@@ -467,7 +471,7 @@ extension never reads the pane screen text to get a result.
 Environment overrides:
 
 - `OMP_WORKER_OMP_BIN`: the `omp` program that a worker runs.
-- `OMP_WORKER_WEZTERM_BIN`: the `wezterm` program that opens the pane.
+- `OMP_WORKER_HERDR_BIN`: the `herdr` program that opens the pane.
 - `OMP_WORKER_STATE_DIR`: the folder that holds the registry and the
   transcripts.
 - `OMP_WORKER_CONFIG_FILE`: the path of the config file. The default is
@@ -970,8 +974,9 @@ retry. The monitor also retries on every poll. See
 `~/.omp/agent/skills/wezterm-omp-pane-ops/SKILL.md`.
 
 It carries the operating knowledge this README cannot state. It explains how to
-deliver an Enter key to a WezTerm pane (`send-text` pastes by default, and a
-paste never submits). It explains how to relocate a session transcript.
+send text to a Herdr pane (`herdr agent prompt` sends the text and the Enter
+key together) and why a task with a line break cannot be an argv element. It
+explains how to relocate a session transcript.
 
 It also gives the Windows shell traps. One trap says that `bash` on PATH is
 WSL. Another trap gives the shapes of paths. Another trap shows how you link a
@@ -1005,7 +1010,9 @@ omp-wezterm-worker/
 │   │   ├── runtime.ts           the shared state and the services (the test seam)
 │   │   ├── process.ts           running a child process
 │   │   ├── host.ts              the shape of the OMP extension API
-│   │   ├── pane.ts              the WezTerm panes
+│   │   ├── pane.ts              the Herdr panes: state, read, steer and close
+│   │   ├── herdr-launch.ts      opening a pane and starting a worker in it
+│   │   ├── claude-herdr.ts      the refusal of the Claude Code backend on Herdr
 │   │   ├── worktree.ts          the isolated git worktree
 │   │   ├── spawn.ts             starting and resuming a worker
 │   │   ├── spawn-claude.ts      starting a Claude Code worker
@@ -1308,8 +1315,11 @@ so the suite needs no build step and no test framework.
 | `npm run typecheck` | Type check the extension, the tools and the tests. |
 | `npm run check` | Run the lint, the type check, the scores and the tests. |
 
-The integration tests need `omp` and `wezterm` on PATH. Without them the tests
-report that they cannot run. They never report a pass they did not observe.
+The integration tests need `omp` and `herdr` on PATH, and a Herdr session
+(`HERDR_ENV=1`). Run them in a throwaway session with `HERDR_SOCKET_PATH` set
+to that session, so that a test never touches the panes of your own session.
+Without them the tests report that they cannot run. They never report a pass
+they did not observe.
 
 Every test file runs one at a time. A test that counts the panes would see the
 panes of the other test. A check also starts real workers and real panes, so
@@ -1415,7 +1425,7 @@ breaks a test.
 | `authority-record.test.ts` | The ack of a session that does not own the task is refused, and the table of the handling holds no row. The resolve of a session that does not own the task is refused, and the table of the resolutions holds no row. The ack checks the worker of the event, not the worker of the parameter. The owner of a task records an ack and a resolve with the generation. An event without a worker is acknowledged. A session without an identity acknowledges an event. A task without an ownership row acknowledges an event. The delivery of a session that does not own the task sends no message, writes no attempt, and warns once. The delivery of the owner sends the message and writes one sent attempt. |
 | `ack-native.test.ts` | The owner acknowledges the event of a native run, and the event leaves the pending events. A second acknowledgement of the same event has no second effect. A different disposition of a handled event is refused. A session that does not own the native task cannot acknowledge its event. An unknown event id is refused. The status tool stops listing the event after the acknowledgement. |
 
-The integration tests run a real `omp` worker in a real WezTerm pane. They
+The integration tests run a real `omp` worker in a real Herdr pane. They
 take about a minute each.
 
 ### The Windows trial

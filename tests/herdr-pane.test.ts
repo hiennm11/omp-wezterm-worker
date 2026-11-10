@@ -15,15 +15,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { launchProgram } from "../extensions/lib/herdr-launch.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
-import {
-	closePaneConfirmed,
-	killPane,
-	launchProgram,
-	paneState,
-	paneStatesOf,
-	sendToPane,
-} from "../extensions/lib/pane.ts";
+import { closePaneConfirmed, killPane, paneState, paneStatesOf, sendToPane } from "../extensions/lib/pane.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { type HerdrFake, herdrFake } from "./herdr-fake.ts";
 
@@ -179,6 +173,80 @@ test("a task with spaces, quotes and a substitution stays one argv element", asy
 		const start = fake.started.at(-1) ?? [];
 		assert.deepEqual(start, ["--no-title", task], "the task was not one argv element");
 		assert.equal(rt.jobs.get("wz-1"), undefined);
+	} finally {
+		rt.closeDb();
+	}
+});
+
+test("a task with line breaks reaches the worker through the agent prompt, not through the argv", async () => {
+	const fake = herdrFake();
+	const rt = runtimeWith(fake);
+	try {
+		const task = '# Goal\nDo x.\n\n- a "q" $(x)\n- b';
+		const failure = await launchProgram(rt, worker(), "omp", ["--no-title"], undefined, task);
+		assert.equal(failure, null, `the launch failed: ${failure}`);
+		const start = fake.started.at(-1) ?? [];
+		assert.deepEqual(start, ["--no-title"], "the argv of the start holds the task");
+		assert.ok(
+			start.every((value) => !/[\r\n\t]/.test(value)),
+			"an argv element holds a control character",
+		);
+		assert.deepEqual(fake.prompts, [task], "the task did not reach the worker through the prompt");
+		const startAt = fake.calls.findIndex((c) => c[0] === "agent" && c[1] === "start");
+		const promptAt = fake.calls.findIndex((c) => c[0] === "agent" && c[1] === "prompt");
+		assert.ok(startAt !== -1 && promptAt > startAt, "the prompt did not follow the start");
+	} finally {
+		rt.closeDb();
+	}
+});
+
+test("a launch without a task sends no prompt", async () => {
+	const fake = herdrFake();
+	const rt = runtimeWith(fake);
+	try {
+		const failure = await launchProgram(rt, worker(), "omp", ["--no-title"]);
+		assert.equal(failure, null);
+		assert.deepEqual(fake.prompts, []);
+	} finally {
+		rt.closeDb();
+	}
+});
+
+test("a start that fails closes the pane that the launch opened", async () => {
+	const fake = herdrFake({ failAgentStart: true });
+	const rt = runtimeWith(fake);
+	try {
+		const failure = await launchProgram(rt, worker(), "omp", ["--no-title"]);
+		assert.ok(failure?.includes("did not start"), `unexpected failure: ${failure}`);
+		assert.equal(fake.closed.length, 1, "the pane stayed open after the failed start");
+		assert.equal(fake.panes.size, 0, "the fake still holds a pane");
+	} finally {
+		rt.closeDb();
+	}
+});
+
+test("a prompt that fails closes the pane and fails the launch", async () => {
+	const fake = herdrFake({ failAgentPrompt: true });
+	const rt = runtimeWith(fake);
+	try {
+		const failure = await launchProgram(rt, worker(), "omp", ["--no-title"], undefined, "do the task");
+		assert.ok(failure?.includes("task"), `unexpected failure: ${failure}`);
+		assert.equal(fake.closed.length, 1, "the pane stayed open after the failed prompt");
+	} finally {
+		rt.closeDb();
+	}
+});
+
+test("an argv element with a line break is refused before any pane opens", async () => {
+	const fake = herdrFake();
+	const rt = runtimeWith(fake);
+	try {
+		const failure = await launchProgram(rt, worker(), "claude", [
+			"--append-system-prompt",
+			"line one\nline two",
+		]);
+		assert.ok(failure?.includes("line break"), `unexpected failure: ${failure}`);
+		assert.deepEqual(fake.calls, [], "Herdr received a call for a refused launch");
 	} finally {
 		rt.closeDb();
 	}

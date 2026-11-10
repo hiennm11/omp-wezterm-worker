@@ -61,29 +61,29 @@ function levelOf(args: string[]): string | null {
 }
 
 test("a job with a thinking level asks OMP for that level", () => {
-	const args = ompArgv(jobWith("low"), null, "task");
+	const args = ompArgv(jobWith("low"), null);
 	assert.equal(levelOf(args), "low");
 });
 
 test("a job without a thinking level asks OMP for no level", () => {
-	const args = ompArgv(jobWith(null), null, "task");
+	const args = ompArgv(jobWith(null), null);
 	assert.equal(levelOf(args), null);
 });
 
 test("a resumed job keeps the thinking level of the source run", () => {
-	const args = ompArgv(jobWith("medium"), "/s/wz-1/a.jsonl", undefined);
+	const args = ompArgv(jobWith("medium"), "/s/wz-1/a.jsonl");
 	assert.equal(levelOf(args), "medium");
 });
 test("a restricted tool list includes the worker report tool", () => {
 	const job = { ...jobWith(null), tools: ["read", "grep", "glob"] } as Job;
-	const args = ompArgv(job, null, "task");
+	const args = ompArgv(job, null);
 	const tools = (args[args.indexOf("--tools") + 1] ?? "").split(",");
 	assert.ok(tools.includes("wezterm_worker_report"), "the report tool is missing");
 });
 
 test("a restricted tool list includes the worker channel tools", () => {
 	const job = { ...jobWith(null), tools: ["read"] } as Job;
-	const args = ompArgv(job, null, "task");
+	const args = ompArgv(job, null);
 	const tools = (args[args.indexOf("--tools") + 1] ?? "").split(",");
 	assert.ok(tools.includes("wezterm_worker_report"), "the report tool is missing");
 	assert.ok(tools.includes("wezterm_worker_note_to_main"), "the note tool of the worker is missing");
@@ -92,11 +92,11 @@ test("a restricted tool list includes the worker channel tools", () => {
 
 test("an existing report tool appears once in argv", () => {
 	const job = { ...jobWith(null), tools: ["read", "wezterm_worker_report"] } as Job;
-	const args = ompArgv(job, null, "task");
+	const args = ompArgv(job, null);
 	const tools = (args[args.indexOf("--tools") + 1] ?? "").split(",");
 	assert.equal(tools.filter((tool) => tool === "wezterm_worker_report").length, 1);
 });
 
 test("a null tool list has no tools flag", () => {
-	assert.equal(ompArgv(jobWith(null), null, "task").includes("--tools"), false);
+	assert.equal(ompArgv(jobWith(null), null).includes("--tools"), false);
 });
