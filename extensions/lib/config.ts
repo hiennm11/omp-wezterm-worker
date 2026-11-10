@@ -11,6 +11,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import type { CommsSettings } from "./comms-check.ts";
+import type { PaneRuntimeSetting } from "./pane-runtime.ts";
 import { type Preset, readPresets } from "./preset.ts";
 import { readThinkingLevel, type ThinkingLevel } from "./thinking.ts";
 
@@ -22,6 +23,10 @@ export interface WorkerConfig {
 	claudeBin: string;
 	/** The binary of Herdr. Herdr opens the pane of a worker. */
 	herdrBin: string;
+	/** The binary of WezTerm. WezTerm opens the pane of a worker. */
+	weztermBin: string;
+	/** The program that opens the pane of a worker. The value `auto` reads the environment. */
+	runtime: PaneRuntimeSetting;
 	placement: Placement;
 	stateDir: string;
 	defaultCwd: string;
@@ -53,6 +58,8 @@ export const DEFAULT_CONFIG: WorkerConfig = {
 	ompBin: "omp",
 	claudeBin: "claude",
 	herdrBin: "herdr",
+	weztermBin: "wezterm",
+	runtime: "auto",
 	placement: "tab",
 	stateDir: join(homedir(), ".omp", "agent", "wezterm-workers"),
 	defaultCwd: process.cwd(),
@@ -73,7 +80,14 @@ export const DEFAULT_CONFIG: WorkerConfig = {
 };
 
 /** Static string-keyed table: config key -> the config field it overrides. */
-const CONFIG_STRING_KEYS = ["ompBin", "claudeBin", "herdrBin", "stateDir", "defaultCwd"] as const;
+const CONFIG_STRING_KEYS = [
+	"ompBin",
+	"claudeBin",
+	"herdrBin",
+	"weztermBin",
+	"stateDir",
+	"defaultCwd",
+] as const;
 const CONFIG_NUMBER_KEYS = [
 	"pollMs",
 	"timeoutMs",
@@ -143,6 +157,20 @@ export function readRemovedCodexSettings(raw: Record<string, unknown>, guidance:
 }
 
 /**
+ * The pane runtime of a config file.
+ *
+ * The value `herdr` selects Herdr. The value `wezterm` selects WezTerm. The
+ * value `auto` lets the environment select the runtime. A value of another
+ * kind keeps the default and produces one guidance line, so a wrong value
+ * never passes without a word.
+ */
+export function readPaneRuntime(value: unknown, guidance: string[]): PaneRuntimeSetting {
+	if (value === "herdr" || value === "wezterm" || value === "auto") return value;
+	if (value !== undefined) guidance.push(RUNTIME_GUIDANCE);
+	return "auto";
+}
+
+/**
  * The folder of the ste100 skill.
  *
  * A string sets the folder. A path that starts with `~` expands to the home
@@ -195,6 +223,7 @@ export function loadConfig(file?: string, env: NodeJS.ProcessEnv = process.env):
 				if (typeof v === "boolean") cfg[key] = v;
 			}
 			if (raw.placement === "split" || raw.placement === "tab") cfg.placement = raw.placement;
+			cfg.runtime = readPaneRuntime(raw.runtime, guidance);
 			if (typeof raw.model === "string") cfg.model = raw.model;
 			if (Array.isArray(raw.tools)) cfg.tools = raw.tools.map(String);
 			if (raw.presets !== undefined) cfg.presets = readPresets(raw.presets, guidance);
@@ -216,6 +245,7 @@ export function loadConfig(file?: string, env: NodeJS.ProcessEnv = process.env):
 	// Environment overrides win over the file so a caller can retarget binaries.
 	if (env.OMP_WORKER_OMP_BIN) cfg.ompBin = env.OMP_WORKER_OMP_BIN;
 	if (env.OMP_WORKER_HERDR_BIN) cfg.herdrBin = env.OMP_WORKER_HERDR_BIN;
+	if (env.OMP_WORKER_WEZTERM_BIN) cfg.weztermBin = env.OMP_WORKER_WEZTERM_BIN;
 	if (env.OMP_WORKER_STATE_DIR) cfg.stateDir = env.OMP_WORKER_STATE_DIR;
 	// A file can hold more than one problem. Every message reaches the user.
 	if (guidance.length > 0) lastGuidance = guidance.join(" ");
@@ -235,6 +265,10 @@ export const IDLE_TIMEOUT_GUIDANCE =
 	"The setting idleTimeoutMs is gone. A worker is stopped by its reports and by timeoutMs, " +
 	"never by silence. Set idleTimeoutMs to 0 or remove it. " +
 	"See docs/adr/0009-recoverable-omp-supervision.md.";
+
+/** The guidance for a config file that holds a wrong pane runtime. */
+export const RUNTIME_GUIDANCE =
+	"The setting runtime must be herdr, wezterm or auto. A wrong value is refused and the value auto is used instead.";
 
 /** The lowest score that the communication check accepts. */
 export const MIN_SCORE_LOW = 0;
