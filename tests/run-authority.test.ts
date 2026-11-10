@@ -32,7 +32,7 @@ function freshDir(): string {
 
 /** A runtime with a database in the given state directory. */
 function runtimeIn(dir: string): WorkerRuntime {
-	const { rt } = fakeRuntime({ starts: {}, code: 0, panes: [3] }, { stateDir: dir });
+	const { rt } = fakeRuntime({ starts: {}, code: 0, panes: ["w1:p3"] }, { stateDir: dir });
 	return rt;
 }
 

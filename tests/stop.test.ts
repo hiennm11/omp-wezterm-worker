@@ -16,8 +16,8 @@ import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts"
 import { usageReport } from "../extensions/lib/usage.ts";
 import { writeTranscript } from "./execution-helpers.ts";
 
-const GONE = "[]";
-const PRESENT = '[{"pane_id":7}]';
+const GONE = JSON.stringify({ result: { panes: [] } });
+const PRESENT = JSON.stringify({ result: { panes: [{ pane_id: "w1:p7", tab_id: "w1:t1" }] } });
 
 function runningJob(overrides: Partial<Job> = {}): Job {
 	return {
@@ -45,7 +45,7 @@ function runningJob(overrides: Partial<Job> = {}): Job {
 
 interface Fake {
 	rt: WorkerRuntime;
-	/** What `wezterm cli list` answers. A number is an exit code. */
+	/** What `herdr pane list` answers. A number is an exit code. */
 	list: { reply: string | number };
 	kill: { stderr: string };
 	cleanup: () => void;
@@ -55,8 +55,10 @@ function fake(listReply: string | number): Fake {
 	const list = { reply: listReply };
 	const kill = { stderr: "" };
 	const exec: RunFn = async (_bin, args) => {
-		if (args.includes("kill-pane")) return { code: kill.stderr ? 1 : 0, stdout: "", stderr: kill.stderr };
-		if (args.includes("list")) {
+		if (args[0] === "pane" && args[1] === "close") {
+			return { code: kill.stderr ? 1 : 0, stdout: "", stderr: kill.stderr };
+		}
+		if (args[0] === "pane" && args[1] === "list") {
 			return typeof list.reply === "number"
 				? { code: list.reply, stdout: "", stderr: "" }
 				: { code: 0, stdout: list.reply, stderr: "" };

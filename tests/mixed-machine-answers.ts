@@ -92,6 +92,22 @@ export function weztermAnswer(state: MachineState, command: string, options: Ans
 	}
 	if (args[0] === "agent" && args[1] === "prompt") return sendText(state, args);
 	if (args[0] === "tab" && args[1] === "rename") return { code: 0, stdout: "", stderr: "" };
+	/* An agent start. Herdr runs the program of the kind. The program of
+	   the pane stands after the "--". */
+	if (args[0] === "agent" && args[1] === "start") {
+		const dash = args.indexOf("--");
+		const started = dash < 0 ? [] : args.slice(dash + 1);
+		const paneId = `w1:p${state.nextPane}`;
+		state.nextPane += 1;
+		state.panes.add(paneId);
+		state.programs.push(started[0]?.split(/[\\/]/).pop() ?? "");
+		state.launches += 1;
+		return {
+			code: 0,
+			stdout: JSON.stringify({ result: { pane: { pane_id: paneId, tab_id: "w1:t1" } } }),
+			stderr: "",
+		};
+	}
 	/* A pane launch. The program of the pane stands after the "--". */
 	const program = command.split("-- ").pop()?.split(" ")[0] ?? "";
 	const paneId = `w1:p${state.nextPane}`;

@@ -79,7 +79,7 @@ test("a run that was active comes back as alive", () => {
 		assert.equal(finished.length, 0);
 		assert.equal(alive.length, 1);
 		assert.equal(alive[0].id, "wz-live");
-		assert.equal(alive[0].paneId, 3);
+		assert.equal(alive[0].paneId, "w1:p3");
 	} finally {
 		db.close();
 		rmSync(dir, { recursive: true, force: true });

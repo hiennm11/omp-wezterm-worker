@@ -125,7 +125,7 @@ export async function launchProgram(
 	env?: NodeJS.ProcessEnv,
 ): Promise<string | null> {
 	const opened = await openPane(rt, job, env);
-	if (opened === null) return "Herdr did not open a pane for this worker.";
+	if ("failure" in opened) return `Herdr did not open a pane for this worker: ${opened.failure}`;
 	const paneId = opened.paneId;
 	const started = await startAgent(rt, paneId, job, binary, args);
 	if (started !== null) return started;
@@ -157,7 +157,7 @@ async function openPane(
 	rt: WorkerRuntime,
 	job: Job,
 	env?: NodeJS.ProcessEnv,
-): Promise<{ paneId: string; tabId: string } | null> {
+): Promise<{ paneId: string; tabId: string } | { failure: string }> {
 	const args =
 		job.placement === "tab"
 			? ["tab", "create", "--cwd", job.cwd, "--label", backendLabel(readBackend(job)), "--no-focus"]
@@ -169,8 +169,10 @@ async function openPane(
 		}
 	}
 	const res = await rt.herdr(args);
-	if (res.code !== 0) return null;
-	return paneOfReply(res.stdout);
+	if (res.code !== 0) return { failure: describeFailure(res) };
+	const pane = paneOfReply(res.stdout);
+	if (pane === null) return { failure: "the reply of Herdr holds no pane id" };
+	return pane;
 }
 
 /**

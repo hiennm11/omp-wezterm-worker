@@ -26,7 +26,7 @@ function unattachableJob(dir: string): Job {
 
 test("a failed re-attachment closes the open rows of the run", async () => {
 	const { dir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = unattachableJob(dir);
 		rt.jobs.set(job.id, job);
@@ -46,7 +46,7 @@ test("a failed re-attachment closes the open rows of the run", async () => {
 
 test("a failed re-attachment frees the execution of the group", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt, commands } = fakeRuntime(dir, [7]);
+	const { rt, commands } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = unattachableJob(dir);
 		rt.jobs.set(job.id, job);
@@ -57,7 +57,7 @@ test("a failed re-attachment frees the execution of the group", async () => {
 
 		await attachWorker(rt, job, () => undefined);
 
-		const kills = commands.filter((command) => command.join(" ").includes("kill-pane"));
+		const kills = commands.filter((command) => command[0] === "pane" && command[1] === "close");
 		assert.equal(kills.length, 1, "the pane of the worker receives a kill command");
 		const group = readGroup(db, "group-1");
 		assert.equal(group?.executionHolder, null, "the group holds no run");
@@ -69,7 +69,7 @@ test("a failed re-attachment frees the execution of the group", async () => {
 
 test("a failed re-attachment waits for the pane to close and then retries the stop", async () => {
 	const { dir } = makeDirs();
-	const panes = [7];
+	const panes = ["w1:p7"];
 	const { rt, tick } = fakeRuntime(dir, panes, { dropPaneOnKill: false });
 	rt.stopConfirm = { attempts: 2, intervalMs: 1 };
 	try {
@@ -82,7 +82,7 @@ test("a failed re-attachment waits for the pane to close and then retries the st
 		assert.ok(job.pendingStop, "the job holds a pending stop");
 		assert.equal(rt.monitors.has(job.id), true, "a monitor retries the pending stop");
 
-		panes.splice(panes.indexOf(7), 1);
+		panes.splice(panes.indexOf("w1:p7"), 1);
 		tick();
 		await sleep(50);
 

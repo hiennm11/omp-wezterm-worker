@@ -90,7 +90,7 @@ test("the cleanup of a running native run refuses", async () => {
 });
 
 test("the cleanup of a native run keeps the worktree while its pane is open", async () => {
-	const { rt, dir, sessionDir } = nativeRuntime([7]);
+	const { rt, dir, sessionDir } = nativeRuntime(["w1:p7"]);
 	try {
 		rt.sessionId = OWN;
 		seedOwner(rt, "wz-1", OWN);
@@ -104,7 +104,7 @@ test("the cleanup of a native run keeps the worktree while its pane is open", as
 		assert.notEqual(result.isError, true);
 		const notes = result.details.notes as string[];
 		assert.ok(
-			notes.includes("worktree kept: close pane 7 first, it holds the directory"),
+			notes.includes("worktree kept: close pane w1:p7 first, it holds the directory"),
 			`the notes name the pane: ${JSON.stringify(notes)}`,
 		);
 		assert.equal(result.details.keptWorktree, worktreePath);

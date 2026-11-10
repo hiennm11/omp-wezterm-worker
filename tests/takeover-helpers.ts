@@ -39,8 +39,8 @@ export interface FakeTable {
 	starts: Record<number, string>;
 	/** The exit code of the command that reads a process. */
 	code: number;
-	/** The panes that the fake WezTerm reports. */
-	panes: number[];
+	/** The panes that the fake Herdr reports. */
+	panes: string[];
 	/** The command lines of the worker processes that run on the machine. */
 	workers?: string[];
 	/** The processes whose start time the table cannot read. */
@@ -75,9 +75,9 @@ export function fakeRuntime(table: FakeTable, options: FakeOptions = {}): { rt: 
 			const startedAt = match ? (table.starts[Number(match[1])] ?? "") : "";
 			return { code: 0, stdout: startedAt, stderr: "" };
 		}
-		if (command.includes("list --format json")) {
-			const panes = table.panes.map((pane_id) => ({ pane_id }));
-			return { code: 0, stdout: JSON.stringify(panes), stderr: "" };
+		if (args[0] === "pane" && args[1] === "list") {
+			const panes = table.panes.map((pane_id) => ({ pane_id, tab_id: "w1:t1" }));
+			return { code: 0, stdout: JSON.stringify({ result: { panes } }), stderr: "" };
 		}
 		if (command.includes("Get-CimInstance Win32_Process")) {
 			const rows = (table.workers ?? []).map((commandLine, index) => ({
@@ -202,7 +202,7 @@ export function seedOwnTask(
 export async function ownTakeover(
 	t: TestContext,
 	phase: OwnerPhase,
-	table: FakeTable = { starts: {}, code: 0, panes: [3] },
+	table: FakeTable = { starts: {}, code: 0, panes: ["w1:p3"] },
 ) {
 	const { rt, job } = ownTaskCase(t, table, phase);
 	const result = await takeOver(rt, job.id);

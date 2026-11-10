@@ -65,7 +65,7 @@ test("the delivery of a restored native run says since the restart", () => {
 
 test("the status of a live restored run names the missing snapshot", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);
@@ -88,7 +88,7 @@ test("the status of a live restored run names the missing snapshot", async () =>
 
 test("the status of a run that never restarted shows no restart text", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);
@@ -105,7 +105,7 @@ test("the status of a run that never restarted shows no restart text", async () 
 
 test("the status of a finished restored run still says since the restart", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		job.status = "completed";

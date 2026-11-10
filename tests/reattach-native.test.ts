@@ -33,7 +33,7 @@ import {
 
 test("a native worker gets a new bridge and a new handover", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);
@@ -54,7 +54,7 @@ test("a native worker gets a new bridge and a new handover", async () => {
 
 test("the worker follows the new bridge and the old token is refused", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);
@@ -82,7 +82,7 @@ test("the worker follows the new bridge and the old token is refused", async () 
 
 test("the run state keeps the native session id of the worker", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);
@@ -95,7 +95,7 @@ test("the run state keeps the native session id of the worker", async () => {
 
 test("only the open rows of the run become the open calls of the state", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);
@@ -123,7 +123,7 @@ test("only the open rows of the run become the open calls of the state", async (
 
 test("the new owner receives the report of the worker and ends the run", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt, tick } = fakeRuntime(dir, [7]);
+	const { rt, tick } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);
@@ -155,7 +155,7 @@ test("the new owner receives the report of the worker and ends the run", async (
 
 test("an open row blocks the completion until a settlement arrives", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt, tick } = fakeRuntime(dir, [7]);
+	const { rt, tick } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);
@@ -193,7 +193,7 @@ test("an open row blocks the completion until a settlement arrives", async () =>
 
 test("attachWorker gives a native worker a bridge and a monitor", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);
@@ -222,7 +222,7 @@ test("attachWorker ends a native worker whose pane is gone", async () => {
 
 test("attachWorker keeps the old behaviour for an OMP worker", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir, { backend: undefined });
 		rt.jobs.set(job.id, job);
@@ -236,7 +236,7 @@ test("attachWorker keeps the old behaviour for an OMP worker", async () => {
 
 test("a handover that cannot be written leaves no bridge and no state", async () => {
 	const { dir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const blocker = join(dir, "blocker");
 		writeFileSync(blocker, "x");
@@ -253,7 +253,7 @@ test("a handover that cannot be written leaves no bridge and no state", async ()
 
 test("attachWorker stops the worker when the re-attachment fails", async () => {
 	const { dir } = makeDirs();
-	const { rt, commands } = fakeRuntime(dir, [7]);
+	const { rt, commands } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const blocker = join(dir, "blocker");
 		writeFileSync(blocker, "x");
@@ -262,7 +262,7 @@ test("attachWorker stops the worker when the re-attachment fails", async () => {
 
 		await attachWorker(rt, job, () => undefined);
 
-		const kills = commands.filter((command) => command.join(" ").includes("kill-pane"));
+		const kills = commands.filter((command) => command[0] === "pane" && command[1] === "close");
 		assert.equal(kills.length, 1, "the pane of the worker receives a kill command");
 		assert.equal(job.status, "failed", "the worker ends as failed");
 		assert.ok(

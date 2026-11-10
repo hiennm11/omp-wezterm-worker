@@ -5,7 +5,7 @@
  * transcript confirms it. A send that the transcript does not confirm stays
  * unconfirmed, and the extension never sends the instruction again.
  *
- * The fake WezTerm records the transcript at the moment of the send, so the
+ * The fake Herdr records the transcript at the moment of the send, so the
  * tests need no timer and no wait.
  */
 
@@ -64,7 +64,7 @@ function appendUserMessage(sessionDir: string, text: string): void {
 
 interface Fake {
 	rt: WorkerRuntime;
-	/** The texts that the fake WezTerm received. */
+	/** The texts that the fake Herdr received. */
 	sends: string[];
 	cleanup: () => void;
 }
@@ -78,8 +78,8 @@ interface Fake {
 function fake(onSend?: (text: string) => void): Fake {
 	const sends: string[] = [];
 	const exec: RunFn = async (_bin, args): Promise<RunResult> => {
-		if (args.includes("send-text")) {
-			const text = args[args.length - 1] ?? "";
+		if (args[0] === "agent" && args[1] === "prompt") {
+			const text = args.slice(3).join(" ");
 			sends.push(text);
 			onSend?.(text);
 		}

@@ -28,20 +28,19 @@ export interface FakeRuntimeOptions {
 /** A runtime whose pane list comes from the test and whose poll runs by hand. */
 export function fakeRuntime(
 	stateDir: string,
-	panes: number[],
+	panes: string[],
 	options: FakeRuntimeOptions = {},
 ): { rt: WorkerRuntime; tick: () => void; commands: string[][] } {
 	const commands: string[][] = [];
 	const exec: RunFn = async (_bin, args) => {
 		commands.push([...args]);
 		const command = args.join(" ");
-		if (command.includes("list --format json")) {
-			const listing = panes.map((pane_id) => ({ pane_id }));
-			return { code: 0, stdout: JSON.stringify(listing), stderr: "" };
+		if (args[0] === "pane" && args[1] === "list") {
+			const listing = panes.map((pane_id) => ({ pane_id, tab_id: "w1:t1" }));
+			return { code: 0, stdout: JSON.stringify({ result: { panes: listing } }), stderr: "" };
 		}
-		if (command.includes("kill-pane") && options.dropPaneOnKill !== false) {
-			const at = args.indexOf("--pane-id");
-			const paneId = Number.parseInt(args[at + 1] ?? "", 10);
+		if (args[0] === "pane" && args[1] === "close" && options.dropPaneOnKill !== false) {
+			const paneId = args[2] ?? "";
 			const index = panes.indexOf(paneId);
 			if (index >= 0) panes.splice(index, 1);
 		}

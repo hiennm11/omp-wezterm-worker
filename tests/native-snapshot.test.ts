@@ -180,7 +180,7 @@ test("a background row stays open even when the snapshot does not hold it", () =
 
 test("a new owner binds the report of a snapshot run and settles the old row", async () => {
 	const { dir, sessionDir } = makeDirs();
-	const { rt } = fakeRuntime(dir, [7]);
+	const { rt } = fakeRuntime(dir, ["w1:p7"]);
 	try {
 		const job = nativeJob(sessionDir);
 		rt.jobs.set(job.id, job);

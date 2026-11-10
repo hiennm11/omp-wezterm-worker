@@ -88,11 +88,18 @@ function ompRuntime(options: { thinking?: string | null } = {}): {
 	const calls: string[][] = [];
 	const exec: RunFn = async (bin, args) => {
 		calls.push(args);
-		if (args.includes("list")) {
-			return { code: 0, stdout: "[]", stderr: "" };
+		if (args[0] === "pane" && args[1] === "list") {
+			return { code: 0, stdout: JSON.stringify({ result: { panes: [] } }), stderr: "" };
 		}
-		if (args.includes("split-pane") || args.includes("spawn")) {
-			return { code: 0, stdout: "99", stderr: "" };
+		if (args[0] === "pane" && args[1] === "split") {
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p99", tab_id: "w1:t1" } } }),
+				stderr: "",
+			};
+		}
+		if (args[0] === "agent" && args[1] === "start") {
+			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
 		}
 		if (bin === "powershell") return { code: 0, stdout: "0", stderr: "" };
 		return { code: 0, stdout: "", stderr: "" };
@@ -247,7 +254,7 @@ test("a spawn parameter wins over the thinking level of the config", async () =>
 		});
 		const job = rt.jobs.get("wz-think-1");
 		assert.equal(job?.thinking, "low");
-		const argv = calls.find((args) => args.includes("split-pane") || args.includes("spawn"));
+		const argv = calls.find((args) => args[0] === "agent" && args[1] === "start");
 		assert.ok(argv, "no pane started");
 		const at = argv.indexOf("--thinking");
 		assert.notEqual(at, -1, argv.join(" "));
@@ -285,7 +292,7 @@ test("a resume keeps the thinking level of the source run", async () => {
 
 		await resumeWorker(rt, source, { jobId: "wz-resume-1" });
 
-		const argv = calls.find((args) => args.includes("split-pane") || args.includes("spawn"));
+		const argv = calls.find((args) => args[0] === "agent" && args[1] === "start");
 		assert.ok(argv, "no pane started");
 		const at = argv.indexOf("--thinking");
 		assert.notEqual(at, -1, argv.join(" "));

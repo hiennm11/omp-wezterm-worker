@@ -43,7 +43,7 @@ export function fakeZod(): never {
  * The pane list holds the given pane ids. The list answers the way the
  * WezTerm CLI answers it.
  */
-export function nativeRuntime(panes: number[] = []): {
+export function nativeRuntime(panes: string[] = []): {
 	rt: WorkerRuntime;
 	dir: string;
 	sessionDir: string;
@@ -51,9 +51,9 @@ export function nativeRuntime(panes: number[] = []): {
 	const dir = mkdtempSync(join(tmpdir(), "wt-native-run-"));
 	const exec: RunFn = async (_bin, args) => {
 		const command = args.join(" ");
-		if (command.includes("list --format json")) {
-			const listing = panes.map((pane_id) => ({ pane_id }));
-			return { code: 0, stdout: JSON.stringify(listing), stderr: "" };
+		if (args[0] === "pane" && args[1] === "list") {
+			const listing = panes.map((pane_id) => ({ pane_id, tab_id: "w1:t1" }));
+			return { code: 0, stdout: JSON.stringify({ result: { panes: listing } }), stderr: "" };
 		}
 		return { code: 0, stdout: "", stderr: "" };
 	};

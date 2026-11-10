@@ -59,7 +59,8 @@ function recordingExec(code: number, calls: string[][]): RunFn {
 	};
 }
 
-const kills = (calls: string[][]) => calls.filter((args) => args.includes("kill-pane")).length;
+const kills = (calls: string[][]) =>
+	calls.filter((args) => args[0] === "pane" && args[1] === "close").length;
 
 test("a finished worker records its pane as closed when the kill succeeds", async () => {
 	const job = await finalizeWith(async () => ({ code: 0, stdout: "", stderr: "" }));
@@ -84,7 +85,12 @@ test("the monitor kills the pane of a worker that passes its deadline when close
 	const stateDir = mkdtempSync(join(tmpdir(), "wz-lifecycle-"));
 	const exec: RunFn = async (_bin, args) => {
 		calls.push(args);
-		return { code: 0, stdout: args.includes("list") ? "[]" : "", stderr: "" };
+		const listing = { result: { panes: [] } };
+		return {
+			code: 0,
+			stdout: args[0] === "pane" && args[1] === "list" ? JSON.stringify(listing) : "",
+			stderr: "",
+		};
 	};
 	const rt = createRuntime(exec);
 	try {

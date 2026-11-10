@@ -14,9 +14,10 @@ function setup(
 ): { rt: WorkerRuntime; ticks: (() => void)[]; paneReads: () => number } {
 	let paneReads = 0;
 	const rt = createRuntime(async (_bin, args) => {
-		if (args.includes("list")) {
+		if (args[0] === "pane" && args[1] === "list") {
 			paneReads += 1;
-			return { code: listCode, stdout: listCode === 0 ? "[]" : "", stderr: "" };
+			const listing = { result: { panes: [] } };
+			return { code: listCode, stdout: listCode === 0 ? JSON.stringify(listing) : "", stderr: "" };
 		}
 		return { code: 0, stdout: "", stderr: "" };
 	});
