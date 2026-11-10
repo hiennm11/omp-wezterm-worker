@@ -32,7 +32,7 @@ function hasProgram(name: string): boolean {
 	return probe.status === 0 || probe.status === 1;
 }
 
-const CAN_RUN = hasProgram("omp") && hasProgram("wezterm");
+const CAN_RUN = hasProgram("omp") && hasProgram("herdr") && process.env.HERDR_ENV === "1";
 
 /** A task that keeps the worker busy for a while. */
 const LONG_TASK =
@@ -41,7 +41,7 @@ const LONG_TASK =
 	"Then reply with the word DONE.";
 
 test("a running worker can be steered, peeked at and cancelled", {
-	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+	skip: !CAN_RUN ? "omp or herdr is not available, or this is not a Herdr session" : false,
 }, async () => {
 	const repo = mkdtempSync(join(tmpdir(), "wt-live-"));
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-live-state-"));
@@ -136,7 +136,7 @@ test("a running worker can be steered, peeked at and cancelled", {
 });
 
 test("a running worker can be cancelled and only its pane closes", {
-	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+	skip: !CAN_RUN ? "omp or herdr is not available, or this is not a Herdr session" : false,
 }, async () => {
 	const repo = mkdtempSync(join(tmpdir(), "wt-cancel-"));
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-live-state-"));
@@ -179,7 +179,7 @@ test("a running worker can be cancelled and only its pane closes", {
 });
 
 test("a worker past its deadline is stopped and its pane is confirmed closed", {
-	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+	skip: !CAN_RUN ? "omp or herdr is not available, or this is not a Herdr session" : false,
 }, async () => {
 	const repo = mkdtempSync(join(tmpdir(), "wt-deadline-"));
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-live-state-"));
@@ -229,7 +229,7 @@ test("a worker past its deadline is stopped and its pane is confirmed closed", {
 });
 
 test("a session releases the worker that it started, and the worker keeps running", {
-	skip: !CAN_RUN ? "omp or wezterm is not available" : false,
+	skip: !CAN_RUN ? "omp or herdr is not available, or this is not a Herdr session" : false,
 }, async () => {
 	const repo = mkdtempSync(join(tmpdir(), "wt-release-"));
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-live-state-"));

@@ -5,8 +5,8 @@
  * give it its own checkout, so two workers never edit the same one.
  *
  * The test starts a real Claude Code worker. It needs Claude Code and
- * WezTerm. On a machine without them the test reports that it cannot run,
- * instead of reporting a pass.
+ * Herdr. The Claude Code backend does not run on Herdr yet, so both tests
+ * report that they cannot run, instead of reporting a pass.
  */
 
 import assert from "node:assert/strict";
@@ -18,13 +18,8 @@ import { test } from "node:test";
 
 import { createHost, removeDir, sessionContext } from "./harness.ts";
 
-/** The programs the test needs. */
-function hasProgram(name: string): boolean {
-	const probe = spawnSync(name, ["--version"], { windowsHide: true, encoding: "utf8" });
-	return probe.status === 0 || probe.status === 1;
-}
-
-const CAN_RUN = hasProgram("claude") && hasProgram("wezterm");
+/** The Claude Code backend does not run on Herdr yet. */
+const CAN_RUN = false;
 
 /** Build a small git repository for the worker to work in. */
 function makeRepo(): string {
@@ -39,7 +34,7 @@ function makeRepo(): string {
 }
 
 test("a native worker gets its own worktree", {
-	skip: !CAN_RUN ? "claude or wezterm is not available" : false,
+	skip: !CAN_RUN ? "The Claude Code backend does not run on Herdr yet. Issue 159 brings it back." : false,
 }, async () => {
 	const repo = makeRepo();
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-native-state-"));
@@ -72,7 +67,7 @@ test("a native worker gets its own worktree", {
 });
 
 test("a native worker finds its bridge through the handover file", {
-	skip: !CAN_RUN ? "claude or wezterm is not available" : false,
+	skip: !CAN_RUN ? "The Claude Code backend does not run on Herdr yet. Issue 159 brings it back." : false,
 }, async () => {
 	const repo = makeRepo();
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-native-handover-"));
