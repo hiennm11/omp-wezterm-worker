@@ -61,6 +61,7 @@ function setup(t: TestContext, ownerId = OLD_SESSION) {
 		...freshRunState(Date.now()),
 		status: "running",
 		paneId: "w1:p21",
+		runtime: "herdr",
 		startedAt: Date.now(),
 		finishedAt: null,
 	};

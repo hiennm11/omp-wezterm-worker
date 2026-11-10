@@ -64,6 +64,7 @@ function seedRun(stateDir: string, overrides: Partial<Job> = {}): Job {
 		...freshRunState(Date.now()),
 		status: "running",
 		paneId: GONE_PANE,
+		runtime: "herdr",
 		startedAt: Date.now(),
 		...overrides,
 	};
@@ -133,6 +134,7 @@ test("a worker that finished before the first recovery is not delivered again", 
 		finishedAt: Date.now() - 60_000,
 		result: "the old answer",
 		paneId: null,
+		runtime: "herdr",
 	});
 
 	const host = createHost({ stateDir, cwd, sessionId: SESSION });

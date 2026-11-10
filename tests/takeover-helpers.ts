@@ -119,6 +119,7 @@ export function makeJob(dir: string, id: string, overrides: Partial<Job> = {}): 
 		...freshRunState(0),
 		status: "running",
 		paneId: "w1:p3",
+		runtime: "herdr",
 		...overrides,
 	} as Job;
 }

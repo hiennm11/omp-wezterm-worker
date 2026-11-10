@@ -80,6 +80,7 @@ function sourceJob(id: string, sessionDir: string, overrides: Partial<Job> = {})
 		...freshRunState(0),
 		status: "completed",
 		paneId: "w1:p42",
+		runtime: "herdr",
 		...overrides,
 	};
 }
@@ -235,6 +236,7 @@ test("a resume refuses a completed source run whose pane is still open", async (
 			status: "completed",
 			closePaneOnFinish: false,
 			paneId: "w1:p42",
+			runtime: "herdr",
 		});
 		createGroup(db, "grp-wz-source-5", sessionDir, 1000);
 

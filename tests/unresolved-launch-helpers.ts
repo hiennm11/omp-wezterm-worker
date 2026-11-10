@@ -78,6 +78,7 @@ export function makeJob(dir: string, id: string): Job {
 		...freshRunState(0),
 		status: "running",
 		paneId: "w1:p3",
+		runtime: "herdr",
 	} as Job;
 }
 

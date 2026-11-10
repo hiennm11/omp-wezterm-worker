@@ -39,6 +39,7 @@ export function jobOf(id: string, overrides: Partial<Job> = {}): Job {
 		...freshRunState(0),
 		status: "completed",
 		paneId: "w1:p7",
+		runtime: "herdr",
 		...overrides,
 	};
 }
@@ -151,6 +152,7 @@ export function runtimeFor(t: TestContext, exec: RunFn): { rt: WorkerRuntime; di
 	const dir = mkdtempSync(join(tmpdir(), "wt-group-holder-"));
 	const rt = createRuntime(exec);
 	rt.config.stateDir = dir;
+	rt.paneRuntime = "herdr";
 	t.after(() => {
 		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });

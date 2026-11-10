@@ -67,6 +67,7 @@ test("a subagent can read a worker but cannot control it", async () => {
 			...freshRunState(Date.now()),
 			status: "running",
 			paneId: PANE,
+			runtime: "herdr",
 			startedAt: Date.now(),
 		};
 		const db = openDatabase(join(stateDir, "lifecycle.db"));

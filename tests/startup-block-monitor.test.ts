@@ -61,6 +61,7 @@ function nativeJob(sessionDir: string): Job {
 		...freshRunState(launchedAt),
 		status: "running",
 		paneId: "w1:p7",
+		runtime: "herdr",
 		backend: "claude",
 		startedAt: launchedAt,
 	};

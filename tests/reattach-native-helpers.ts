@@ -78,6 +78,7 @@ export function nativeJob(sessionDir: string, overrides: Partial<Job> = {}): Job
 		...freshRunState(Date.now()),
 		status: "running",
 		paneId: "w1:p7",
+		runtime: "herdr",
 		backend: "claude",
 		nativeSessionId: "sess-1",
 		...overrides,

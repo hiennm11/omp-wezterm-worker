@@ -119,6 +119,7 @@ function seedRun(stateDir: string): Job {
 		...freshRunState(Date.now()),
 		status: "running",
 		paneId: "w1:p20",
+		runtime: "herdr",
 		startedAt: Date.now(),
 	};
 	const db = openDatabase(join(stateDir, "lifecycle.db"));
