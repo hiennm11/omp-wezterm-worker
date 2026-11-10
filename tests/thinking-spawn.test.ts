@@ -98,6 +98,13 @@ function ompRuntime(options: { thinking?: string | null } = {}): {
 				stderr: "",
 			};
 		}
+		if (args[0] === "tab" && args[1] === "create") {
+			return {
+				code: 0,
+				stdout: JSON.stringify({ result: { root_pane: { pane_id: "w1:p99", tab_id: "w1:t2" } } }),
+				stderr: "",
+			};
+		}
 		if (args[0] === "agent" && args[1] === "start") {
 			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
 		}
