@@ -1,4 +1,4 @@
-# WezTerm Pane Workers
+# Pane Workers
 
 An OMP extension that runs a worker session independently inside a WezTerm pane
 or tab. The user sees a long task run live, and the main agent keeps working.
@@ -7,7 +7,7 @@ The worker runs in OMP, in Claude Code CLI, or in Codex CLI.
 ## Language
 
 **Worker**:
-A separate CLI session that runs a task in a WezTerm pane and reports to a
+A separate CLI session that runs a task in a Herdr pane and reports to a
 main session. It does not inherit the main conversation.
 _Avoid_: Agent, subtask, background job
 
@@ -102,7 +102,7 @@ _Avoid_: Untouched worktree, pristine worktree
 
 **Stopped**:
 The state of a worker whose pane the pane list confirms is gone. A close
-request that WezTerm accepted is not enough.
+request that Herdr accepted is not enough.
 _Avoid_: Killed, terminated, closed
 
 **Launch**:
