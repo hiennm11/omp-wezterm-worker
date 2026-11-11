@@ -9,15 +9,17 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
+import { packageVersion, readCommit, readDirty, writeManifest } from "./artifact.ts";
 import { copyFixture, loadDataset } from "./dataset.ts";
+import { machineEnvironment } from "./environment.ts";
 import { buildPlan, dirtyRefusal } from "./planner.ts";
 import { recommendCommand, reportCommand } from "./report-command.ts";
 import { runExperiments } from "./run-command.ts";
 import { resolveCommand } from "./runner.ts";
-import type { DatasetTask, PlanCell } from "./types.ts";
+import type { Dataset, DatasetTask, PlanCell, RunManifest } from "./types.ts";
 import { runVerifier } from "./verifier.ts";
 
 /** The exit code of a usage error, a dataset error or a refusal. */
@@ -151,6 +153,36 @@ function buildPlanFile(
 	return `${JSON.stringify(plan, null, 2)}\n`;
 }
 
+/**
+ * The manifest of a run.
+ *
+ * The manifest holds the environment of the machine, the version of the
+ * dataset, the state of the work tree and the matrix of the plan.
+ */
+function buildManifest(
+	out: string,
+	dataset: Dataset,
+	models: string[],
+	efforts: string[],
+	pilot: boolean,
+): RunManifest {
+	const root = process.cwd();
+	return {
+		schemaVersion: 1,
+		runId: basename(out),
+		createdAt: Date.now(),
+		datasetVersion: dataset.manifest.version,
+		packageVersion: packageVersion(root),
+		commit: readCommit(root) ?? "",
+		dirty: readDirty(root),
+		environment: machineEnvironment(),
+		models,
+		efforts,
+		pilot,
+		taskCount: dataset.tasks.length,
+	};
+}
+
 /** The command `plan`. Returns the exit code. */
 function planCommand(args: string[]): number {
 	let values: {
@@ -230,6 +262,7 @@ function planCommand(args: string[]): number {
 			buildPlanFile(dataset.manifest.version, pilot, models, usedEfforts, result.cells),
 			"utf8",
 		);
+		writeManifest(out, buildManifest(out, dataset, models, usedEfforts, pilot));
 	}
 	console.log(`Runs: ${result.cells.length}`);
 	console.log(`Experiments: ${result.cells.length}`);

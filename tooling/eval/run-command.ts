@@ -6,14 +6,13 @@
  * command closes every worker and every pane when it ends.
  */
 
-import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { arch, platform } from "node:os";
 import { join } from "node:path";
 
 import { closePanesAndWait, createHost, sessionContext } from "../../tests/harness.ts";
 import { readManifest } from "./artifact.ts";
 import { loadDataset } from "./dataset.ts";
+import { machineEnvironment } from "./environment.ts";
 import { type RunEnvironment, type RunPaths, runPlan } from "./runner.ts";
 import type { PlanFile } from "./types.ts";
 
@@ -25,37 +24,6 @@ export const ONLY_ONE = 1;
 
 /** The name of the file that holds the plan of a run. */
 const PLAN_FILE = "plan.json";
-
-/** The names of the programs whose version the environment holds. */
-const VERSION_PROGRAMS = ["omp", "herdr", "wezterm"];
-
-/** The version of a program, or null when the program cannot run. */
-function programVersion(name: string): string | null {
-	const probe = spawnSync(name, ["--version"], { encoding: "utf8", windowsHide: true });
-	if (probe.status !== 0) return null;
-	const text = probe.stdout.trim();
-	return text.length > 0 ? text : null;
-}
-
-/**
- * The environment of the machine.
- *
- * The environment holds the version of node, the platform, the
- * architecture and the version of every program that runs. A program that
- * cannot run is left out.
- */
-export function machineEnvironment(): Record<string, string> {
-	const environment: Record<string, string> = {
-		node: process.version,
-		platform: platform(),
-		arch: arch(),
-	};
-	for (const program of VERSION_PROGRAMS) {
-		const version = programVersion(program);
-		if (version !== null) environment[program] = version;
-	}
-	return environment;
-}
 
 /** The directories of one run. */
 export function runPaths(runDir: string): RunPaths {

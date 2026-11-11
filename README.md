@@ -1059,6 +1059,7 @@ omp-wezterm-worker/
 │       ├── verifier.ts           the command, the exit code and the deadline
 │       ├── acceptance.ts         the acceptance verdict and the protected path restore
 │       ├── artifact.ts           the JSON write, the JSON read and the resume
+│       ├── environment.ts        the version of node and of the programs of the machine
 │       ├── runner.ts             one experiment through the test host
 │       ├── runner-host.ts        the seam that reads the results of the worker tools
 │       ├── run-command.ts        the command that runs the plan of a run
