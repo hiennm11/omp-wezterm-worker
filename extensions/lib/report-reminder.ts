@@ -12,7 +12,7 @@ import { settleCycleEvents } from "./cycle-event.ts";
 import { CYCLE_SETTLE_MS, type CycleState } from "./cycle-state.ts";
 import type { Job, MissingReportReminder } from "./job.ts";
 import { runMonitorAction } from "./monitor-actions.ts";
-import { sendToPane } from "./pane.ts";
+import { runtimeOf, sendToPane, unknownRuntimeRefusal } from "./pane.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 
 /** The action that the report tick takes for a cycle without a report. */
@@ -76,6 +76,15 @@ export function settleMissingReport(
 ): MissingReportAction {
 	const action = missingReportAction(cycle, job.missingReportReminder ?? null, now);
 	if (action === "nudge") {
+		const refusal = reminderRefusal(job);
+		if (refusal !== null) {
+			// The extension cannot name the pane of that worker, so no
+			// reminder reaches it. The code reports the unknown runtime as it
+			// does today, and the owner wakes as it does today.
+			rt.errors.push(refusal);
+			settleCycleEvents(rt, job, cycle, "missing_report", now);
+			return action;
+		}
 		// The reminder belongs to the cycle. The job holds it, so a later tick
 		// and a restart send nothing.
 		job.missingReportReminder = { evidenceId: cycle.evidenceId, sentAt: now };
@@ -95,4 +104,16 @@ export function settleMissingReport(
 	}
 	settleCycleEvents(rt, job, cycle, "missing_report", now);
 	return action;
+}
+
+/**
+ * The reason why no reminder can reach the worker, or null when it can.
+ *
+ * A worker with an unknown runtime has no pane that the extension can name.
+ * A worker without a pane has no pane at all.
+ */
+function reminderRefusal(job: Job): string | null {
+	if (runtimeOf(job) === null) return unknownRuntimeRefusal(job);
+	if (job.paneId === null) return `Worker ${job.id} has no pane.`;
+	return null;
 }

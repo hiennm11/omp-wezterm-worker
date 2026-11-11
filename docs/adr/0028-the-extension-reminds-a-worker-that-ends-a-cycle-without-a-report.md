@@ -41,9 +41,9 @@ The conditions `thinking_stall` and `idle_after_working` keep their
 behaviour. The delivery of a result keeps its behaviour. Prose is never a
 result.
 
-A worker with an unknown runtime gets no reminder. The extension reports the
-unknown runtime as it did before, because the extension cannot name the pane
-of that worker.
+A worker with an unknown runtime gets no reminder. The extension cannot name the
+pane of that worker, so it reports the unknown runtime as it did before. The
+owner wakes as it did before.
 
 ## The decision is a pure function
 

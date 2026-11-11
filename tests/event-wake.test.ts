@@ -26,6 +26,7 @@ import { monitorJob } from "../extensions/lib/monitor.ts";
 import { taskKey } from "../extensions/lib/owner.ts";
 import { acquireOwnership } from "../extensions/lib/ownership.ts";
 import { runsToReplay } from "../extensions/lib/recover-task.ts";
+import { MISSING_REPORT_GRACE_MS } from "../extensions/lib/report-reminder.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { writeTranscript } from "./execution-helpers.ts";
 import { createHost, RUNTIME, sessionContext } from "./harness.ts";
@@ -135,6 +136,10 @@ test("the monitor wakes the main session once for a cycle without a report", () 
 
 		clock.advance(31_000);
 		tick();
+		assert.equal(sent.length, 0, "the worker gets a reminder before the owner wakes");
+
+		clock.advance(MISSING_REPORT_GRACE_MS);
+		tick();
 		assert.equal(sent.length, 1, "the settled cycle wakes the main session once");
 
 		const event = pendingEvents(rt.openDb())[0];
@@ -229,6 +234,8 @@ test("the wake of an event does not mark the result of its run as sent", () => {
 		tick();
 		clock.advance(31_000);
 		tick();
+		clock.advance(MISSING_REPORT_GRACE_MS);
+		tick();
 		assert.equal(sent.length, 1, "the settled cycle wakes the main session once");
 
 		const event = pendingEvents(rt.openDb())[0];
@@ -313,6 +320,8 @@ test("the delivery of a result still works after the wake of an event", () => {
 		monitorJob(rt, job, () => undefined);
 		tick();
 		clock.advance(31_000);
+		tick();
+		clock.advance(MISSING_REPORT_GRACE_MS);
 		tick();
 		assert.equal(sent.length, 1, "the settled cycle wakes the main session once");
 
