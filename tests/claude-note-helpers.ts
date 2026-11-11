@@ -80,10 +80,15 @@ export function toolResult(value: unknown): ToolResult {
  * The mod talks to a real bridge. The host keeps the files of the mod in
  * memory, so the file of the notes survives the polls of one test.
  */
-export async function startMod(bridge: FakeBridge, handoverPath: string): Promise<FakeMod> {
+export async function startMod(
+	bridge: FakeBridge,
+	handoverPath: string,
+	sessionDir?: string,
+	files?: Map<string, string>,
+): Promise<FakeMod> {
 	const handlers = new Map<string, Handler>();
 	const tools: RegisteredTool[] = [];
-	const files = new Map<string, string>();
+	const store = files ?? new Map<string, string>();
 	const submitted: string[] = [];
 	const bodies: Array<{ source: string; payload: Record<string, unknown> }> = [];
 	let pollFn: (() => Promise<void>) | null = null;
@@ -102,6 +107,7 @@ export async function startMod(bridge: FakeBridge, handoverPath: string): Promis
 		WEZTERM_WORKER_TOKEN: bridge.token,
 		WEZTERM_WORKER_RUN_ID: "wz-1",
 		WEZTERM_WORKER_HANDOVER: handoverPath,
+		WEZTERM_WORKER_SESSION_DIR: sessionDir ?? "",
 	};
 
 	const dollar: ModDollar = {
@@ -112,10 +118,10 @@ export async function startMod(bridge: FakeBridge, handoverPath: string): Promis
 				if (path === handoverPath) {
 					return JSON.stringify({ url: bridge.baseUrl, token: bridge.token });
 				}
-				return files.get(path) ?? null;
+				return store.get(path) ?? null;
 			},
 			write: async (path: string, text: string) => {
-				files.set(path, text);
+				store.set(path, text);
 			},
 		},
 		http: {
@@ -172,7 +178,7 @@ export async function startMod(bridge: FakeBridge, handoverPath: string): Promis
 		tools: () => tools,
 		submitted: () => submitted,
 		bodies: () => bodies,
-		files: () => files,
+		files: () => store,
 		poll,
 		askPermission: async (callId: string) => {
 			const handler = handlers.get("tool.check");
