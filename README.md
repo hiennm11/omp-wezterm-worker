@@ -145,8 +145,14 @@ line names the older notes and the tool that reads them. The status tool shows
 one count line per worker, for example `notes: 3 from worker, 1 to worker`. It
 shows no note text.
 
-A Claude Code worker has no channel today. The four tools refuse with a reply
-that says that the backend does not support the channel yet. See ADR 0024.
+A Claude Code worker has a channel. Its mod reads the channel through the
+bridge of the run, and it writes a note through the same bridge. A note of
+the main session reaches that worker as its next prompt, with the label
+`Note from the main session:`. The note reaches the worker one time, and the
+mod records the id of the note, so a restart never submits it again. A note
+that arrives while a permission request is open waits. The turn of a note is
+not an instruction cycle, so the note changes no state of the task. The main
+session uses the same four tools for every backend. See ADR 0024.
 
 
 ## Usage
@@ -984,6 +990,7 @@ omp-wezterm-worker/
 │   │   ├── channel-store.ts     the channel files of a session directory
 │   │   ├── channel-select.ts    the selection of the notes of a channel
 │   │   ├── channel-delivery.ts  the worker notes of a delivery
+│   │   ├── channel-bridge.ts    the channel that the bridge serves to a worker
 │   │   ├── report-binding.ts    the binding of a report to a run and a cycle
 │   │   ├── report-decision.ts   the decision that the reports produce
 │   │   ├── report-reminder.ts   the reminder for a cycle without a report
@@ -1064,7 +1071,8 @@ omp-wezterm-worker/
 │   │   ├── .claude-plugin/
 │   │   │   └── plugin.json      the manifest of the mod
 │   │   └── hooks/
-│   │       └── register.js      the report tool and the command bridge
+│   │       ├── register.js      the report tool and the command bridge
+│   │       └── channel.js       the note channel of the worker
 │   └── worker-tools/            one module for each tool
 │       ├── kit.ts               the shared reply and the worker lookup
 │       ├── spawn.ts, status.ts, steer.ts, peek.ts

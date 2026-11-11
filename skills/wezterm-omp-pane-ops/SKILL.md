@@ -574,9 +574,13 @@ line names the older notes and the tool that reads them. The status tool shows
 one count line per worker, for example `notes: 3 from worker, 1 to worker`.
 It shows no note text.
 
-A Claude Code worker has no channel today. The four tools refuse with a reply
-that says that the backend does not support the channel yet. Do not report a
-note to a native worker as if it arrived.
+A Claude Code worker has a channel. Its mod reads the channel through the
+bridge of the run, and it writes a note through the same bridge. A note of
+the main session reaches that worker as its next prompt, with the label
+`Note from the main session:`. The note reaches the worker one time. The turn
+of a note is not an instruction cycle, so the note changes no state of the
+task. The four tools work for every backend, so the main session never needs
+to know the backend of a worker.
 
 ## The domain vocabulary
 

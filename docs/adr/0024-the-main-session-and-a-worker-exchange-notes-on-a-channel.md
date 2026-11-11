@@ -1,6 +1,7 @@
 # The main session and a worker exchange notes on a channel
 
-Status: accepted design. The runtime follows this contract.
+Status: accepted design. The runtime follows this contract. The push to a
+worker of Claude Code was added on 2026-11-11.
 
 ## The problem
 
@@ -72,18 +73,28 @@ The communication check scores a note of the main session on the channel
 `steer` and a note of the worker on the channel `result`. No new channel
 exists.
 
-There is no push. The extension never steers a worker when a note arrives.
-The bootstrap prompt tells the worker to read the channel at the start of
-each instruction cycle and before it reports `completed`.
+There is no push for a worker of OMP. The extension never steers a worker
+when a note arrives. The bootstrap prompt tells the worker to read the
+channel at the start of each instruction cycle and before it reports
+`completed`.
+
+A Claude Code worker takes the note as its next prompt. The mod of the
+worker submits the note with the label `Note from the main session:`. The
+note reaches the worker one time, and the mod records the id of the note, so
+a restart of the session never submits it again. A note that arrives while a
+permission request is open waits, the same rule that a steering instruction
+follows. The turn of a note is not an instruction cycle, so a note changes
+no state of the task and the report rule stays the same.
 
 The delivery of a finished worker carries the 10 newest worker notes. One
 line names the older notes and the tool that reads them. The status tool
 shows one count line per worker, for example `notes: 3 from worker, 1 to
 worker`. It shows no note text.
 
-A Claude Code worker has no channel today. The four tools refuse with a reply
-that says that the backend does not support the channel yet. A tool that fails
-without a word is a fault that the user cannot see.
+A Claude Code worker has a channel. The mod of the worker reads the channel
+through the bridge of the run, and it writes a note through the same bridge.
+The main session uses the same four tools for every backend, so the main
+session never needs to know the backend of a worker.
 
 ## The reasons
 
@@ -91,10 +102,25 @@ The terms are Worker channel and Channel note. The words board, message and
 agent name other things in this repository, so they stay out of the name of
 this feature.
 
-The channel has no push because a push turns a note into an interruption.
-The whole point of a note is that it does not change what the worker does.
-The bootstrap prompt gives the worker the rule to read the channel, and the
-worker reads it when it starts an instruction cycle.
+The channel of a worker of OMP has no push because a push turns a note into
+an interruption. The whole point of a note is that it does not change what
+the worker does. The bootstrap prompt gives the worker the rule to read the
+channel, and the worker reads it when it starts an instruction cycle.
+
+A worker of Claude Code has no instruction cycle of its own. It reads the
+channel only when the main session asks it to. The owner chose the push for
+that backend, because a note that only waits for a cycle never reaches a
+worker that waits for the main session. The push keeps the meaning of a
+note, because the turn of a note is not an instruction cycle and it changes
+no state of the task.
+
+The mod of a Claude Code worker never parses a channel file. It asks the
+bridge for the notes, and the bridge gives the text. The shape of a note
+therefore lives in one place, and both backends read the same shape.
+
+The id of a note is the key of a delivery. The mod records the id of every
+note that it delivered, so a restart of the session never submits a note
+again.
 
 The number of a note counts the notes of its own file, because the two sides
 do not write the same file. A shared counter would need a lock, and a lock
@@ -123,6 +149,11 @@ The third rejected alternative is a note cursor on disk. A cursor breaks when
 two readers read the same channel, and the number of a note already names
 the position.
 
-The fourth rejected alternative is a push that wakes the worker. A push
+The fourth rejected alternative is a push that wakes a worker of OMP. A push
 costs a turn of the worker for a fact that the worker can read at the start
 of its next instruction cycle.
+
+The fifth rejected alternative is a push that steers the worker. A steering
+message changes the task of the worker, and a note must change nothing. A
+note of a worker of Claude Code reaches the worker as a prompt, and the
+owner counts it as no instruction cycle.
