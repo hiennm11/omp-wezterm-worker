@@ -12,7 +12,19 @@ import type { ReportCell, ReportFile } from "./types.ts";
 export const UNKNOWN_VALUE = "-";
 
 /** The columns of the table of the cells. */
-const COLUMNS = ["model", "effort", "runs", "pass", "fail", "blocked", "valid", "success", "median", "cost"];
+const COLUMNS = [
+	"task",
+	"model",
+	"effort",
+	"runs",
+	"pass",
+	"fail",
+	"blocked",
+	"valid",
+	"success",
+	"median",
+	"cost",
+];
 
 /**
  * The success rate of a cell as a percent with one decimal.
@@ -49,6 +61,7 @@ function costText(cell: ReportCell): string {
  */
 function rowValues(cell: ReportCell): string[] {
 	return [
+		cell.taskType,
 		cell.model,
 		cell.effort,
 		String(cell.runs),
@@ -103,12 +116,12 @@ export function formatTable(cells: ReportCell[]): string {
  */
 function markdownTable(cells: ReportCell[]): string[] {
 	const lines = [
-		"| Model | Effort | Runs | Pass | Fail | Blocked | Valid | Success | Median | Cost |",
-		"|---|---|---|---|---|---|---|---|---|---|",
+		"| Task | Model | Effort | Runs | Pass | Fail | Blocked | Valid | Success | Median | Cost |",
+		"|---|---|---|---|---|---|---|---|---|---|---|",
 	];
 	for (const cell of rankedCells(cells)) {
 		lines.push(
-			`| ${cell.model} | ${cell.effort} | ${cell.runs} | ${cell.pass} | ${cell.fail} | ` +
+			`| ${cell.taskType} | ${cell.model} | ${cell.effort} | ${cell.runs} | ${cell.pass} | ${cell.fail} | ` +
 				`${cell.blocked} | ${cell.valid} | ${successText(cell)} | ${medianText(cell)} | ${costText(cell)} |`,
 		);
 	}

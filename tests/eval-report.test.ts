@@ -268,9 +268,10 @@ test("the table shows a dash for an unknown cost and for a null median", () => {
 		}),
 	];
 	const cells = buildCells(records);
-	const columns = formatTable(cells)
-		.split("\n")[2]
-		.split(/\s{2,}/);
+	const lines = formatTable(cells).split("\n");
+	const header = lines[0].split(/\s{2,}/);
+	assert.equal(header[0], "task", "the task column");
+	const columns = lines[2].split(/\s{2,}/);
 	assert.equal(columns.at(-2), "-", "the median column");
 	assert.equal(columns.at(-1), "-", "the cost column");
 });
@@ -307,6 +308,25 @@ test("the table holds the cells in the order of the success rate", () => {
 	const lines = table.split("\n");
 	assert.ok(lines[2].includes("omniroute/cc/claude-haiku-5-5"));
 	assert.ok(lines[3].includes("omniroute/cc/claude-opus-5-5"));
+});
+
+test("the table holds the task type of two cells that share the model and the effort", () => {
+	const records = [
+		buildRecord({ experimentId: "exp-0001", taskType: "bugfix" }),
+		buildRecord({ experimentId: "exp-0002", taskType: "testing" }),
+	];
+	const cells = buildCells(records);
+	assert.equal(cells.length, 2);
+	const table = formatTable(cells);
+	assert.ok(table.includes("bugfix"), "the task type of the first cell");
+	assert.ok(table.includes("testing"), "the task type of the second cell");
+});
+
+test("the summary table holds the task type of the cell", () => {
+	const file = buildFile([buildRecord({ taskType: "refactoring" })]);
+	const summary = formatSummary(file, { node: "v22.19.0" });
+	assert.ok(summary.includes("| Task |"), "the header of the table");
+	assert.ok(summary.includes("| refactoring |"), "the task type of the cell");
 });
 
 test("the summary holds the run, the dataset version and the commit", () => {
