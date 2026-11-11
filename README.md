@@ -5,9 +5,9 @@ on its own. The user sees it live while the main agent keeps working. The main
 session receives the final result of the worker automatically.
 
 Verified against **omp 18.12.3** on **Windows native** (no WSL), Herdr
-**0.9.5**. The extension runs only inside a Herdr or a WezTerm session. Only
-the OMP backend runs today. The Claude Code backend refuses to start, and
-the reply says so. See
+**0.9.5**. The extension runs only inside a Herdr or a WezTerm session. The
+Claude Code backend starts on Herdr. It still refuses on WezTerm, and the
+reply says so. See
 [ADR 0027](docs/adr/0027-two-pane-runtimes.md) and [ADR 0025](docs/adr/0025-herdr-replaces-wezterm-as-the-pane-runtime.md).
 
 ## What this is (and what it is not)
@@ -202,6 +202,8 @@ report tool and the command bridge.
 
 | Rule | Behavior |
 |---|---|
+| The pane runtime | The backend starts on Herdr. It refuses on WezTerm, because the pane calls of the Claude session still use the Herdr seam. |
+| The reporting contract | The launch writes the contract into the session directory and passes the path with `--append-system-prompt-file`. The text never reaches the argv of the pane, because Herdr refuses an argument with a line break. |
 | The configuration of the user | The session keeps the settings, the credentials, the MCP servers and the permission rules of the user. The extension never changes a global setting. |
 | The model | An omitted model uses the default of Claude Code. A named model is passed through unchanged. |
 | The tool list | A spawn with `tools` and a native backend is refused before the launch. |
@@ -938,7 +940,7 @@ omp-wezterm-worker/
 │   │   ├── pane-id.ts           the pane id at the boundary of the CLI
 │   │   ├── pane-launch.ts       opening a pane and starting a worker in it
 │   │   ├── pane-launch-wezterm.ts opening a WezTerm pane for a worker
-│   │   ├── claude-herdr.ts      the refusal of the Claude Code backend on Herdr
+│   │   ├── claude-herdr.ts      the refusal of the Claude Code backend on WezTerm
 │   │   ├── worktree.ts          the isolated git worktree
 │   │   ├── spawn.ts             starting and resuming a worker
 │   │   ├── spawn-claude.ts      starting a Claude Code worker
@@ -1225,7 +1227,8 @@ breaks a test.
 | `nested.integration.test.ts` | A real worker cannot launch a worker and opens no pane. A second spawn is refused while one worker is active. |
 | `ste100-docs.test.ts` | The document check gives every document and the reporting contract to the checker of the skill. The check fails with the code 2 when the skill is not built. |
 | `comms-check.test.ts` | A text that scores 80 or more passes. A low score warns in the warn mode and fails in the enforce mode. The checker runs with node on a file that holds the text. A missing skill gives the verdict skipped with a note. A Vietnamese text, a short text and the off mode never start the checker. |
-| `claude-argv.test.ts` | A new Claude Code worker and a resumed one both get the reporting contract as one argv element. The task stays the last argument. |
+| `claude-argv.test.ts` | A new Claude Code worker and a resumed one both get the path of the contract file. The contract never goes into the argv as text. The task stays the last argument. |
+| `claude-contract-file.test.ts` | The contract file holds the reporting contract and the same bytes for every run. A spawn on Herdr gives the program the path of the contract file. A resume writes its own contract file. |
 | `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
 | `result.integration.test.ts` | The result tool returns the answer of a finished worker. |

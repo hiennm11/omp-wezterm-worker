@@ -72,9 +72,14 @@ A change of the pane behaviour touches two modules, `pane-herdr.ts` and
 `pane-wezterm.ts`. A test of the pane layer runs against a fake of each
 runtime.
 
-The Claude Code backend stays refused on Herdr. A later change can send its
-system prompt through a file, as ADR 0025 describes. The refusal then goes
-away.
+The Claude Code backend now starts on Herdr. Its reporting contract
+travels in a file, and the launch passes the path of that file. A path has
+no line break, so Herdr accepts it.
+
+The Claude Code backend still refuses on WezTerm. The pane calls of
+`extensions/lib/claude-session.ts` use `rt.herdr`, so a WezTerm pane would
+never receive the text of the composer. A later change moves those calls to
+the runtime seam. Issue 4 delivers the Claude Code workers end to end.
 
 The extension no longer depends on one runtime. A user who runs only WezTerm
 keeps the previous behaviour. A user who runs only Herdr keeps the behaviour
