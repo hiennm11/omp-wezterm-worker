@@ -59,7 +59,7 @@ test("a request without the token of the bridge reads no note", async () => {
 			headers: { authorization: "Bearer the-wrong-token" },
 		});
 		assert.equal(response.status, 401, "the bridge served a request with a wrong token");
-		const body = await response.json();
+		const body = (await response.json()) as Record<string, unknown>;
 		assert.equal(body.notes, undefined, "the bridge gave the notes to a wrong token");
 	} finally {
 		await fixture.close();
@@ -78,7 +78,7 @@ test("a request for another run reads no note", async () => {
 			headers: { authorization: `Bearer ${fixture.token}` },
 		});
 		assert.equal(response.status, 200);
-		const body = await response.json();
+		const body = (await response.json()) as { notes?: unknown };
 		assert.deepEqual(body.notes, [], "the bridge gave the notes of another run");
 	} finally {
 		await fixture.close();
