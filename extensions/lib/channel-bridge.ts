@@ -8,6 +8,7 @@
 
 import {
 	formatChannelNotes,
+	NOTE_LABEL,
 	noteDeliveryText,
 	noteId,
 	noteTextRefusal,
@@ -34,6 +35,8 @@ export interface MainNotes {
 	highestSeq: number;
 	/** The text of the reply that names the notes. */
 	text: string;
+	/** The label that every note of the main session carries. */
+	label: string;
 }
 
 /** The channel that the bridge serves to one worker. */
@@ -64,6 +67,7 @@ export function channelOf(sessionDir: string, runId: string): BridgeChannel {
 				notes,
 				highestSeq: selection.highestSeq,
 				text: formatChannelNotes(selection.notes, selection.highestSeq, "the main session"),
+				label: NOTE_LABEL,
 			};
 		},
 		appendNote(text: string): { seq: number; text: string } | { refusal: string } {

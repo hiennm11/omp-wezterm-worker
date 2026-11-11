@@ -26,6 +26,7 @@ import {
 	NOTE_TO_MAIN,
 	NOTES_FROM_MAIN,
 	readDelivered,
+	readNoteLabel,
 	readNotes,
 	registerNoteTools,
 	writeNote,
@@ -94,6 +95,8 @@ const state = {
 	deliveredNotes: new Set(),
 	/** The directory of the session. It holds the file of the delivered notes. */
 	sessionDir: null,
+	/** The label that a note of the main session carries. The bridge names it. */
+	noteLabel: "",
 };
 
 /**
@@ -354,9 +357,12 @@ async function pollCommands($) {
  */
 async function pollNotes($) {
 	if (!state.baseUrl || !state.token) return;
-	const count = await deliverMainNotes($, noteContext(), state.deliveredNotes);
-	if (count > 0) {
-		await observe($, "note.delivered", { count, runId: state.runId });
+	const result = await deliverMainNotes($, noteContext(), state.deliveredNotes);
+	/* The bridge names the label of a note. The mod keeps the label, so it
+	   holds no copy of the shape of a note. */
+	if (result.label) state.noteLabel = result.label;
+	if (result.count > 0) {
+		await observe($, "note.delivered", { count: result.count, runId: state.runId });
 	}
 }
 
@@ -514,6 +520,9 @@ export function register(on) {
 		/* The delivered notes live in a file, so a restart of the session
 		   never submits a note twice. */
 		state.deliveredNotes = await readDelivered($, noteContext());
+		/* The bridge names the label of a note. The mod reads it now, so a
+		   turn that carries a note is known before the first poll. */
+		state.noteLabel = await readNoteLabel($, noteContext());
 		$.clock.every(1000, async () => {
 			await pollCommands($);
 			await pollNotes($);
@@ -533,7 +542,7 @@ export function register(on) {
 		/* A turn that carries a note is not an instruction cycle. The note
 		   changes no state of the task, so the cycle of the run stays the
 		   cycle that the task started. */
-		if (carriesNote(e.text)) {
+		if (carriesNote(e.text, state.noteLabel)) {
 			await observe($, "note.turn", {
 				turnId: e.turnId,
 				text: e.text,
@@ -673,7 +682,7 @@ export function register(on) {
 			/* A row that carries a note is not an instruction. The note
 			   changes no state of the task, so it never clears a pending
 			   instruction. */
-			if (carriesNote(text)) {
+			if (carriesNote(text, state.noteLabel)) {
 				await observe($, "note.delivered", {
 					uuid: e.uuid,
 					text,

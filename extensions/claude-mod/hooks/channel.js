@@ -25,17 +25,16 @@ export const MCP_NOTES_FROM_MAIN = `mcp__wezterm-worker__${NOTES_FROM_MAIN}`;
 /** The name of the file that holds the notes that the worker received. */
 const DELIVERED_FILE = ".wezterm-worker-note-delivered.json";
 
-/** The label that a note of the main session carries. */
-export const NOTE_LABEL = "Note from the main session:";
-
 /**
  * The text that a turn carries when it delivers a note.
  *
  * The host names the mod as the sender of a submitted prompt, so the text of
- * the turn holds the note and the label.
+ * the turn holds the note and the label. The label comes from the bridge, so
+ * the mod holds no copy of the shape of a note.
  */
-export function carriesNote(text) {
-	return typeof text === "string" && text.includes(NOTE_LABEL);
+export function carriesNote(text, label) {
+	if (typeof text !== "string" || typeof label !== "string" || !label) return false;
+	return text.includes(label);
 }
 
 /**
@@ -119,13 +118,14 @@ async function fetchMainNotes($, context, afterSeq) {
 	const response = await $.http.fetch(url, {
 		headers: { authorization: `Bearer ${context.token}` },
 	});
-	if (!response.ok) return { notes: [], highestSeq: afterSeq, text: "" };
+	if (!response.ok) return { notes: [], highestSeq: afterSeq, text: "", label: "" };
 	const body = JSON.parse(response.text);
 	const notes = Array.isArray(body?.notes) ? body.notes : [];
 	return {
 		notes,
 		highestSeq: typeof body?.highestSeq === "number" ? body.highestSeq : afterSeq,
 		text: typeof body?.text === "string" ? body.text : "",
+		label: typeof body?.label === "string" ? body.label : "",
 	};
 }
 
@@ -136,20 +136,21 @@ async function fetchMainNotes($, context, afterSeq) {
  * so a later poll never submits it again. A note that waits for a permission
  * request stays pending, because the mod refuses a command in that state.
  *
- * The function returns the number of notes that it submitted.
+ * The function returns the number of notes that it submitted and the label
+ * that the bridge names.
  */
 export async function deliverMainNotes($, context, delivered) {
-	if (context.closed) return 0;
-	if (!context.baseUrl || !context.token) return 0;
+	if (context.closed) return { count: 0, label: "" };
+	if (!context.baseUrl || !context.token) return { count: 0, label: "" };
 	/* A permission request holds the session. A note waits for it, the same
 	   rule that a steering instruction follows. */
-	if (context.blocked) return 0;
+	if (context.blocked) return { count: 0, label: "" };
 	let selection;
 	try {
 		selection = await fetchMainNotes($, context, 0);
 	} catch {
 		/* the next poll tries again */
-		return 0;
+		return { count: 0, label: "" };
 	}
 	let submitted = 0;
 	for (const note of selection.notes) {
@@ -160,13 +161,30 @@ export async function deliverMainNotes($, context, delivered) {
 			await $.prompt.submit({ text });
 		} catch {
 			/* the note stays pending, so the next poll tries again */
-			return submitted;
+			return { count: submitted, label: selection.label };
 		}
 		delivered.add(note.id);
 		submitted += 1;
 	}
 	if (submitted > 0) await saveDelivered($, context, delivered);
-	return submitted;
+	return { count: submitted, label: selection.label };
+}
+
+/**
+ * The label that a note of the main session carries.
+ *
+ * The bridge names the label. The mod reads it at the start of the session,
+ * so a turn that carries a note is known before the first poll.
+ */
+export async function readNoteLabel($, context) {
+	if (!context.baseUrl || !context.token) return "";
+	try {
+		const selection = await fetchMainNotes($, context, 0);
+		return selection.label;
+	} catch {
+		/* the first poll reads the label again */
+		return "";
+	}
 }
 
 /**
