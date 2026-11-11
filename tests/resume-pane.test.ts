@@ -21,9 +21,6 @@ import type * as ResumeGuard from "../extensions/lib/resume-guard.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { resumeWorker } from "../extensions/lib/spawn.ts";
 
-/** The reason that the Claude tests do not run. */
-const CLAUDE_ON_HERDR = "The Claude Code backend does not run on Herdr yet. Issue 171 has it.";
-
 /** The reason that a resume refuses a source run whose pane is still open. */
 const PRESENT_REFUSAL =
 	"The pane w1:p42 of the source run is still open. Close pane w1:p42, then resume again.";
@@ -48,6 +45,7 @@ function freshRuntime(exec: RunFn): { rt: WorkerRuntime; dir: string } {
 	const dir = mkdtempSync(join(tmpdir(), "wt-resume-pane-"));
 	const rt = createRuntime(exec);
 	rt.config.stateDir = dir;
+	rt.paneRuntime = "herdr";
 	return { rt, dir };
 }
 
@@ -253,7 +251,7 @@ test("a resume refuses a completed source run whose pane is still open", async (
 	}
 });
 
-test("a native resume refuses a source run whose pane is still open", { skip: CLAUDE_ON_HERDR }, async () => {
+test("a native resume refuses a source run whose pane is still open", async () => {
 	const { exec, calls } = fakeWezterm({
 		panes: { result: { panes: [{ pane_id: "w1:p42", tab_id: "w1:t1" }] } },
 	});

@@ -1,24 +1,33 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { REPORTING_CONTRACT } from "../extensions/lib/bootstrap-prompt.ts";
 import { claudeArgv, claudeResumeArgv } from "../extensions/lib/claude-session.ts";
 
-const base = { sessionId: "sid-1", pluginDir: "C:\\state\\sessions\\wz-x\\claude-plugin", model: null };
+const base = {
+	sessionId: "sid-1",
+	pluginDir: "C:\\state\\sessions\\wz-x\\claude-plugin",
+	contractFile: "C:\\state\\sessions\\wz-x\\.claude-contract.md",
+	model: null,
+};
 
-function appendedPrompt(args: string[]): string | undefined {
-	const at = args.indexOf("--append-system-prompt");
+function contractFile(args: string[]): string | undefined {
+	const at = args.indexOf("--append-system-prompt-file");
 	return at === -1 ? undefined : args[at + 1];
 }
 
-test("a new Claude worker gets the reporting contract as one argv element", () => {
+test("a new Claude worker gets the path of the contract file", () => {
 	const args = claudeArgv({ ...base, cwd: "D:\\work", task: "do it" });
-	assert.equal(appendedPrompt(args), REPORTING_CONTRACT);
+	assert.equal(contractFile(args), base.contractFile);
 });
 
-test("a resumed Claude worker gets the reporting contract again", () => {
+test("a resumed Claude worker gets the path of the contract file", () => {
 	const args = claudeResumeArgv(base);
-	assert.equal(appendedPrompt(args), REPORTING_CONTRACT);
+	assert.equal(contractFile(args), base.contractFile);
+});
+
+test("the contract never goes into the argv as text", () => {
+	const args = claudeArgv({ ...base, cwd: "D:\\work", task: "do it" });
+	assert.equal(args.includes("--append-system-prompt"), false);
 });
 
 test("the task stays the last argument of a new Claude worker", () => {
