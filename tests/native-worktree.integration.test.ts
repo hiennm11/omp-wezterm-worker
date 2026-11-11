@@ -5,8 +5,8 @@
  * give it its own checkout, so two workers never edit the same one.
  *
  * The test starts a real Claude Code worker. It needs Claude Code and
- * Herdr. The Claude Code backend does not run on Herdr yet, so both tests
- * report that they cannot run, instead of reporting a pass.
+ * Herdr. The test reports that it cannot run until the machine holds both,
+ * instead of reporting a pass.
  */
 
 import assert from "node:assert/strict";
@@ -18,7 +18,7 @@ import { test } from "node:test";
 
 import { createHost, removeDir, sessionContext } from "./harness.ts";
 
-/** The Claude Code backend does not run on Herdr yet. */
+/** The test needs a real Claude Code worker in a Herdr session. */
 const CAN_RUN = false;
 
 /** Build a small git repository for the worker to work in. */
@@ -34,7 +34,7 @@ function makeRepo(): string {
 }
 
 test("a native worker gets its own worktree", {
-	skip: !CAN_RUN ? "The Claude Code backend does not run on Herdr yet. Issue 171 has it." : false,
+	skip: !CAN_RUN ? "The test needs a real Claude Code worker in a Herdr session." : false,
 }, async () => {
 	const repo = makeRepo();
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-native-state-"));
@@ -67,7 +67,7 @@ test("a native worker gets its own worktree", {
 });
 
 test("a native worker finds its bridge through the handover file", {
-	skip: !CAN_RUN ? "The Claude Code backend does not run on Herdr yet. Issue 171 has it." : false,
+	skip: !CAN_RUN ? "The test needs a real Claude Code worker in a Herdr session." : false,
 }, async () => {
 	const repo = makeRepo();
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-native-handover-"));
