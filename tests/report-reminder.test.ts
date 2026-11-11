@@ -310,6 +310,34 @@ test("a report after the wake resolves the event of the cycle", async () => {
 	}
 });
 
+test("a worker with an unknown runtime gets no reminder", async () => {
+	const stateDir = mkdtempSync(join(tmpdir(), "wz-reminder-"));
+	const sessionDir = join(stateDir, "sessions", "wz-1");
+	const clock = fakeClock();
+	const { rt, tick, prompts, wakes } = fakeRuntime(stateDir);
+	try {
+		const file = writeTranscript(sessionDir, "a.jsonl", [USER, ANSWER]);
+		const job = runningJob(sessionDir);
+		job.sessionFile = file;
+		job.runtime = null;
+		rt.jobs.set(job.id, job);
+		monitorJob(rt, job, () => {});
+
+		tick();
+		await flush();
+		clock.advance(CYCLE_SETTLE_MS);
+		tick();
+		await flush();
+		assert.equal(prompts.length, 0, "no reminder reaches a worker with an unknown runtime");
+		assert.equal(wakes.length, 1, "the owner wakes as it does today");
+		assert.match(rt.errors.join("\n"), /runtime of worker wz-1 is unknown/);
+	} finally {
+		clock.restore();
+		rt.closeDb();
+		rmSync(stateDir, { recursive: true, force: true });
+	}
+});
+
 test("a restart sends no second reminder", async () => {
 	const stateDir = mkdtempSync(join(tmpdir(), "wz-reminder-"));
 	const sessionDir = join(stateDir, "sessions", "wz-1");
