@@ -57,6 +57,7 @@ These rules add to the global rules in `~/.agents/AGENTS.md`. The tests in
 - Tell the worker to write each red test first and to run it on `master`.
 - Check the report of a worker against the code. A claim without a file and a line is not evidence.
 - Run `npx biome check .` on the branch of a worker yourself. A worker report of a clean lint is not evidence, because three branches failed `biome format` after such a report. Format every new test file.
+- Run the unit list yourself as well. Three worker reports named 23 to 26 failing tests that do not occur when the orchestrator runs the same list on the same commit. A worker count of failures is not evidence either.
 - A worker commits on its own branch. It does not push and does not open a pull request.
 - Change `GLOSSARY.md`, the ADR and `README.md` in the same change as the code.
 - Run one `npm run check` at a time on the machine. A check starts real workers and real panes, and two checks load the machine twice. The orchestrator runs the full check. A worker runs the lint, the type check, `npm run ste100` and the test files of its own change.
