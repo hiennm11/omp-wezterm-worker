@@ -18,6 +18,19 @@
  * new owner.
  */
 
+import {
+	carriesNote,
+	deliverMainNotes,
+	MCP_NOTE_TO_MAIN,
+	MCP_NOTES_FROM_MAIN,
+	NOTE_TO_MAIN,
+	NOTES_FROM_MAIN,
+	readDelivered,
+	readNotes,
+	registerNoteTools,
+	writeNote,
+} from "./channel.js";
+
 /** The states that the report tool accepts. */
 const REPORT_STATES = ["working", "waiting", "needs_input", "completed"];
 
@@ -77,6 +90,10 @@ const state = {
 	snapshotDue: false,
 	/** True when the owner closed the bridge. The mod stops then. */
 	closed: false,
+	/** The ids of the notes that the worker received. */
+	deliveredNotes: new Set(),
+	/** The directory of the session. It holds the file of the delivered notes. */
+	sessionDir: null,
 };
 
 /**
@@ -328,6 +345,39 @@ async function pollCommands($) {
 	}
 }
 
+/**
+ * Deliver the pending notes of the main session.
+ *
+ * A note of the main session reaches the worker as its next prompt. The
+ * function runs after the command poll, so a steering instruction keeps its
+ * place before a note.
+ */
+async function pollNotes($) {
+	if (!state.baseUrl || !state.token) return;
+	const count = await deliverMainNotes($, noteContext(), state.deliveredNotes);
+	if (count > 0) {
+		await observe($, "note.delivered", { count, runId: state.runId });
+	}
+}
+
+/**
+ * The context that the note channel needs.
+ *
+ * The context names the owner of the run and the state of the session. The
+ * channel module reads no state of the mod, so it stays a transport.
+ */
+function noteContext() {
+	return {
+		baseUrl: state.baseUrl,
+		token: state.token,
+		runId: state.runId,
+		sessionId: state.sessionId,
+		sessionDir: state.sessionDir,
+		closed: state.closed,
+		blocked: state.pendingApprovals.size > 0,
+	};
+}
+
 /** Register the report tool of the worker. */
 async function registerReportTool($) {
 	await $.tool.register({
@@ -450,6 +500,9 @@ export function register(on) {
 		state.token = (await $.env.get("WEZTERM_WORKER_TOKEN")) ?? null;
 		state.handoverPath = (await $.env.get("WEZTERM_WORKER_HANDOVER")) ?? null;
 		state.sessionId = (await $.session.id()) ?? null;
+		/* The session directory holds the file of the delivered notes. The
+		   launch passes it, so the mod knows where the file lives. */
+		state.sessionDir = (await $.env.get("WEZTERM_WORKER_SESSION_DIR")) ?? null;
 		await observe($, "session.start", {
 			cwd: e.cwd,
 			isInteractive: e.isInteractive,
@@ -457,8 +510,13 @@ export function register(on) {
 			runId: state.runId,
 		});
 		await registerReportTool($);
+		await registerNoteTools($, (tool) => $.tool.register(tool));
+		/* The delivered notes live in a file, so a restart of the session
+		   never submits a note twice. */
+		state.deliveredNotes = await readDelivered($, noteContext());
 		$.clock.every(1000, async () => {
 			await pollCommands($);
+			await pollNotes($);
 		});
 		return next(e);
 	});
@@ -471,8 +529,19 @@ export function register(on) {
 	});
 
 	on("turn.start", async ($, e, next) => {
-		state.deliveredCycleId = e.turnId ?? null;
 		state.turnOpen = true;
+		/* A turn that carries a note is not an instruction cycle. The note
+		   changes no state of the task, so the cycle of the run stays the
+		   cycle that the task started. */
+		if (carriesNote(e.text)) {
+			await observe($, "note.turn", {
+				turnId: e.turnId,
+				text: e.text,
+				agentId: e.agentId ?? null,
+			});
+			return next(e);
+		}
+		state.deliveredCycleId = e.turnId ?? null;
 		/* The turn that starts carries the instruction that the mod
 		   submitted. The owner needs that identity, because an accepted
 		   instruction blocks the completion until its cycle starts. */
@@ -601,12 +670,23 @@ export function register(on) {
 		   reaches the transcript as a user row that names the mod. */
 		const text = readRowText(e);
 		if (text && text.includes("plugin sent a message")) {
-			await observe($, "instruction.delivered", {
-				uuid: e.uuid,
-				text,
-				instructionId: state.pendingInstructionId ?? null,
-			});
-			state.pendingInstructionId = null;
+			/* A row that carries a note is not an instruction. The note
+			   changes no state of the task, so it never clears a pending
+			   instruction. */
+			if (carriesNote(text)) {
+				await observe($, "note.delivered", {
+					uuid: e.uuid,
+					text,
+					runId: state.runId,
+				});
+			} else {
+				await observe($, "instruction.delivered", {
+					uuid: e.uuid,
+					text,
+					instructionId: state.pendingInstructionId ?? null,
+				});
+				state.pendingInstructionId = null;
+			}
 		}
 		return next(e);
 	});
@@ -645,4 +725,29 @@ export function register(on) {
 		await observe($, "report", report);
 		return { result: `The task state is now ${report.state}.` };
 	});
+
+	/* The native host calls a tool through its MCP name. The handler for the
+	   plain name does not match it, so each note tool needs a handler that
+	   accepts the MCP name too. */
+	for (const name of [NOTE_TO_MAIN, MCP_NOTE_TO_MAIN]) {
+		on("tool.call", { tool: name }, async ($, e) => {
+			const text = typeof e.text === "string" ? e.text : "";
+			try {
+				return await writeNote($, noteContext(), text);
+			} catch (error) {
+				return { result: `the note was not saved: ${String(error?.message ?? error)}`, isError: true };
+			}
+		});
+	}
+
+	for (const name of [NOTES_FROM_MAIN, MCP_NOTES_FROM_MAIN]) {
+		on("tool.call", { tool: name }, async ($, e) => {
+			const afterSeq = Number(e.afterSeq ?? 0);
+			try {
+				return await readNotes($, noteContext(), afterSeq, state.deliveredNotes);
+			} catch (error) {
+				return { result: `the notes were not read: ${String(error?.message ?? error)}`, isError: true };
+			}
+		});
+	}
 }

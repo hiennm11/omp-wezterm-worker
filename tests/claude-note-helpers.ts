@@ -50,6 +50,8 @@ export interface FakeMod {
 	tools(): RegisteredTool[];
 	/** The prompts that the mod submitted. */
 	submitted(): string[];
+	/** The bodies that the mod posted to the bridge. */
+	bodies(): Array<{ source: string; payload: Record<string, unknown> }>;
 	/** The files that the mod wrote. */
 	files(): Map<string, string>;
 	/** Run one poll of the mod. */
@@ -83,6 +85,7 @@ export async function startMod(bridge: FakeBridge, handoverPath: string): Promis
 	const tools: RegisteredTool[] = [];
 	const files = new Map<string, string>();
 	const submitted: string[] = [];
+	const bodies: Array<{ source: string; payload: Record<string, unknown> }> = [];
 	let pollFn: (() => Promise<void>) | null = null;
 
 	const on: ModOn = (event: string, matcher: ModMatcher | Handler | undefined, handler?: Handler) => {
@@ -117,6 +120,13 @@ export async function startMod(bridge: FakeBridge, handoverPath: string): Promis
 		},
 		http: {
 			fetch: async (url: string, options?: { method?: string; body?: string }) => {
+				if (options?.body) {
+					const posted = JSON.parse(options.body) as {
+						source?: string;
+						payload?: Record<string, unknown>;
+					};
+					bodies.push({ source: posted.source ?? "unknown", payload: posted.payload ?? {} });
+				}
 				const response = await fetch(url, {
 					method: options?.method ?? "GET",
 					headers: {
@@ -161,6 +171,7 @@ export async function startMod(bridge: FakeBridge, handoverPath: string): Promis
 		toolHandler: (tool) => handlers.get(`tool.call:${tool}`) ?? null,
 		tools: () => tools,
 		submitted: () => submitted,
+		bodies: () => bodies,
 		files: () => files,
 		poll,
 		askPermission: async (callId: string) => {

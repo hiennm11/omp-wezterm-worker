@@ -7,7 +7,7 @@
 
 import { dirname } from "node:path";
 
-import { channelBackendRefusal } from "../lib/channel-model.ts";
+import { workerChannelRefusal as backendRefusal } from "../lib/channel-model.ts";
 
 /**
  * The session directory of the calling worker.
@@ -27,9 +27,9 @@ export function workerSessionDir(): string | null {
 /**
  * The reason that the backend of the worker has no channel, or null.
  *
- * The worker tool uses it, because a Claude Code worker has no channel
- * today.
+ * The worker tool uses it. A Claude Code worker has a channel, because its
+ * mod reads the channel through the bridge.
  */
 export function workerChannelRefusal(backend: string | undefined): string | null {
-	return channelBackendRefusal(backend ?? "omp");
+	return backendRefusal(backend);
 }

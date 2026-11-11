@@ -8,7 +8,7 @@
  * The tool is worker-only. A worker reads and writes only its own channel.
  */
 
-import { type ChannelNote, noteTextRefusal } from "../lib/channel-model.ts";
+import { type ChannelNote, noteTextRefusal, noteWrittenText } from "../lib/channel-model.ts";
 import { appendChannelNote } from "../lib/channel-store.ts";
 import { checkComms } from "../lib/comms-check.ts";
 import type { ToolCtx } from "../lib/host.ts";
@@ -74,7 +74,7 @@ export function registerNoteToMainTool({ pi, rt }: ToolDeps): void {
 					true,
 				);
 			}
-			const headline = `The note is in the channel of the main session. It is note ${note.seq}.`;
+			const headline = noteWrittenText(note.seq);
 			const notice = commsNoticeLine(comms, rt.config.commsStandard);
 			if (notice) {
 				return reply(`${headline}\n${notice}`, {

@@ -115,9 +115,13 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 	   owner. It binds to the loopback interface with a random token. */
 	const state = createClaudeRunState(jobId);
 	rt.claudeStates.set(jobId, state);
-	const bridge = await startBridge(jobId, (observation) => {
-		observeNative(rt, state, jobId, observation);
-	});
+	const bridge = await startBridge(
+		jobId,
+		(observation) => {
+			observeNative(rt, state, jobId, observation);
+		},
+		job.sessionDir,
+	);
 	rt.bridges.set(jobId, bridge);
 	/* The worker finds its bridge through the handover file, so a new owner
 	   can take over a worker that keeps running. */
@@ -174,6 +178,7 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 			WEZTERM_WORKER_URL: bridge.baseUrl,
 			WEZTERM_WORKER_TOKEN: bridge.token,
 			WEZTERM_WORKER_HANDOVER: handoverFile(job.sessionDir),
+			WEZTERM_WORKER_SESSION_DIR: job.sessionDir,
 		},
 	);
 	if (failure) {

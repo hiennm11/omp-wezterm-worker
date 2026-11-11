@@ -165,38 +165,36 @@ test("an over-long note and an empty note are refused", async () => {
 	}
 });
 
-test("a Claude worker has no channel", async () => {
+test("a run of the removed backend has no channel", async () => {
 	const { rt, dir } = fakeRuntime();
 	try {
-		for (const backend of ["claude"] as const) {
-			const job = makeJob(dir, `wz-${backend}`, { backend });
-			rt.jobs.set(job.id, job);
-			seedOwner(rt, job.id, OWN);
-			const sessionDir = workerSession(dir, job.id, backend);
+		const job = makeJob(dir, "wz-codex", { backend: "codex" });
+		rt.jobs.set(job.id, job);
+		seedOwner(rt, job.id, OWN);
+		const sessionDir = workerSession(dir, job.id, "codex");
 
-			const written = await mainToolOf(rt, registerNoteToWorkerTool, "wezterm_worker_note_to_worker").execute(
-				"t1",
-				{ workerId: job.id, text: "a note for a native worker" },
-			);
-			assert.equal(written.isError, true);
-			assert.match(written.content[0]?.text ?? "", /does not support the worker channel yet/);
+		const written = await mainToolOf(rt, registerNoteToWorkerTool, "wezterm_worker_note_to_worker").execute(
+			"t1",
+			{ workerId: job.id, text: "a note for an old run" },
+		);
+		assert.equal(written.isError, true);
+		assert.match(written.content[0]?.text ?? "", /Codex backend was removed/);
 
-			const read = await mainToolOf(
-				rt,
-				registerNotesFromWorkerTool,
-				"wezterm_worker_notes_from_worker",
-			).execute("t2", { workerId: job.id });
-			assert.equal(read.isError, true);
-			assert.match(read.content[0]?.text ?? "", /does not support the worker channel yet/);
+		const read = await mainToolOf(
+			rt,
+			registerNotesFromWorkerTool,
+			"wezterm_worker_notes_from_worker",
+		).execute("t2", { workerId: job.id });
+		assert.equal(read.isError, true);
+		assert.match(read.content[0]?.text ?? "", /Codex backend was removed/);
 
-			const workerNote = await asWorker(sessionDir, () =>
-				workerToolOf(rt, registerNoteToMainTool, "wezterm_worker_note_to_main").execute("t3", {
-					text: "a note of a native worker",
-				}),
-			);
-			assert.equal(workerNote.isError, true);
-			assert.match(workerNote.content[0]?.text ?? "", /does not support the worker channel yet/);
-		}
+		const workerNote = await asWorker(sessionDir, () =>
+			workerToolOf(rt, registerNoteToMainTool, "wezterm_worker_note_to_main").execute("t3", {
+				text: "a note of an old run",
+			}),
+		);
+		assert.equal(workerNote.isError, true);
+		assert.match(workerNote.content[0]?.text ?? "", /Codex backend was removed/);
 	} finally {
 		finish(rt, dir);
 	}
@@ -220,7 +218,7 @@ test("a Claude worker has a channel", async () => {
 		const read = await asWorker(sessionDir, () =>
 			workerToolOf(rt, registerNotesFromMainTool, "wezterm_worker_notes_from_main").execute("t2", {}),
 		);
-		assert.match(read.content[0]?.text ?? "", /a note for a Claude worker\./);
+		assert.match(read.content[0]?.text ?? "", /a note for a Claude worker/);
 	} finally {
 		finish(rt, dir);
 	}
