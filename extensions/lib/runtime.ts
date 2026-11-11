@@ -17,7 +17,7 @@ import { LAYOUT_APPLY_VERB, runLayoutApply } from "./herdr-layout.ts";
 import type { ToolCtx } from "./host.ts";
 import type { Job } from "./job.ts";
 import { DEFAULT_DELIVERY_BOUND, type DeliveryBound } from "./launch-delivery.ts";
-import { type PaneRuntime, selectPaneRuntime } from "./pane-runtime.ts";
+import { type PaneRuntime, selectPaneRuntime, workspaceOf } from "./pane-runtime.ts";
 import { type RunFn, type RunResult, run } from "./process.ts";
 import { loadRuns, persistRuns } from "./runs.ts";
 
@@ -129,6 +129,12 @@ export interface WorkerRuntime {
 	 * current file and env values.
 	 */
 	paneRuntime: PaneRuntime | null;
+	/**
+	 * The pane and the workspace of the main session. A new tab belongs to
+	 * that workspace, and a split goes next to that pane.
+	 */
+	sourcePaneId: string | null;
+	sourceWorkspaceId: string | null;
 	git: (cwd: string, args: string[]) => Promise<RunResult>;
 	/** Start a poll. A throw inside the callback is recorded and the poll keeps running. */
 	startInterval: (fn: () => void, ms: number) => NodeJS.Timeout;
@@ -232,6 +238,8 @@ export interface WorkerRuntime {
  */
 export function bindPaneRuntime(rt: WorkerRuntime): void {
 	rt.paneRuntime = selectPaneRuntime(process.env, rt.config.runtime);
+	rt.sourcePaneId = process.env.HERDR_PANE_ID ?? null;
+	rt.sourceWorkspaceId = process.env.HERDR_WORKSPACE_ID ?? workspaceOf(rt.sourcePaneId);
 }
 
 export function createRuntime(exec: RunFn = run): WorkerRuntime {
@@ -307,6 +315,8 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 		},
 		exec,
 		paneRuntime: selectPaneRuntime(process.env, DEFAULT_CONFIG.runtime),
+		sourcePaneId: process.env.HERDR_PANE_ID ?? null,
+		sourceWorkspaceId: process.env.HERDR_WORKSPACE_ID ?? workspaceOf(process.env.HERDR_PANE_ID ?? null),
 		herdr: async (args, env) => {
 			if (args[0] === LAYOUT_APPLY_VERB) return runLayoutApply(args[1] ?? "{}");
 			return exec(rt.config.herdrBin, args, undefined, env);

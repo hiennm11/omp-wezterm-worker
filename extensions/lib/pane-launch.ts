@@ -146,10 +146,21 @@ async function openPane(
 	job: Job,
 	env?: NodeJS.ProcessEnv,
 ): Promise<{ paneId: string; tabId: string } | { failure: string }> {
+	// A tab belongs to the workspace of the main session, not to the workspace
+	// that the client happens to focus, so the call names the workspace. A
+	// split goes next to the pane of the main session, so the call names that
+	// pane. Herdr names both values in the environment of its pane.
 	const args =
 		job.placement === "tab"
 			? ["tab", "create", "--cwd", job.cwd, "--label", backendLabel(readBackend(job)), "--no-focus"]
-			: ["pane", "split", "--current", "--direction", "right", "--cwd", job.cwd, "--no-focus"];
+			: ["pane", "split", "--direction", "right", "--cwd", job.cwd, "--no-focus"];
+	if (job.placement === "tab") {
+		if (rt.sourceWorkspaceId) args.push("--workspace", rt.sourceWorkspaceId);
+	} else if (rt.sourcePaneId) {
+		args.push("--pane", rt.sourcePaneId);
+	} else {
+		args.push("--current");
+	}
 	if (env) {
 		for (const [key, value] of Object.entries(env)) {
 			if (value === undefined) continue;
