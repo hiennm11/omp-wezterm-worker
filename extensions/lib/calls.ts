@@ -6,11 +6,22 @@
  * settles. The parser pairs them by value.
  *
  * A call that starts a background job names the job in the details of its
- * result. The transcript names the end of the job in an `async-result` entry
- * or in the result of the tool `wait`. Both names settle the call.
+ * result. The transcript names the end of the job in an `async-result` entry,
+ * in the result of the tool `wait`, in the result of a read of `proc://bg_N`
+ * or in the result of a kill of that job. Every name settles the call.
  */
 
 import { readFileSync } from "node:fs";
+
+import {
+	type BackgroundResult,
+	backgroundResultsOf,
+	callResultsOf,
+	procResultsOf,
+	waitResultsOf,
+} from "./background-jobs.ts";
+
+export { type BackgroundResult, SETTLED_JOB_STATUSES } from "./background-jobs.ts";
 
 /** One tool call in a transcript. */
 export interface ObservedCall {
@@ -24,22 +35,9 @@ export interface ObservedCall {
 	settled: boolean;
 	/** The job id of a background call, when the result names one. */
 	jobId: string | null;
+	/** The command that the call ran, when the call names one. */
+	command: string | null;
 }
-
-/** One background job that the transcript reports as finished. */
-export interface BackgroundResult {
-	/** The id of the job. */
-	jobId: string;
-	/** The status of the job, for example `completed` or `failed`. */
-	status: string;
-}
-
-/** The statuses of a background job that mean the job ended. */
-export const SETTLED_JOB_STATUSES: Record<string, true> = {
-	completed: true,
-	failed: true,
-	cancelled: true,
-};
 
 /** The calls of one transcript, in the order they appear. */
 export interface CallLedger {
@@ -86,6 +84,7 @@ interface Block {
 	type?: string;
 	id?: string;
 	name?: string;
+	arguments?: unknown;
 }
 
 /**
@@ -158,6 +157,7 @@ export function readCallLedger(file: string): CallLedger {
 					turn: ledger.turns,
 					settled: false,
 					jobId: null,
+					command: commandOf(block.arguments),
 				};
 				ledger.calls.push(call);
 				byCallId.set(block.id, call);
@@ -175,11 +175,17 @@ export function readCallLedger(file: string): CallLedger {
 			if (message.toolName === "wait") {
 				ledger.backgroundResults.push(...waitResultsOf(message.details));
 			}
+			// A read or a kill of a background job names the status of that
+			// job. A result of any other tool names no job.
+			ledger.backgroundResults.push(...procResultsOf(message.details));
 			if (!message.toolCallId) continue;
 			const call = byCallId.get(message.toolCallId);
 			if (!call) continue;
 			call.settled = true;
 			call.jobId = backgroundJobId(message.details);
+			// The result of the call that started a job names the end of that
+			// job when the call already returned.
+			ledger.backgroundResults.push(...callResultsOf(message.details));
 		}
 	}
 	return ledger;
@@ -199,46 +205,16 @@ function backgroundJobId(details: unknown): string | null {
 	return typeof jobId === "string" ? jobId : null;
 }
 
-/** The finished background jobs that one entry names. */
-function backgroundResultsOf(details: unknown): BackgroundResult[] {
-	if (!details || typeof details !== "object") return [];
-	const jobs = (details as Record<string, unknown>).jobs;
-	if (!Array.isArray(jobs)) return [];
-	const found: BackgroundResult[] = [];
-	for (const job of jobs) {
-		if (!job || typeof job !== "object") continue;
-		const record = job as Record<string, unknown>;
-		const jobId = record.jobId;
-		const status = record.status;
-		if (typeof jobId !== "string" || typeof status !== "string") continue;
-		found.push({ jobId, status });
-	}
-	return found;
-}
-
 /**
- * The background jobs that the result of the tool wait names.
+ * The command that a call names in its arguments.
  *
- * The result of the tool wait holds the jobs under the key `id`. A result
- * that an incoming message interrupted names no job that ended. The function
- * skips such a result and every job without a string id or a string status.
+ * The arguments of a call hold the command under the key `command`. A call
+ * of another tool names no command, so it returns null.
  */
-function waitResultsOf(details: unknown): BackgroundResult[] {
-	if (!details || typeof details !== "object") return [];
-	const record = details as Record<string, unknown>;
-	if (record.interrupted === true) return [];
-	const jobs = record.jobs;
-	if (!Array.isArray(jobs)) return [];
-	const found: BackgroundResult[] = [];
-	for (const job of jobs) {
-		if (!job || typeof job !== "object") continue;
-		const entry = job as Record<string, unknown>;
-		const jobId = entry.id;
-		const status = entry.status;
-		if (typeof jobId !== "string" || typeof status !== "string") continue;
-		found.push({ jobId, status });
-	}
-	return found;
+function commandOf(args: unknown): string | null {
+	if (!args || typeof args !== "object") return null;
+	const command = (args as Record<string, unknown>).command;
+	return typeof command === "string" ? command : null;
 }
 
 /**

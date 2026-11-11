@@ -26,6 +26,12 @@ A declaration without a later settlement keeps the row open until the run deadli
 
 This tool exists for the Codex backend only. The Claude backend has a native signal for a background command.
 
+## The later evidence
+
+ADR 0029 settles the rows of the jobs that OMP moves to the background. The transcript holds the end of such a job in several shapes, and the ledger reads every shape. The extension does not need a declared command for a job of OMP, because the transcript names the job and its status.
+
+The rule of this ADR stays for a worker that declares a command that no transcript shape names. The declaration opens the row, and the settlement of the worker closes it.
+
 ## Rejected alternatives
 
 The field `processId` does not identify the child process. It cannot prove that the background command ended.

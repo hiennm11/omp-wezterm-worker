@@ -278,7 +278,7 @@ unknown state.
 _Avoid_: Tool call, task, background job
 
 **Job result**:
-The end of a background job as the transcript shows it. It is an entry of the type async-result or the result of the tool wait. One job ends through one of them. Only an OMP worker has a job result today.
+The end of a background job as the transcript shows it. It is an entry of the type async-result, the result of the tool wait, the result of a read of `proc://bg_N` or the result of a kill of that job. One job ends through one of them. Only an OMP worker has a job result today.
 _Avoid_: Completion, callback
 
 

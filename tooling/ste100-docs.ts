@@ -50,6 +50,7 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0026-the-codex-backend-is-removed.md",
 	"docs/adr/0027-two-pane-runtimes.md",
 	"docs/adr/0028-the-extension-reminds-a-worker-that-ends-a-cycle-without-a-report.md",
+	"docs/adr/0029-the-transcript-settles-a-background-job.md",
 	"docs/plans/recoverable-omp-supervision.md",
 	"docs/plans/worker-eval-v0.1.md",
 ];
