@@ -88,13 +88,24 @@ export function decideFromReports(ledger: CallLedger, reports: WorkerReport[]): 
  *
  * Known outstanding execution blocks completion. An unknown execution
  * blocks it too, because the supervisor cannot prove that the work finished.
+ * The named rows tell the owner which job to act on.
  */
-export function completionBlocker(outstanding: number, unknown: number): string | null {
+export function completionBlocker(outstanding: number, unknown: number, named: string[] = []): string | null {
 	if (unknown > 0) {
-		return `${unknown} execution(s) have no settlement evidence. The owner must resolve them.`;
+		return `${unknown} execution(s) have no settlement evidence. The owner must resolve them.${namedText(named)}`;
 	}
 	if (outstanding > 0) {
-		return `${outstanding} execution(s) are still outstanding.`;
+		return `${outstanding} execution(s) are still outstanding.${namedText(named)}`;
 	}
 	return null;
+}
+
+/**
+ * The text that names the rows that the owner must act on.
+ *
+ * The text is empty when no row names a job.
+ */
+function namedText(named: string[]): string {
+	if (named.length === 0) return "";
+	return ` The owner must act on: ${named.join(" ")}`;
 }

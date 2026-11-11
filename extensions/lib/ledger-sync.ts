@@ -21,6 +21,7 @@ import {
 	settleByJobId,
 } from "./executions.ts";
 import { completionBlocker } from "./report-decision.ts";
+import { commandOfStartEvidence, startEvidenceOf } from "./start-evidence.ts";
 import { listSessionFiles } from "./transcript.ts";
 
 /** The name of the report tool. The report file is its own evidence. */
@@ -66,7 +67,7 @@ export function syncExecutions(
 				call.name,
 				call.callId,
 				null,
-				`turn ${call.turn}`,
+				startEvidenceOf(call.turn, call.command),
 				"transcript",
 				now,
 			);
@@ -94,12 +95,29 @@ export function syncExecutions(
  * The reason that the completion report of a run cannot be accepted.
  *
  * The rows of the run decide the answer. The function returns null when
- * nothing is outstanding.
+ * nothing is outstanding. A row of a background job names the job and its
+ * command, so the owner sees what to act on.
  */
 export function completionBlockerOf(db: LifecycleDb, runId: string): string | null {
 	const rows = outstandingExecutions(db, runId);
 	const unknown = rows.filter((row) => row.state === "unknown").length;
-	return completionBlocker(rows.length - unknown, unknown);
+	return completionBlocker(rows.length - unknown, unknown, namedRows(rows));
+}
+
+/**
+ * The names of the rows that hold a background job.
+ *
+ * A name holds the job id and the command of the call that started the job.
+ * A row of another kind names no job, so it holds no name.
+ */
+function namedRows(rows: ExecutionRecord[]): string[] {
+	const named: string[] = [];
+	for (const row of rows) {
+		if (row.jobId === null) continue;
+		const command = commandOfStartEvidence(row.startEvidence);
+		named.push(command === null ? row.jobId : `${row.jobId} (${command})`);
+	}
+	return named;
 }
 
 /**

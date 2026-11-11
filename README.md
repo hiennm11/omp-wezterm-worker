@@ -544,6 +544,16 @@ The supervisor refuses a completion report while a tool call or a background
 execution has no evidence of a settlement. The supervisor cannot see every
 detached process, so it does not claim that it can.
 
+**A background job settles from the transcript.** A command that runs longer
+than 60 seconds moves to the background. The result of the call names the
+job. The transcript holds the end of the job in one of several shapes: the
+follow-up entry of the host, the result of the tool `wait`, the result of a
+read of `proc://bg_N` and the result of a kill of that job. A job settles its
+row when one of these shapes holds the status `completed`, `failed` or
+`cancelled`. A job without such a status keeps its row open, and the blocker
+names the job id and the command. See
+`docs/adr/0029-the-transcript-settles-a-background-job.md`.
+
 **The result wakes the main agent.** The extension sends the finished result
 with `pi.sendUserMessage(text, { triggerTurn: true })`. The text lands in the
 session as a user message and starts a new turn. The agent works on a finished
@@ -935,6 +945,8 @@ omp-wezterm-worker/
 │   │   ├── runs.ts              the worker runs in the database
 │   │   ├── transcript.ts        reading a worker's transcript
 │   │   ├── calls.ts             the tool calls of a transcript, paired by id
+│   │   ├── background-jobs.ts   the background jobs that a transcript names
+│   │   ├── start-evidence.ts    the turn and the command that opened a row
 │   │   ├── cycle.ts             the instruction cycle of a worker
 │   │   ├── report-model.ts      the report that a worker sends
 │   │   ├── report-store.ts      the reports of a session directory
@@ -1134,6 +1146,7 @@ omp-wezterm-worker/
 │   ├── startup-block.test.ts    the startup block of a native worker
 │   ├── startup-block-monitor.test.ts the startup block in the monitor and in the status
 │   ├── wait-result.test.ts      the settlement of a background job that a wait result names
+│   ├── background-job-settlement.test.ts the settlement of a background job in every shape
 │   ├── report-poll.test.ts      the report poll and the outstanding executions
 │   ├── report-reminder.test.ts  the reminder for a cycle without a report
 │   ├── report-reminder-helpers.ts the helpers of the tests of the reminder
@@ -1291,6 +1304,7 @@ breaks a test.
 | `claude-mod-snapshot.test.ts` | The first poll with the launch address sends no snapshot. A change of the token of the owner sends one snapshot. A change of the address of the owner sends one snapshot with the state of the run. A failed snapshot is sent again, and an accepted snapshot is not sent again. The snapshot holds the turn of the run. |
 | `wait-result.test.ts` | A wait result with a completed job settles the row of that job, and the completion blocker is null. A wait result with a failed job settles the row. A wait result with a cancelled job settles the row. A wait result with a running job keeps the row open. A wait result and an async result for the same job settle the row once, and the second signal does not overwrite the settlement evidence. A wait result without jobs changes nothing. An interrupted wait result changes nothing. An async result with a running job keeps the row open. A wait result for a job without a row creates no row. |
 | `report-poll.test.ts` | The report poll keeps a worker that has an open call. The report poll ends a worker when the result of its call arrives. |
+| `background-job-settlement.test.ts` | The result of a read of a background job settles the row of that job. The result of a kill of that job settles the row. The tool result of a background call names its job and its command. A terminal status in that result settles the row. The entries of the measured run settle the row. A background job without a terminal status keeps its row open. The blocker names the job id and the command. |
 | `report-reminder.test.ts` | A terminal cycle without a report gives one reminder after the settle time, and none before it. Many ticks give exactly one reminder for the cycle. A report before the end of the grace gives no wake. A report after the wake resolves the event. A thinking cycle and a cycle with an open call give no reminder. The reminder text names `wezterm_worker_report`. A worker with an unknown runtime gets no reminder. A restart sends no second reminder. |
 | `status-blocker.test.ts` | The status prints the completion blocker of a worker that cannot end. The status hides the old workers and names the count. The status shows one old worker when the call names it. |
 | `status-list.test.ts` | 12 finished workers show 10 and hide 2. An active worker always shows. A finished worker with a pending event always shows. No hidden worker gives hidden 0. The order is newest first inside each group. No worker appears twice. |
