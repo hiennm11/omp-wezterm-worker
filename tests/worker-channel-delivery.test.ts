@@ -96,6 +96,30 @@ test("the status shows the count of the notes of each side", async () => {
 	}
 });
 
+test("the delivery of a Claude worker carries its notes", async () => {
+	const { rt, dir } = fakeRuntime();
+	try {
+		const job = makeJob(dir, "wz-claude", { backend: "claude" });
+		rt.jobs.set(job.id, job);
+		seedOwner(rt, job.id, OWN);
+		const sessionDir = workerSession(dir, job.id, "claude");
+		const write = workerToolOf(rt, registerNoteToMainTool, "wezterm_worker_note_to_main");
+		await asWorker(sessionDir, () => write.execute("t1", { text: "a note of a Claude worker" }));
+
+		const text = formatDelivery(
+			{ ...job, status: "completed", result: "the answer" } as never,
+			{ worker: usageReport(null, "x"), request: usageReport(null, "x") },
+			0,
+			false,
+			undefined,
+			readChannelNotes(sessionDir, "worker"),
+		);
+		assert.match(text, /a note of a Claude worker/);
+	} finally {
+		finish(rt, dir);
+	}
+});
+
 test("the selection of the notes is a pure function", () => {
 	const notes = [
 		{ seq: 1, runId: "wz-1", text: "one", at: 1 },
