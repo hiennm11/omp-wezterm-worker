@@ -254,6 +254,8 @@ output.
 
 ## Checking a worker is alive
 
+**An isolated worktree starts without `node_modules`.** Run `npm ci` there before a check. Without that step `npx biome` downloads biome 0.3.3, which is not the pinned `@biomejs/biome`, so its report means nothing. Check with `./node_modules/.bin/biome --version`.
+
 For a worker running in a pane, the live signals are:
 
 - the pane still listed by `herdr pane list`
