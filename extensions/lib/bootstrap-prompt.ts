@@ -20,6 +20,16 @@ export function bootstrapPromptFile(sessionDir: string): string {
 }
 
 /**
+ * The file that holds the reporting contract of a Claude Code worker.
+ *
+ * The file lives beside the session of the worker. The launch gives the path
+ * to Claude Code, and Claude Code reads the contract from that file.
+ */
+export function claudeContractFile(sessionDir: string): string {
+	return join(sessionDir, ".claude-contract.md");
+}
+
+/**
  * The reporting contract of a worker.
  *
  * The worker reports once per instruction cycle. A completed report needs
@@ -98,6 +108,18 @@ export const REPORTING_CONTRACT = [
  */
 export function writeBootstrapPrompt(sessionDir: string): string {
 	const file = bootstrapPromptFile(sessionDir);
+	writeFileSync(file, REPORTING_CONTRACT, "utf8");
+	return file;
+}
+
+/**
+ * Write the reporting contract of a Claude Code worker into its session.
+ *
+ * The file holds the same bytes for every run. It carries no run id and no
+ * timestamp, so two runs of the contract produce the same file.
+ */
+export function writeClaudeContract(sessionDir: string): string {
+	const file = claudeContractFile(sessionDir);
 	writeFileSync(file, REPORTING_CONTRACT, "utf8");
 	return file;
 }
