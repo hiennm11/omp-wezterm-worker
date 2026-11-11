@@ -15,6 +15,14 @@ import type { UsageTotals } from "./usage.ts";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
+/** The reminder that a cycle without a report received. */
+export interface MissingReportReminder {
+	/** The evidence id of the cycle that received the reminder. */
+	evidenceId: string;
+	/** The time when the reminder went into the pane of the worker. */
+	sentAt: number;
+}
+
 /** A stop that was requested but that the pane list has not confirmed yet. */
 export interface PendingStop {
 	/** The status the worker gets once the stop is confirmed. */
@@ -89,13 +97,21 @@ export interface Job {
 	 */
 	usageBaseline: UsageTotals | null;
 	/**
-	 * Number of steering messages this worker took.
+	 * The number of steering messages this worker took.
 	 *
 	 * An OMP worker counts only the instructions that its transcript
 	 * confirmed. A native worker counts the instructions that its bridge
 	 * queued.
 	 */
 	steers: number;
+	/**
+	 * The reminder that a cycle without a report received.
+	 *
+	 * The field keeps the evidence id of the cycle and the time of the
+	 * reminder. A second tick of the same cycle sends nothing. The field
+	 * lives in the row of the run, so a restart sends nothing either.
+	 */
+	missingReportReminder?: MissingReportReminder | null;
 	/** Size of the transcript at the last observation, used to detect activity. */
 	lastTranscriptSize: number;
 	/** Deadline for this worker, in ms. 0 means no deadline. */
@@ -183,6 +199,7 @@ export type RunState = Pick<
 	| "baselineTurns"
 	| "usageBaseline"
 	| "steers"
+	| "missingReportReminder"
 	| "lastTranscriptSize"
 	| "paneClosed"
 	| "nativeUsage"
@@ -208,6 +225,7 @@ export function freshRunState(now: number): RunState {
 		baselineTurns: 0,
 		usageBaseline: null,
 		steers: 0,
+		missingReportReminder: null,
 		lastTranscriptSize: 0,
 		paneClosed: false,
 		nativeUsage: null,

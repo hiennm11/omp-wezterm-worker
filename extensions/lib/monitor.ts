@@ -24,6 +24,7 @@ import { taskKey } from "./owner.ts";
 import { readOwnership } from "./ownership.ts";
 import { paneState } from "./pane.ts";
 import { decideFromReports } from "./report-decision.ts";
+import { settleMissingReport } from "./report-reminder.ts";
 import { readReports } from "./report-store.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { checkStartupBlock } from "./startup-block.ts";
@@ -207,7 +208,13 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 			now,
 			decision.condition,
 		);
-		settleCycleEvents(rt, job, cycle, condition, now);
+		if (condition === "missing_report") {
+			// The worker gets a reminder first. The owner wakes when the
+			// reminder fails.
+			settleMissingReport(rt, job, cycle, now);
+		} else {
+			settleCycleEvents(rt, job, cycle, condition, now);
+		}
 
 		// A completion report ends the worker. The outstanding execution rows
 		// of the run can block it.

@@ -48,6 +48,7 @@ export const REPORTING_CONTRACT = [
 	"Report your task state once per instruction cycle with that tool.",
 	"The tool is the only evidence that the main session accepts.",
 	"Your answer text proves nothing.",
+	"The report call is the last action of a cycle.",
 	"",
 	"Use these states:",
 	"",

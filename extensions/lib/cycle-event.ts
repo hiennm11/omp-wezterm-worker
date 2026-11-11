@@ -26,13 +26,19 @@ export function eventEvidenceId(cycle: CycleState, condition: EventCondition): s
 	return cycle.evidenceId;
 }
 
-/** Raise the event of a cycle, and settle the events that the transcript made obsolete. */
+/**
+ * Raise the event of a cycle, and settle the events that the transcript made obsolete.
+ *
+ * The flag `keepMissingReport` keeps the event of the cycle. A cycle that
+ * waits for a reminder must not lose its event, because no report arrived.
+ */
 export function settleCycleEvents(
 	rt: WorkerRuntime,
 	job: Job,
 	cycle: CycleState,
 	condition: EventCondition | null,
 	now: number,
+	keepMissingReport = false,
 ): void {
 	if (condition) {
 		const evidenceId = eventEvidenceId(cycle, condition);
@@ -61,7 +67,7 @@ export function settleCycleEvents(
 			now,
 		);
 	}
-	if (condition !== "missing_report" && condition !== "idle_after_working") {
+	if (!keepMissingReport && condition !== "missing_report" && condition !== "idle_after_working") {
 		resolveObsoleteEvent(
 			db,
 			job.id,

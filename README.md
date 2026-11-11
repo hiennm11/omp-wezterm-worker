@@ -524,6 +524,20 @@ the model thinks after the result of a call. A report inside the cycle
 satisfies the rule. A working report followed by a verified idle worker is a
 separate condition.
 
+**The extension reminds the worker first.** A cycle that ends without a
+report gets one reminder in the pane of that worker. The text says that the
+turn ended without a report, and it names the tool `wezterm_worker_report`.
+The reminder goes only to the pane of that worker. One cycle gets one
+reminder, and a restart sends nothing, because the reminder belongs to the
+cycle in the record of the run.
+
+The worker then has 120 000 milliseconds to report. When no report arrives in
+that period, the extension raises the event `missing_report` and wakes the
+main session as it did before. A report inside the cycle resolves the event.
+The conditions `thinking_stall` and `idle_after_working` keep their
+behaviour. See
+`docs/adr/0028-the-extension-reminds-a-worker-that-ends-a-cycle-without-a-report.md`.
+
 The supervisor refuses a completion report while a tool call or a background
 execution has no evidence of a settlement. The supervisor cannot see every
 detached process, so it does not claim that it can.
@@ -928,6 +942,7 @@ omp-wezterm-worker/
 │   │   ├── channel-delivery.ts  the worker notes of a delivery
 │   │   ├── report-binding.ts    the binding of a report to a run and a cycle
 │   │   ├── report-decision.ts   the decision that the reports produce
+│   │   ├── report-reminder.ts   the reminder for a cycle without a report
 │   │   ├── usage.ts             the measured token usage of a worker
 │   │   ├── runtime.ts           the shared state and the services (the test seam)
 │   │   ├── process.ts           running a child process
@@ -1118,6 +1133,7 @@ omp-wezterm-worker/
 │   ├── startup-block-monitor.test.ts the startup block in the monitor and in the status
 │   ├── wait-result.test.ts      the settlement of a background job that a wait result names
 │   ├── report-poll.test.ts      the report poll and the outstanding executions
+│   ├── report-reminder.test.ts  the reminder for a cycle without a report
 │   ├── status-blocker.test.ts   the completion blocker in the status tool
 │   ├── status-list.test.ts      the list of workers that the status tool shows
 │   ├── resume-comms.test.ts     the communication check of the resume tool
@@ -1272,6 +1288,7 @@ breaks a test.
 | `claude-mod-snapshot.test.ts` | The first poll with the launch address sends no snapshot. A change of the token of the owner sends one snapshot. A change of the address of the owner sends one snapshot with the state of the run. A failed snapshot is sent again, and an accepted snapshot is not sent again. The snapshot holds the turn of the run. |
 | `wait-result.test.ts` | A wait result with a completed job settles the row of that job, and the completion blocker is null. A wait result with a failed job settles the row. A wait result with a cancelled job settles the row. A wait result with a running job keeps the row open. A wait result and an async result for the same job settle the row once, and the second signal does not overwrite the settlement evidence. A wait result without jobs changes nothing. An interrupted wait result changes nothing. An async result with a running job keeps the row open. A wait result for a job without a row creates no row. |
 | `report-poll.test.ts` | The report poll keeps a worker that has an open call. The report poll ends a worker when the result of its call arrives. |
+| `report-reminder.test.ts` | A terminal cycle without a report gives one reminder after the settle time, and none before it. Many ticks give exactly one reminder for the cycle. A report before the end of the grace gives no wake. A report after the wake resolves the event. A thinking cycle and a cycle with an open call give no reminder. The reminder text names `wezterm_worker_report`. A restart sends no second reminder. |
 | `status-blocker.test.ts` | The status prints the completion blocker of a worker that cannot end. The status hides the old workers and names the count. The status shows one old worker when the call names it. |
 | `status-list.test.ts` | 12 finished workers show 10 and hide 2. An active worker always shows. A finished worker with a pending event always shows. No hidden worker gives hidden 0. The order is newest first inside each group. No worker appears twice. |
 | `resume-comms.test.ts` | A resume refuses a message that scores below the minimum. A resume with a clean message goes on. A resume without a message runs no checker command. |
