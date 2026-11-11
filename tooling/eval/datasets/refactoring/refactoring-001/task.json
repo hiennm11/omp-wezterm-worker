@@ -1,6 +1,8 @@
 {
 	"taskType": "refactoring",
 	"workerTimeoutMs": 300000,
+	"difficulty": "low",
+	"mechanism": "rename a module and its export",
 	"verify": {
 		"command": ["node", "--test", "test/name.test.mjs"],
 		"timeoutMs": 60000,

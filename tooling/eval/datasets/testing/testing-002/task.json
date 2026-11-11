@@ -1,0 +1,12 @@
+{
+	"taskType": "testing",
+	"workerTimeoutMs": 300000,
+	"difficulty": "medium",
+	"mechanism": "test that catches a wrong score threshold",
+	"verify": {
+		"command": ["node", "{dataset}/verify/mutation-check.mjs"],
+		"timeoutMs": 60000,
+		"expectBefore": "fail",
+		"protectedPaths": ["test/"]
+	}
+}

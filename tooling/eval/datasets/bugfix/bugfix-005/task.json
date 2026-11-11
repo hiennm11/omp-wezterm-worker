@@ -1,0 +1,12 @@
+{
+	"taskType": "bugfix",
+	"workerTimeoutMs": 300000,
+	"difficulty": "medium",
+	"mechanism": "config merge that drops a default value",
+	"verify": {
+		"command": ["node", "--test", "test/config.test.mjs"],
+		"timeoutMs": 60000,
+		"expectBefore": "fail",
+		"protectedPaths": ["test/"]
+	}
+}

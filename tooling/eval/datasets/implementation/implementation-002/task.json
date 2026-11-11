@@ -1,0 +1,12 @@
+{
+	"taskType": "implementation",
+	"workerTimeoutMs": 300000,
+	"difficulty": "low",
+	"mechanism": "clamp",
+	"verify": {
+		"command": ["node", "--test", "test/clamp.test.mjs"],
+		"timeoutMs": 60000,
+		"expectBefore": "fail",
+		"protectedPaths": ["test/"]
+	}
+}

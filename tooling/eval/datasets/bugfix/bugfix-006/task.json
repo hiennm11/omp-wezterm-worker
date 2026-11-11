@@ -1,0 +1,12 @@
+{
+	"taskType": "bugfix",
+	"workerTimeoutMs": 300000,
+	"difficulty": "low",
+	"mechanism": "percentage that rounds instead of truncating",
+	"verify": {
+		"command": ["node", "--test", "test/progress.test.mjs"],
+		"timeoutMs": 60000,
+		"expectBefore": "fail",
+		"protectedPaths": ["test/"]
+	}
+}

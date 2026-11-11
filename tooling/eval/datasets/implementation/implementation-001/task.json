@@ -1,6 +1,8 @@
 {
 	"taskType": "implementation",
 	"workerTimeoutMs": 300000,
+	"difficulty": "low",
+	"mechanism": "missing greet export",
 	"verify": {
 		"command": ["node", "--test", "test/greet.test.mjs"],
 		"timeoutMs": 60000,

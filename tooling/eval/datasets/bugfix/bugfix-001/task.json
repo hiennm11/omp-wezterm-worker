@@ -1,6 +1,8 @@
 {
 	"taskType": "bugfix",
 	"workerTimeoutMs": 300000,
+	"difficulty": "low",
+	"mechanism": "subtract function that adds the numbers",
 	"verify": {
 		"command": ["node", "--test", "test/math.test.mjs"],
 		"timeoutMs": 60000,
