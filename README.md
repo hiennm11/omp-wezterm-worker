@@ -1048,7 +1048,14 @@ omp-wezterm-worker/
 │   ├── claude-smoke-steps-one.ts the spawn, the report and the usage
 │   ├── claude-smoke-steps-refusal.ts the refusals and the default model
 │   ├── claude-smoke-steps-two.ts the resume and the steering instruction
-│   └── claude-smoke-steps-three.ts the cancel and the history of Claude Code
+│   ├── claude-smoke-steps-three.ts the cancel and the history of Claude Code
+│   └── eval/                     the worker eval: the dataset, the plan and the records
+│       ├── cli.ts                the arguments, the dispatch and the exit codes
+│       ├── types.ts              the dataset, the plan and the record types
+│       ├── dataset.ts            the scan, the validation and the checksum of the dataset
+│       ├── planner.ts            the matrix, the run count and the pilot selection
+│       ├── verifier.ts           the command, the exit code and the deadline
+│       └── datasets/             the tasks of the benchmark
 ├── tests/
 │   ├── harness.ts               a test host for the extension
 │   ├── fixtures/                the real texts that the tests read
@@ -1142,7 +1149,9 @@ omp-wezterm-worker/
 │   ├── worker.integration.test.ts    a real worker in a real pane
 │   ├── nested.integration.test.ts    the launch limits with a real worker
 │   ├── worktree.integration.test.ts  the worktree of a real worker
-│   └── native-worktree.integration.test.ts  the worktree of a real native worker
+│   ├── native-worktree.integration.test.ts  the worktree of a real native worker
+│   ├── eval-dataset.test.ts      the checksum and the validation of the dataset
+│   └── eval-planner.test.ts      the matrix, the pilot and the refusals
 ├── docs/
 │   ├── adr/                     the decisions and their reasons
 │   ├── trials/                  the record of the Windows trials

@@ -10,6 +10,9 @@ wezterm-workers/
 # The Windows trial keeps its state and its fixture here
 .trial/
 
+# The worker eval keeps its plan, its state and its records here
+.eval/
+
 # Editor / OS
 .DS_Store
 Thumbs.db
