@@ -131,11 +131,7 @@ test("the hash of a prompt is stable", () => {
 
 test("the loader reads every task of the dataset", () => {
 	const root = buildDataset();
-	writeFile(
-		root,
-		"implementation/implementation-001/task.md",
-		"Add the export.\n",
-	);
+	writeFile(root, "implementation/implementation-001/task.md", "Add the export.\n");
 	writeFile(root, "implementation/implementation-001/fixture/src/greet.mjs", "export const b = 2;\n");
 	writeFile(
 		root,

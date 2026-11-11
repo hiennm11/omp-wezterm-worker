@@ -7,7 +7,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 import {
@@ -91,9 +91,7 @@ export function fixtureChecksum(fixtureDir: string): string {
 			bytes: readFileSync(path),
 		}))
 		.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-	const text = files
-		.map((file) => `${file.path}${PART_SEPARATOR}${sha256Hex(file.bytes)}\n`)
-		.join("");
+	const text = files.map((file) => `${file.path}${PART_SEPARATOR}${sha256Hex(file.bytes)}\n`).join("");
 	return `${HASH_PREFIX}${sha256Hex(Buffer.from(text, "utf8"))}`;
 }
 
@@ -139,11 +137,7 @@ function readManifest(root: string, issues: DatasetIssue[]): DatasetManifest | n
 }
 
 /** Read the check of a task. */
-function readVerify(
-	value: unknown,
-	taskPath: string,
-	issues: DatasetIssue[],
-): TaskVerify | null {
+function readVerify(value: unknown, taskPath: string, issues: DatasetIssue[]): TaskVerify | null {
 	if (!isRecord(value)) {
 		addIssue(issues, taskPath, "verify", "The field verify must hold an object.");
 		return null;
@@ -164,12 +158,22 @@ function readVerify(
 	}
 	const expectBefore = value.expectBefore;
 	if (!EXPECT_BEFORE_VALUES.includes(expectBefore as ExpectBefore)) {
-		addIssue(issues, taskPath, "verify.expectBefore", "The field verify.expectBefore must hold fail or pass.");
+		addIssue(
+			issues,
+			taskPath,
+			"verify.expectBefore",
+			"The field verify.expectBefore must hold fail or pass.",
+		);
 		valid = false;
 	}
 	const protectedPaths = value.protectedPaths ?? [];
 	if (!Array.isArray(protectedPaths) || !protectedPaths.every((path) => typeof path === "string")) {
-		addIssue(issues, taskPath, "verify.protectedPaths", "The field verify.protectedPaths must hold a list of strings.");
+		addIssue(
+			issues,
+			taskPath,
+			"verify.protectedPaths",
+			"The field verify.protectedPaths must hold a list of strings.",
+		);
 		valid = false;
 	}
 	if (!valid) return null;
@@ -211,11 +215,7 @@ function readTask(
 		valid = false;
 	}
 	const workerTimeoutMs = value.workerTimeoutMs ?? DEFAULT_WORKER_TIMEOUT_MS;
-	if (
-		typeof workerTimeoutMs !== "number" ||
-		!Number.isFinite(workerTimeoutMs) ||
-		workerTimeoutMs <= 0
-	) {
+	if (typeof workerTimeoutMs !== "number" || !Number.isFinite(workerTimeoutMs) || workerTimeoutMs <= 0) {
 		addIssue(issues, taskPath, "workerTimeoutMs", "The field workerTimeoutMs must hold a number.");
 		valid = false;
 	}
@@ -231,7 +231,12 @@ function readTask(
 		addIssue(issues, taskPath, FIXTURE_DIR, `The task must hold a ${FIXTURE_DIR} directory.`);
 		valid = false;
 	} else if (existsSync(join(fixtureDir, GIT_DIR))) {
-		addIssue(issues, taskPath, `${FIXTURE_DIR}/${GIT_DIR}`, `The ${FIXTURE_DIR} directory must not hold a ${GIT_DIR} directory.`);
+		addIssue(
+			issues,
+			taskPath,
+			`${FIXTURE_DIR}/${GIT_DIR}`,
+			`The ${FIXTURE_DIR} directory must not hold a ${GIT_DIR} directory.`,
+		);
 		valid = false;
 	}
 	if (!valid || verify === null) return null;
