@@ -1071,8 +1071,13 @@ omp-wezterm-worker/
 │   │   ├── .claude-plugin/
 │   │   │   └── plugin.json      the manifest of the mod
 │   │   └── hooks/
-│   │       ├── register.js      the report tool and the command bridge
-│   │       └── channel.js       the note channel of the worker
+│   │       ├── register.js      the wiring of the hooks of the worker
+│   │       ├── owner.js         the owner of the run and its bridge
+│   │       ├── commands.js      the poll of the steering instructions
+│   │       ├── events.js        the handlers of the events of a session
+│   │       ├── channel.js       the note channel of the worker
+│   │       ├── report.js        the report tool of the worker
+│   │       └── background.js    the background tasks of the worker
 │   └── worker-tools/            one module for each tool
 │       ├── kit.ts               the shared reply and the worker lookup
 │       ├── spawn.ts, status.ts, steer.ts, peek.ts
