@@ -14,6 +14,8 @@ import { parseArgs } from "node:util";
 
 import { copyFixture, loadDataset } from "./dataset.ts";
 import { buildPlan, dirtyRefusal } from "./planner.ts";
+import { runExperiments } from "./run-command.ts";
+import { resolveCommand } from "./runner.ts";
 import type { DatasetTask, PlanCell } from "./types.ts";
 import { runVerifier } from "./verifier.ts";
 
@@ -26,9 +28,6 @@ const INTERNAL_EXIT = 1;
 /** The default directory of the plan. */
 const DEFAULT_OUT = ".eval";
 
-/** The token in a command that names the directory of the task. */
-const DATASET_TOKEN = "{dataset}";
-
 /** The options of the command `plan`. */
 const PLAN_OPTIONS = {
 	dataset: { type: "string" },
@@ -38,6 +37,12 @@ const PLAN_OPTIONS = {
 	pilot: { type: "boolean", default: false },
 	"dry-run": { type: "boolean", default: false },
 	"allow-dirty": { type: "boolean", default: false },
+} as const;
+
+/** The options of the command `run`. */
+const RUN_OPTIONS = {
+	run: { type: "string" },
+	concurrency: { type: "string", default: "1" },
 } as const;
 
 /** The names of the files that the status of the work tree holds. */
@@ -64,11 +69,6 @@ function gitStatus(root: string): string[] {
 		throw new Error(`The command git status failed: ${result.error.message}`);
 	}
 	return changedFiles(result.stdout);
-}
-
-/** The command of a task, with the token of the dataset replaced. */
-export function resolveCommand(task: DatasetTask): string[] {
-	return task.verify.command.map((part) => part.split(DATASET_TOKEN).join(resolve(task.taskDir)));
 }
 
 /** The observed verdict of a verifier run. */
@@ -235,17 +235,43 @@ function planCommand(args: string[]): number {
 	return 0;
 }
 
+/** The command `run`. Returns the exit code. */
+async function runCommand(args: string[]): Promise<number> {
+	let values: { values: { run?: string; concurrency: string } };
+	try {
+		values = parseArgs({ args, options: RUN_OPTIONS });
+	} catch (error) {
+		console.error(`The command run does not accept the arguments: ${(error as Error).message}`);
+		return USAGE_EXIT;
+	}
+	const runOption = values.values.run;
+	if (runOption === undefined) {
+		console.error("The command run needs --run.");
+		return USAGE_EXIT;
+	}
+	const concurrency = Number.parseInt(values.values.concurrency, 10);
+	if (!Number.isInteger(concurrency) || concurrency < 1) {
+		console.error("The command run needs a concurrency of 1 or more.");
+		return USAGE_EXIT;
+	}
+	const runDir = resolve(runOption);
+	return await runExperiments(runDir, concurrency);
+}
+
 /** The entry of the command. Returns the exit code. */
-export function main(argv: string[]): number {
+export async function main(argv: string[]): Promise<number> {
 	const [command, ...args] = argv;
 	if (command === "plan") return planCommand(args);
-	console.error("The command needs a subcommand. The command plan builds the matrix.");
+	if (command === "run") return await runCommand(args);
+	console.error(
+		"The command needs a subcommand. The command plan builds the matrix. The command run runs the plan.",
+	);
 	return USAGE_EXIT;
 }
 
 if (process.argv[1] && import.meta.filename === process.argv[1]) {
 	try {
-		process.exit(main(process.argv.slice(2)));
+		process.exit(await main(process.argv.slice(2)));
 	} catch (error) {
 		console.error((error as Error).message);
 		process.exit(INTERNAL_EXIT);
