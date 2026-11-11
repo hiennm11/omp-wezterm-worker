@@ -5,6 +5,8 @@
  * They hold no logic, so a test can build a value of any type.
  */
 
+import type { UsageReport } from "../../extensions/lib/usage.ts";
+
 /** The kinds of task that the benchmark runs. */
 export const TASK_TYPES = ["bugfix", "implementation", "refactoring", "testing"] as const;
 
@@ -88,4 +90,67 @@ export interface VerifierResult {
 	timedOut: boolean;
 	durationMs: number;
 	outputTail: string;
+}
+
+/** How the execution of one experiment ended. */
+export type ExecutionOutcome = "completed" | "failed" | "cancelled" | "not_started" | "unknown";
+
+/** The record of one experiment. */
+export interface ExperimentRecord {
+	schemaVersion: 1;
+	experimentId: string;
+	runId: string;
+	taskId: string;
+	taskType: TaskType;
+	fixtureChecksum: string;
+	promptHash: string;
+	datasetVersion: string;
+	configuration: {
+		model: string;
+		effort: string;
+		packageVersion: string;
+		commit: string;
+		dirty: boolean;
+	};
+	timing: { startedAt: number | null; finishedAt: number | null };
+	execution: {
+		started: boolean;
+		outcome: ExecutionOutcome;
+		jobId: string | null;
+		status: string | null;
+		error: string | null;
+		stop: string | null;
+		turns: number | null;
+		wallMs: number | null;
+		transcript: string | null;
+	};
+	verification: {
+		verdict: "PASS" | "FAIL" | "BLOCKED";
+		reason: string;
+		command: string[];
+		exitCode: number | null;
+		started: boolean;
+		timedOut: boolean;
+		durationMs: number;
+		restoredPaths: string[];
+		outputTail: string;
+	};
+	usage: UsageReport | null;
+	resultText: string | null;
+}
+
+/** The manifest of one benchmark run. */
+export interface RunManifest {
+	schemaVersion: 1;
+	runId: string;
+	createdAt: number;
+	datasetVersion: string;
+	packageVersion: string;
+	commit: string;
+	dirty: boolean;
+	environment: Record<string, string>;
+	models: string[];
+	efforts: string[];
+	pilot: boolean;
+	taskCount: number;
 }
