@@ -202,6 +202,30 @@ test("a Claude worker has no channel", async () => {
 	}
 });
 
+test("a Claude worker has a channel", async () => {
+	const { rt, dir } = fakeRuntime();
+	try {
+		const job = makeJob(dir, "wz-claude", { backend: "claude" });
+		rt.jobs.set(job.id, job);
+		seedOwner(rt, job.id, OWN);
+		const sessionDir = workerSession(dir, job.id, "claude");
+
+		const written = await mainToolOf(rt, registerNoteToWorkerTool, "wezterm_worker_note_to_worker").execute(
+			"t1",
+			{ workerId: job.id, text: "a note for a Claude worker" },
+		);
+		assert.equal(written.isError, undefined);
+		assert.match(written.content[0]?.text ?? "", /channel of worker wz-claude/);
+
+		const read = await asWorker(sessionDir, () =>
+			workerToolOf(rt, registerNotesFromMainTool, "wezterm_worker_notes_from_main").execute("t2", {}),
+		);
+		assert.match(read.content[0]?.text ?? "", /a note for a Claude worker\./);
+	} finally {
+		finish(rt, dir);
+	}
+});
+
 test("the channel survives a resume", async () => {
 	const { rt, dir } = fakeRuntime();
 	try {
