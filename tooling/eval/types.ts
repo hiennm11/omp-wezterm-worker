@@ -151,6 +151,35 @@ export interface ExperimentRecord {
 	resultText: string | null;
 }
 
+/** One cell of the report, the group of the runs of one configuration. */
+export interface ReportCell {
+	taskType: TaskType;
+	model: string;
+	effort: string;
+	runs: number;
+	pass: number;
+	fail: number;
+	blocked: number;
+	valid: number;
+	successRate: number;
+	usageMeasured: number;
+	usagePartial: number;
+	usageUnknown: number;
+	medianWallMs: number | null;
+	medianTurns: number | null;
+	costKnownSum: number;
+	costComplete: boolean;
+}
+
+/** The report of one benchmark run, as the file `report.json` holds it. */
+export interface ReportFile {
+	schemaVersion: 1;
+	runId: string;
+	datasetVersion: string;
+	commit: string;
+	cells: ReportCell[];
+}
+
 /** The manifest of one benchmark run. */
 export interface RunManifest {
 	schemaVersion: 1;

@@ -1062,6 +1062,10 @@ omp-wezterm-worker/
 │       ├── runner.ts             one experiment through the test host
 │       ├── runner-host.ts        the seam that reads the results of the worker tools
 │       ├── run-command.ts        the command that runs the plan of a run
+│       ├── report.ts             the cells of the records of a run
+│       ├── recommend.ts          the eligibility and the ranking of the cells
+│       ├── format.ts             the table and the summary of a run
+│       ├── report-command.ts     the commands report and recommend
 │       └── datasets/             the tasks of the benchmark
 ├── tests/
 │   ├── harness.ts               a test host for the extension

@@ -14,6 +14,7 @@ import { parseArgs } from "node:util";
 
 import { copyFixture, loadDataset } from "./dataset.ts";
 import { buildPlan, dirtyRefusal } from "./planner.ts";
+import { recommendCommand, reportCommand } from "./report-command.ts";
 import { runExperiments } from "./run-command.ts";
 import { resolveCommand } from "./runner.ts";
 import type { DatasetTask, PlanCell } from "./types.ts";
@@ -263,8 +264,12 @@ export async function main(argv: string[]): Promise<number> {
 	const [command, ...args] = argv;
 	if (command === "plan") return planCommand(args);
 	if (command === "run") return await runCommand(args);
+	if (command === "report") return reportCommand(args);
+	if (command === "recommend") return recommendCommand(args);
 	console.error(
-		"The command needs a subcommand. The command plan builds the matrix. The command run runs the plan.",
+		"The command needs a subcommand. The command plan builds the matrix. " +
+			"The command run runs the plan. The command report aggregates the records. " +
+			"The command recommend names a configuration.",
 	);
 	return USAGE_EXIT;
 }
