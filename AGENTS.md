@@ -65,6 +65,7 @@ These rules add to the global rules in `~/.agents/AGENTS.md`. The tests in
 ## Commands and tools
 
 - Run every test with `unset OMP_WORKER_SESSION_DIR PI_SESSION_FILE` first. The `env -u` form fails in the Git Bash of this machine with `exec: node: not found`. These variables make 5 unit tests fail.
+- An isolated worktree holds no `node_modules`. Run `npm ci` there before a check. Without it, `npx biome` installs biome 0.3.3, so a lint report from that worktree means nothing.
 - Run GitNexus impact with `--repo omp-wezterm-worker`. Without it the command prints an error that a filter can hide.
 - The worker eval lives in `tooling/eval/`. Read `skills/worker-eval/SKILL.md` before a benchmark. It starts real workers in panes, one experiment at a time.
 - `finalizeJob` has CRITICAL impact and `stopJob` has HIGH impact. Keep a change in them small.
