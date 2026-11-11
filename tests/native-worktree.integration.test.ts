@@ -34,7 +34,7 @@ function makeRepo(): string {
 }
 
 test("a native worker gets its own worktree", {
-	skip: !CAN_RUN ? "The Claude Code backend does not run on Herdr yet. Issue 159 brings it back." : false,
+	skip: !CAN_RUN ? "The Claude Code backend does not run on Herdr yet. Issue 171 has it." : false,
 }, async () => {
 	const repo = makeRepo();
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-native-state-"));
@@ -67,7 +67,7 @@ test("a native worker gets its own worktree", {
 });
 
 test("a native worker finds its bridge through the handover file", {
-	skip: !CAN_RUN ? "The Claude Code backend does not run on Herdr yet. Issue 159 brings it back." : false,
+	skip: !CAN_RUN ? "The Claude Code backend does not run on Herdr yet. Issue 171 has it." : false,
 }, async () => {
 	const repo = makeRepo();
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-native-handover-"));

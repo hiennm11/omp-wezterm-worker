@@ -12,7 +12,7 @@ import { createRuntime } from "../extensions/lib/runtime.ts";
 import { spawnClaudeWorker } from "../extensions/lib/spawn-claude.ts";
 
 /** The reason that the Claude tests do not run. */
-const CLAUDE_ON_HERDR = "The Claude Code backend does not run on Herdr yet. Issue 159 brings it back.";
+const CLAUDE_ON_HERDR = "The Claude Code backend does not run on Herdr yet. Issue 171 has it.";
 
 const FAIL_TEXT = "json: Invalid JSON syntax: Unexpected EOF";
 

@@ -21,7 +21,7 @@ import { resumeWorker } from "../extensions/lib/spawn.ts";
 import { readRunContext } from "../extensions/lib/worker-context.ts";
 
 /** The reason that the Claude tests do not run. */
-const CLAUDE_ON_HERDR = "The Claude Code backend does not run on Herdr yet. Issue 159 brings it back.";
+const CLAUDE_ON_HERDR = "The Claude Code backend does not run on Herdr yet. Issue 171 has it.";
 
 /** A runtime with a database in a fresh directory. */
 function freshRuntime(exec: RunFn): { rt: WorkerRuntime; dir: string } {
