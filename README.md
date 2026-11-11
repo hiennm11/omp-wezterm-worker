@@ -1056,6 +1056,7 @@ omp-wezterm-worker/
 │       ├── planner.ts            the matrix, the run count and the pilot selection
 │       ├── verifier.ts           the command, the exit code and the deadline
 │       ├── acceptance.ts         the acceptance verdict and the protected path restore
+│       ├── artifact.ts           the JSON write, the JSON read and the resume
 │       └── datasets/             the tasks of the benchmark
 ├── tests/
 │   ├── harness.ts               a test host for the extension
