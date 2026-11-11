@@ -22,7 +22,7 @@ import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts"
 import { resumeWorker } from "../extensions/lib/spawn.ts";
 
 /** The reason that the Claude tests do not run. */
-const CLAUDE_ON_HERDR = "The Claude Code backend does not run on Herdr yet. Issue 159 brings it back.";
+const CLAUDE_ON_HERDR = "The Claude Code backend does not run on Herdr yet. Issue 171 has it.";
 
 /** The reason that a resume refuses a source run whose pane is still open. */
 const PRESENT_REFUSAL =
