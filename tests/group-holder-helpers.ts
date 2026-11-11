@@ -17,6 +17,7 @@ import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { registerCleanupTool } from "../extensions/worker-tools/cleanup.ts";
+import { deliveryTracker } from "./delivery-helpers.ts";
 
 /** A worker record with the fields that the tests need. */
 export function jobOf(id: string, overrides: Partial<Job> = {}): Job {
@@ -58,6 +59,9 @@ export function fakeWezterm(options: { panes?: unknown; listCode?: number } = {}
 	/* The extension refuses a spawn outside a Herdr session. A test that
 	   fakes Herdr stands for a session, so the variable is set here. */
 	process.env.HERDR_ENV = "1";
+	/* The tracker writes the transcript when the task arrives, so the launch
+	   finds the evidence that the worker took its task. */
+	const tracker = deliveryTracker();
 	const exec: RunFn = async (bin, args) => {
 		calls.push(args);
 		if (args[0] === "pane" && args[1] === "list") {
@@ -81,6 +85,11 @@ export function fakeWezterm(options: { panes?: unknown; listCode?: number } = {}
 			};
 		}
 		if (args[0] === "agent" && args[1] === "start") {
+			tracker.onStart(args);
+			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
+		}
+		if (args[0] === "agent" && args[1] === "prompt") {
+			tracker.onPrompt();
 			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
 		}
 		if (args[0] === "pane" && args[1] === "read") {

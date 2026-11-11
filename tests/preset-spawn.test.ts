@@ -7,6 +7,7 @@ import { test } from "node:test";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { registerSpawnTool } from "../extensions/worker-tools/spawn.ts";
+import { deliveryTracker } from "./delivery-helpers.ts";
 
 const CONTEXT = {
 	cwd: process.cwd(),
@@ -49,6 +50,7 @@ function spawnToolOf(rt: WorkerRuntime) {
 function runtime() {
 	const dir = mkdtempSync(join(tmpdir(), "wt-preset-"));
 	const calls: string[][] = [];
+	const tracker = deliveryTracker();
 	const exec: RunFn = async (bin, args) => {
 		calls.push([bin, ...args]);
 		if (args[0] === "pane" && args[1] === "list")
@@ -65,6 +67,14 @@ function runtime() {
 				stdout: JSON.stringify({ result: { root_pane: { pane_id: "w1:p99", tab_id: "w1:t2" } } }),
 				stderr: "",
 			};
+		if (args[0] === "agent" && args[1] === "start") {
+			tracker.onStart(args);
+			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
+		}
+		if (args[0] === "agent" && args[1] === "prompt") {
+			tracker.onPrompt();
+			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
+		}
 		if (bin === "powershell") return { code: 0, stdout: "0", stderr: "" };
 		return { code: 0, stdout: "", stderr: "" };
 	};

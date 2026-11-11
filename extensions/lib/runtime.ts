@@ -16,6 +16,7 @@ import { databaseFile, type LifecycleDb, openDatabase } from "./db.ts";
 import { LAYOUT_APPLY_VERB, runLayoutApply } from "./herdr-layout.ts";
 import type { ToolCtx } from "./host.ts";
 import type { Job } from "./job.ts";
+import { DEFAULT_DELIVERY_BOUND, type DeliveryBound } from "./launch-delivery.ts";
 import { type PaneRuntime, selectPaneRuntime } from "./pane-runtime.ts";
 import { type RunFn, type RunResult, run } from "./process.ts";
 import { loadRuns, persistRuns } from "./runs.ts";
@@ -134,6 +135,13 @@ export interface WorkerRuntime {
 	stopMonitor: (jobId: string) => void;
 	/** How long a stop waits for the pane list to show the pane gone. */
 	stopConfirm: { attempts: number; intervalMs: number };
+	/**
+	 * The bound of the wait for the proof that a worker took its task.
+	 *
+	 * The launch waits this long for the evidence. It sends one Enter key
+	 * when the evidence stays absent, and it waits this long again.
+	 */
+	deliveryBound: DeliveryBound;
 	/** Ids of the workers with a stop in flight. */
 	readonly stopping: Set<string>;
 	/** Ids of the workers launched since the last user prompt. */
@@ -234,6 +242,7 @@ export function createRuntime(exec: RunFn = run): WorkerRuntime {
 		monitors: new Map(),
 		errors: [],
 		stopConfirm: { attempts: 20, intervalMs: 250 },
+		deliveryBound: { ...DEFAULT_DELIVERY_BOUND },
 		stopping: new Set(),
 		requestLaunches: [],
 		db: null,

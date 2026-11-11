@@ -34,6 +34,10 @@ export async function launchWezterm(
 	env?: NodeJS.ProcessEnv,
 	task?: string,
 ): Promise<string | null> {
+	/* The task goes into the argv of the program, so the program takes it as
+	   one instruction. The launch needs no Enter key here, and it needs no
+	   proof of the delivery. Only the Herdr path sends the task into a
+	   composer, and only that path must prove the delivery. */
 	const argv = task ? [...args, task] : [...args];
 	const weztermArgs =
 		job.placement === "tab"
