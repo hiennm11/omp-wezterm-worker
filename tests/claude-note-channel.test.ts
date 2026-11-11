@@ -50,7 +50,7 @@ async function startFixture(): Promise<Fixture> {
 test("the mod registers the two channel tools of the worker", async () => {
 	const fixture = await startFixture();
 	try {
-		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"));
+		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"), fixture.sessionDir);
 		const names = mod.tools().map((tool) => tool.name);
 		assert.ok(names.includes(NOTE_TO_MAIN), "the mod registered no note tool");
 		assert.ok(names.includes(NOTES_FROM_MAIN), "the mod registered no notes tool");
@@ -67,7 +67,7 @@ test("a pending note of the main session becomes exactly one prompt", async () =
 			text: "The build fails on Windows.",
 			at: Date.now(),
 		});
-		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"));
+		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"), fixture.sessionDir);
 		await mod.poll();
 		assert.equal(mod.submitted().length, 1, "the poll submitted no prompt");
 		assert.equal(mod.submitted()[0], `${PREFIX} The build fails on Windows.`);
@@ -84,11 +84,44 @@ test("a second poll submits nothing for a note that was delivered", async () => 
 			text: "The build fails on Windows.",
 			at: Date.now(),
 		});
-		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"));
+		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"), fixture.sessionDir);
 		await mod.poll();
 		await mod.poll();
 		await mod.poll();
 		assert.equal(mod.submitted().length, 1, "the poll submitted the note twice");
+	} finally {
+		await fixture.close();
+	}
+});
+
+test("a restart of the session does not submit a delivered note again", async () => {
+	const fixture = await startFixture();
+	try {
+		appendChannelNote(fixture.sessionDir, "main", {
+			runId: null,
+			text: "The build fails on Windows.",
+			at: Date.now(),
+		});
+		const store = new Map<string, string>();
+		const first = await startMod(
+			fixture,
+			join(fixture.sessionDir, "handover.json"),
+			fixture.sessionDir,
+			store,
+		);
+		await first.poll();
+		assert.equal(first.submitted().length, 1, "the poll submitted no prompt");
+
+		/* A restart of the session loads the mod again. The mod reads the
+		   file of the delivered notes, so the note stays delivered. */
+		const second = await startMod(
+			fixture,
+			join(fixture.sessionDir, "handover.json"),
+			fixture.sessionDir,
+			store,
+		);
+		await second.poll();
+		assert.equal(second.submitted().length, 0, "the restart submitted the note again");
 	} finally {
 		await fixture.close();
 	}
@@ -102,7 +135,7 @@ test("a note waits while a permission request is open", async () => {
 			text: "The build fails on Windows.",
 			at: Date.now(),
 		});
-		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"));
+		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"), fixture.sessionDir);
 		await mod.askPermission("call-1");
 		await mod.poll();
 		assert.equal(mod.submitted().length, 0, "the poll submitted a note during a permission request");
@@ -117,7 +150,7 @@ test("a note waits while a permission request is open", async () => {
 test("a turn that carries a note is not an instruction cycle", async () => {
 	const fixture = await startFixture();
 	try {
-		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"));
+		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"), fixture.sessionDir);
 		const handler = mod.handler("turn.start");
 		assert.ok(handler, "the mod registers no turn start handler");
 		await handler(mod.dollar, { turnId: "turn-1", text: "The task of the worker." }, () => undefined);
@@ -142,7 +175,7 @@ test("a turn that carries a note is not an instruction cycle", async () => {
 test("the worker tool writes a note that the main session reads", async () => {
 	const fixture = await startFixture();
 	try {
-		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"));
+		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"), fixture.sessionDir);
 		const handler = mod.toolHandler(NOTE_TO_MAIN);
 		assert.ok(handler, "the mod registers no handler for the note tool");
 		const result = await handler(
@@ -167,7 +200,7 @@ test("the worker tool reads the notes of the main session", async () => {
 			text: "Use the channel for the next fact.",
 			at: Date.now(),
 		});
-		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"));
+		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"), fixture.sessionDir);
 		const handler = mod.toolHandler(NOTES_FROM_MAIN);
 		assert.ok(handler, "the mod registers no handler for the notes tool");
 		const result = await handler(mod.dollar, { tool: NOTES_FROM_MAIN }, () => undefined);
