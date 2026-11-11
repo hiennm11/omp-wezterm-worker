@@ -1136,6 +1136,7 @@ omp-wezterm-worker/
 │   ├── wait-result.test.ts      the settlement of a background job that a wait result names
 │   ├── report-poll.test.ts      the report poll and the outstanding executions
 │   ├── report-reminder.test.ts  the reminder for a cycle without a report
+│   ├── report-reminder-helpers.ts the helpers of the tests of the reminder
 │   ├── status-blocker.test.ts   the completion blocker in the status tool
 │   ├── status-list.test.ts      the list of workers that the status tool shows
 │   ├── resume-comms.test.ts     the communication check of the resume tool
