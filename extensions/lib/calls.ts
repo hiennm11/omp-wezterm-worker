@@ -8,7 +8,7 @@
  * A call that starts a background job names the job in the details of its
  * result. The transcript names the end of the job in an `async-result` entry,
  * in the result of the tool `wait`, in the result of a read of `proc://bg_N`
- * or in the result of a kill of that job. Every name settles the call.
+ * or in the result of a kill of that job. Every name settles the job.
  */
 
 import { readFileSync } from "node:fs";
