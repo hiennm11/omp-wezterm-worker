@@ -64,3 +64,15 @@ export function runtimeRefusal(env: NodeJS.ProcessEnv, configured: PaneRuntimeSe
 	if (selectPaneRuntime(env, configured) !== null) return null;
 	return RUNTIME_REFUSAL;
 }
+
+/**
+ * The workspace of a Herdr pane id, or null when the id has no workspace.
+ *
+ * A Herdr pane id is `w4:p1`. The part before the colon names the workspace.
+ * The function is pure, so a test needs no pane.
+ */
+export function workspaceOf(paneId: string | null): string | null {
+	if (paneId === null) return null;
+	const at = paneId.indexOf(":");
+	return at > 0 ? paneId.slice(0, at) : null;
+}
