@@ -14,7 +14,6 @@
 import { cpSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { REPORTING_CONTRACT } from "./bootstrap-prompt.ts";
 import { delay, describeFailure } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 
@@ -62,19 +61,21 @@ export function pluginOf(sessionDir: string): string | null {
 export function claudeArgv(options: {
 	sessionId: string;
 	pluginDir: string;
+	contractFile: string;
 	model: string | null;
 	cwd: string;
 	task: string;
 }): string[] {
-	/* The contract goes inline. A Claude Code session has no worker prompt
-	   file, and the session needs the same rules as an OMP worker. */
+	/* The contract travels in a file. The text has many lines, and Herdr
+	   refuses an argument with a line break. The path has no line break, so it
+	   reaches the program of the pane. */
 	const args = [
 		"--session-id",
 		options.sessionId,
 		"--plugin-dir",
 		options.pluginDir,
-		"--append-system-prompt",
-		REPORTING_CONTRACT,
+		"--append-system-prompt-file",
+		options.contractFile,
 	];
 	/* An omitted model keeps the default of Claude Code. The extension never
 	   adds a model that the user did not name. */
@@ -92,6 +93,7 @@ export function claudeArgv(options: {
 export function claudeResumeArgv(options: {
 	sessionId: string;
 	pluginDir: string;
+	contractFile: string;
 	model: string | null;
 }): string[] {
 	const args = [
@@ -99,8 +101,8 @@ export function claudeResumeArgv(options: {
 		options.sessionId,
 		"--plugin-dir",
 		options.pluginDir,
-		"--append-system-prompt",
-		REPORTING_CONTRACT,
+		"--append-system-prompt-file",
+		options.contractFile,
 	];
 	if (options.model) args.push("--model", options.model);
 	return args;

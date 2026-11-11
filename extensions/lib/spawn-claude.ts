@@ -12,9 +12,10 @@
 import { mkdirSync } from "node:fs";
 
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
+import { writeClaudeContract } from "./bootstrap-prompt.ts";
 import { handoverFile, writeHandover } from "./bridge-handover.ts";
 import { startBridge } from "./claude-bridge.ts";
-import { claudeHerdrRefusal } from "./claude-herdr.ts";
+import { claudeRuntimeRefusal } from "./claude-herdr.ts";
 import { createClaudeRunState } from "./claude-run-state.ts";
 import { checkClaude, claudeArgv, preparePlugin, validatePlugin } from "./claude-session.ts";
 import { createGroup, setGroupWorktree } from "./groups.ts";
@@ -79,11 +80,11 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 	rt.jobs.set(jobId, job);
 	rt.persist();
 
-	// The Claude Code backend cannot start on Herdr yet. The refusal comes
+	// The Claude Code backend cannot start on WezTerm yet. The refusal comes
 	// before any pane opens and before any program starts.
-	const herdrRefusal = claudeHerdrRefusal();
-	if (herdrRefusal) {
-		await finalizeJob(rt, job, "failed", herdrRefusal, null);
+	const runtimeRefusal = claudeRuntimeRefusal(rt.paneRuntime);
+	if (runtimeRefusal) {
+		await finalizeJob(rt, job, "failed", runtimeRefusal, null);
 		return job;
 	}
 
@@ -105,6 +106,17 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 	const refusal = await validatePlugin(rt, config.claudeBin, pluginDir);
 	if (refusal) {
 		await finalizeJob(rt, job, "failed", refusal, null);
+		return job;
+	}
+
+	/* The contract travels in a file, because the text has line breaks and
+	   Herdr refuses an argument with a line break. The write comes before
+	   the launch, so a failed write refuses the run and opens no pane. */
+	let contractFile: string;
+	try {
+		contractFile = writeClaudeContract(job.sessionDir);
+	} catch (e) {
+		await finalizeJob(rt, job, "failed", e instanceof Error ? e.message : String(e), null);
 		return job;
 	}
 
@@ -161,6 +173,7 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 		claudeArgv({
 			sessionId: params.sessionId,
 			pluginDir,
+			contractFile,
 			model: job.model,
 			cwd: job.cwd,
 			task: job.task,

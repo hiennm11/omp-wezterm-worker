@@ -12,9 +12,10 @@
 import { mkdirSync } from "node:fs";
 
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
+import { writeClaudeContract } from "./bootstrap-prompt.ts";
 import { handoverFile, writeHandover } from "./bridge-handover.ts";
 import { startBridge } from "./claude-bridge.ts";
-import { claudeHerdrRefusal } from "./claude-herdr.ts";
+import { claudeRuntimeRefusal } from "./claude-herdr.ts";
 import { createClaudeRunState } from "./claude-run-state.ts";
 import {
 	checkClaude,
@@ -72,11 +73,11 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 		runtime: rt.paneRuntime,
 	};
 
-	// The Claude Code backend cannot start on Herdr yet. The refusal comes
+	// The Claude Code backend cannot start on WezTerm yet. The refusal comes
 	// before the reservation, so a refused resume holds no group.
-	const herdrRefusal = claudeHerdrRefusal();
-	if (herdrRefusal) {
-		const failed: Job = { ...job, status: "failed", error: herdrRefusal, finishedAt: Date.now() };
+	const runtimeRefusal = claudeRuntimeRefusal(rt.paneRuntime);
+	if (runtimeRefusal) {
+		const failed: Job = { ...job, status: "failed", error: runtimeRefusal, finishedAt: Date.now() };
 		rt.jobs.set(jobId, failed);
 		return failed;
 	}
@@ -173,6 +174,22 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 		return job;
 	}
 
+	/* The contract travels in a file, because the text has line breaks and
+	   Herdr refuses an argument with a line break. The write comes before
+	   the launch, so a failed write refuses the run and opens no pane. */
+	let contractFile: string;
+	try {
+		contractFile = writeClaudeContract(job.sessionDir);
+	} catch (e) {
+		job.status = "failed";
+		job.error = e instanceof Error ? e.message : String(e);
+		job.finishedAt = Date.now();
+		// The run never reached a pane, so it holds nothing. The group of the
+		// source run becomes free again.
+		releaseExecutionByHolder(db, jobId, Date.now());
+		return job;
+	}
+
 	/* The new run gets a new bridge. The native session keeps its history,
 	   but the run identity of the new run is new. */
 	const state = createClaudeRunState(jobId);
@@ -195,6 +212,7 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 		claudeResumeArgv({
 			sessionId: params.sessionId,
 			pluginDir,
+			contractFile,
 			model: job.model,
 		}),
 		{
