@@ -21,6 +21,7 @@ import {
 	herdrPaneState,
 	herdrPaneStatesOf,
 	herdrPaneTail,
+	herdrSendEnter,
 	herdrSendToPane,
 	type PaneState,
 } from "./pane-herdr.ts";
@@ -31,6 +32,7 @@ import {
 	weztermPaneState,
 	weztermPaneStatesOf,
 	weztermPaneTail,
+	weztermSendEnter,
 	weztermSendToPane,
 } from "./pane-wezterm.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -125,6 +127,24 @@ export async function sendToPane(
 	if (job.paneId === null) return { ok: false, error: `Worker ${job.id} has no pane.` };
 	if (runtime === "wezterm") return weztermSendToPane(rt, job.paneId, text);
 	return herdrSendToPane(rt, job.paneId, text);
+}
+
+/**
+ * Send the Enter key into the pane of a worker.
+ *
+ * The key goes through the runtime of the job. Herdr takes the name of the
+ * key. WezTerm has no verb for a key press, so the Enter travels as a
+ * carriage return at the end of a text.
+ *
+ * A job without a runtime refuses the send, because the extension cannot
+ * name the pane without a runtime.
+ */
+export async function sendEnter(rt: WorkerRuntime, job: Job): Promise<string | null> {
+	const runtime = runtimeOf(job);
+	if (runtime === null) return unknownRuntimeRefusal(job);
+	if (job.paneId === null) return `Worker ${job.id} has no pane, so the Enter key went nowhere.`;
+	if (runtime === "wezterm") return weztermSendEnter(rt, job.paneId);
+	return herdrSendEnter(rt, job.paneId);
 }
 
 /**

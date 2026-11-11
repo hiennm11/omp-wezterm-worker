@@ -15,7 +15,6 @@ import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempt
 import { writeClaudeContract } from "./bootstrap-prompt.ts";
 import { handoverFile, writeHandover } from "./bridge-handover.ts";
 import { startBridge } from "./claude-bridge.ts";
-import { claudeRuntimeRefusal } from "./claude-herdr.ts";
 import { createClaudeRunState } from "./claude-run-state.ts";
 import {
 	checkClaude,
@@ -73,14 +72,6 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 		runtime: rt.paneRuntime,
 	};
 
-	// The Claude Code backend cannot start on WezTerm yet. The refusal comes
-	// before the reservation, so a refused resume holds no group.
-	const runtimeRefusal = claudeRuntimeRefusal(rt.paneRuntime);
-	if (runtimeRefusal) {
-		const failed: Job = { ...job, status: "failed", error: runtimeRefusal, finishedAt: Date.now() };
-		rt.jobs.set(jobId, failed);
-		return failed;
-	}
 	/* The pane of the source run can still write into the shared transcript.
 	   The resume waits until that pane is gone. The check comes before the
 	   reservation, so a refusal holds no group and releases none. */
@@ -238,13 +229,13 @@ export async function resumeClaudeWorker(rt: WorkerRuntime, params: ClaudeResume
 	/* A resumed session asks the startup questions again when it does not
 	   know the workspace or the integrations. The person answers them in the
 	   pane, so the extension waits for the composer. */
-	await waitForComposer(rt, job.paneId);
+	await waitForComposer(rt, job);
 
 	/* A resumed session keeps its history, and it takes no new prompt as an
 	   argument. The follow-up instruction goes into the composer of the pane,
 	   the way the user types it. */
 	if (params.message && job.paneId !== null) {
-		const failure = await typeFollowUp(rt, job.paneId, params.message);
+		const failure = await typeFollowUp(rt, job, params.message);
 		if (failure) {
 			job.error = failure;
 			rt.persist();

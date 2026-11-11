@@ -22,7 +22,8 @@
 import { statSync } from "node:fs";
 
 import type { Job } from "./job.ts";
-import { delay, describeFailure } from "./process.ts";
+import { sendEnter } from "./pane.ts";
+import { delay } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { listSessionFiles } from "./transcript.ts";
 
@@ -154,17 +155,4 @@ export async function awaitDelivery(
 		polls += 1;
 		await delay(bound.intervalMs);
 	}
-}
-
-/**
- * Send the Enter key into the pane of the worker.
- *
- * The key name is the name that Herdr takes. The function returns the reason
- * of the refusal, or null when Herdr accepted the key press.
- */
-async function sendEnter(rt: WorkerRuntime, job: Job): Promise<string | null> {
-	if (job.paneId === null) return "The worker has no pane, so the Enter key went nowhere.";
-	const res = await rt.herdr(["pane", "send-keys", job.paneId, "enter"]);
-	if (res.code === 0) return null;
-	return `Herdr refused the Enter key: ${describeFailure(res)}.`;
 }

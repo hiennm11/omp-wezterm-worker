@@ -6,8 +6,7 @@ session receives the final result of the worker automatically.
 
 Verified against **omp 18.12.3** on **Windows native** (no WSL), Herdr
 **0.9.5**. The extension runs only inside a Herdr or a WezTerm session. The
-Claude Code backend starts on Herdr. It still refuses on WezTerm, and the
-reply says so. See
+Claude Code backend starts on both runtimes. See
 [ADR 0027](docs/adr/0027-two-pane-runtimes.md) and [ADR 0025](docs/adr/0025-herdr-replaces-wezterm-as-the-pane-runtime.md).
 
 ## What this is (and what it is not)
@@ -202,7 +201,7 @@ report tool and the command bridge.
 
 | Rule | Behavior |
 |---|---|
-| The pane runtime | The backend starts on Herdr. It refuses on WezTerm, because the pane calls of the Claude session still use the Herdr seam. |
+| The pane runtime | The backend starts on Herdr and on WezTerm. The pane calls of the Claude session go through the runtime of the job. |
 | The reporting contract | The launch writes the contract into the session directory and passes the path with `--append-system-prompt-file`. The text never reaches the argv of the pane, because Herdr refuses an argument with a line break. |
 | The configuration of the user | The session keeps the settings, the credentials, the MCP servers and the permission rules of the user. The extension never changes a global setting. |
 | The model | An omitted model uses the default of Claude Code. A named model is passed through unchanged. |
@@ -1001,7 +1000,6 @@ omp-wezterm-worker/
 │   │   ├── pane-launch.ts       opening a pane and starting a worker in it
 │   │   ├── pane-launch-wezterm.ts opening a WezTerm pane for a worker
 │   │   ├── launch-delivery.ts   the proof that a worker took its task
-│   │   ├── claude-herdr.ts      the refusal of the Claude Code backend on WezTerm
 │   │   ├── worktree.ts          the isolated git worktree
 │   │   ├── spawn.ts             starting and resuming a worker
 │   │   ├── spawn-claude.ts      starting a Claude Code worker
