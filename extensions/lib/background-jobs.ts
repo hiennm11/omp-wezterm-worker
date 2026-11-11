@@ -27,8 +27,8 @@ export const SETTLED_JOB_STATUSES: Record<string, true> = {
 /**
  * The finished background jobs that one entry names.
  *
- * The entry holds the jobs under the key `jobs`. A job without a string id
- * or without a string status is skipped.
+ * The entry holds the jobs under the key `jobs` and the job id under the key
+ * `jobId`. A job without a string id or without a string status is skipped.
  */
 export function backgroundResultsOf(details: unknown): BackgroundResult[] {
 	if (!details || typeof details !== "object") return [];
@@ -36,7 +36,7 @@ export function backgroundResultsOf(details: unknown): BackgroundResult[] {
 	if (!Array.isArray(jobs)) return [];
 	const found: BackgroundResult[] = [];
 	for (const job of jobs) {
-		const result = resultOf(job, ["jobId", "id"]);
+		const result = resultOf(job, "jobId");
 		if (result) found.push(result);
 	}
 	return found;
@@ -57,7 +57,7 @@ export function waitResultsOf(details: unknown): BackgroundResult[] {
 	if (!Array.isArray(jobs)) return [];
 	const found: BackgroundResult[] = [];
 	for (const job of jobs) {
-		const result = resultOf(job, ["id"]);
+		const result = resultOf(job, "id");
 		if (result) found.push(result);
 	}
 	return found;
@@ -77,12 +77,12 @@ export function procResultsOf(details: unknown): BackgroundResult[] {
 	if (!proc || typeof proc !== "object") return [];
 	const record = proc as Record<string, unknown>;
 	const found: BackgroundResult[] = [];
-	const single = resultOf(record.job, ["id"]);
+	const single = resultOf(record.job, "id");
 	if (single && Object.hasOwn(SETTLED_JOB_STATUSES, single.status)) found.push(single);
 	const jobs = record.jobs;
 	if (!Array.isArray(jobs)) return found;
 	for (const job of jobs) {
-		const result = resultOf(job, ["id"]);
+		const result = resultOf(job, "id");
 		if (result && Object.hasOwn(SETTLED_JOB_STATUSES, result.status)) found.push(result);
 	}
 	return found;
@@ -110,17 +110,15 @@ export function callResultsOf(details: unknown): BackgroundResult[] {
 /**
  * The job that one record names, or null when the record names no job.
  *
- * The record holds the id under one of the given keys. The first key that
- * holds a string wins.
+ * The record holds the job id under the given key and the status under the
+ * key `status`. A record without a string id or without a string status
+ * names no job.
  */
-function resultOf(value: unknown, keys: string[]): BackgroundResult | null {
+function resultOf(value: unknown, idKey: string): BackgroundResult | null {
 	if (!value || typeof value !== "object") return null;
 	const record = value as Record<string, unknown>;
-	for (const key of keys) {
-		const jobId = record[key];
-		const status = record.status;
-		if (typeof jobId !== "string" || typeof status !== "string") continue;
-		return { jobId, status };
-	}
-	return null;
+	const jobId = record[idKey];
+	const status = record.status;
+	if (typeof jobId !== "string" || typeof status !== "string") return null;
+	return { jobId, status };
 }
