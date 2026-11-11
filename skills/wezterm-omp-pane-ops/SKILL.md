@@ -14,8 +14,9 @@ inside a Herdr session (`HERDR_ENV=1`). It never starts a Herdr server. No
 WSL: WSL holds a different `omp` build, and every command here would touch the
 wrong install.
 
-The OMP backend and the Claude Code backend run on Herdr today. The Claude
-Code backend refuses on WezTerm, and the reply says so (ADR 0027).
+The OMP backend and the Claude Code backend run on Herdr and on WezTerm. Every
+pane call of a worker goes through the runtime that started it, so neither
+backend refuses the other runtime (ADR 0027).
 
 ## Sending text to a pane
 

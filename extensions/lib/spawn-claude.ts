@@ -15,7 +15,6 @@ import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempt
 import { writeClaudeContract } from "./bootstrap-prompt.ts";
 import { handoverFile, writeHandover } from "./bridge-handover.ts";
 import { startBridge } from "./claude-bridge.ts";
-import { claudeRuntimeRefusal } from "./claude-herdr.ts";
 import { createClaudeRunState } from "./claude-run-state.ts";
 import { checkClaude, claudeArgv, preparePlugin, validatePlugin } from "./claude-session.ts";
 import { createGroup, setGroupWorktree } from "./groups.ts";
@@ -79,14 +78,6 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 	};
 	rt.jobs.set(jobId, job);
 	rt.persist();
-
-	// The Claude Code backend cannot start on WezTerm yet. The refusal comes
-	// before any pane opens and before any program starts.
-	const runtimeRefusal = claudeRuntimeRefusal(rt.paneRuntime);
-	if (runtimeRefusal) {
-		await finalizeJob(rt, job, "failed", runtimeRefusal, null);
-		return job;
-	}
 
 	// A pane can only open inside a Herdr or a WezTerm session.
 	const sessionRefusal = paneSessionRefusal(process.env, config.runtime);

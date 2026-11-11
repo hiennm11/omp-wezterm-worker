@@ -107,6 +107,17 @@ export async function herdrSendToPane(
 }
 
 /**
+ * Send the Enter key into a pane.
+ *
+ * Herdr takes the name of the key. The function returns the reason of the
+ * refusal, or null when Herdr accepted the key press.
+ */
+export async function herdrSendEnter(rt: WorkerRuntime, paneId: string): Promise<string | null> {
+	const res = await rt.herdr(["pane", "send-keys", paneId, "enter"]);
+	return res.code === 0 ? null : describeFailure(res);
+}
+
+/**
  * Read the last few visible lines of a pane.
  *
  * This is a debug aid for a stalled worker, never a result source: the

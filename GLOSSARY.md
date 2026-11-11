@@ -15,7 +15,8 @@ _Avoid_: Agent, subtask, background job
 The program that opens the pane of a worker: Herdr or WezTerm. A worker keeps
 the runtime that started it, so a tool that acts on that worker later uses the
 same runtime. A run that the database holds from before the runtime existed
-has no runtime, and the extension never guesses one for it.
+has no runtime, and the extension never guesses one for it. Every pane call
+of a worker goes through this runtime.
 _Avoid_: Pane program, terminal, backend
 
 **Main session**:

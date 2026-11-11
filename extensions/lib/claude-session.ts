@@ -1,9 +1,12 @@
 /**
  * The Claude Code session of a worker.
  *
- * A Claude worker runs a real interactive Claude Code session in a Herdr
- * pane. The session loads a session-scoped mod. The mod carries the report
- * tool and the command bridge.
+ * A Claude worker runs a real interactive Claude Code session in a pane. The
+ * session loads a session-scoped mod. The mod carries the report tool and
+ * the command bridge.
+ *
+ * The pane calls go through the runtime of the job. The session therefore
+ * runs on Herdr and on WezTerm.
  *
  * The launch never changes a global setting of the user. The session keeps
  * the configuration, the credentials, the MCP servers and the permission
@@ -14,6 +17,8 @@
 import { cpSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
+import type { Job } from "./job.ts";
+import { paneTail, sendEnter, sendToPane } from "./pane.ts";
 import { delay, describeFailure } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 
@@ -144,26 +149,26 @@ export async function validatePlugin(
  * The keystrokes reach the pane before the interface of the session exists,
  * and then they go nowhere. The function waits for the composer first, and
  * it repeats the send when the composer still holds no text.
+ *
+ * The pane calls go through the runtime of the job. A WezTerm pane shows its
+ * composer in the same text, so the rule that the pane text is a diagnostic
+ * view stays true.
  */
-export async function typeFollowUp(
-	rt: WorkerRuntime,
-	paneId: string,
-	message: string,
-): Promise<string | null> {
+export async function typeFollowUp(rt: WorkerRuntime, job: Job, message: string): Promise<string | null> {
 	let last = "";
 	for (let attempt = 1; attempt <= MAX_FOLLOW_UP_ATTEMPTS; attempt += 1) {
-		const text = await composerText(rt, paneId);
+		const text = await paneTail(rt, job, 200);
 		last = text;
 		if (composerReady(text)) {
 			/* A native composer that still loads its history drops an
 			   Enter. The text and the Enter go in two steps, and the
 			   composer settles before the Enter arrives. */
 			await delay(COMPOSER_SETTLE_MS);
-			const typed = await rt.herdr(["pane", "send-text", paneId, message]);
-			if (typed.code !== 0) return describeFailure(typed);
+			const typed = await sendToPane(rt, job, message);
+			if (!typed.ok) return typed.error;
 			await delay(COMPOSER_POLL_MS);
-			const entered = await rt.herdr(["pane", "send-keys", paneId, "enter"]);
-			if (entered.code !== 0) return describeFailure(entered);
+			const entered = await sendEnter(rt, job);
+			if (entered !== null) return entered;
 			/* The pane text is a diagnostic view. It never proves that the
 			   session took the instruction, because a submitted instruction
 			   stays visible in the history. The report of the worker proves
@@ -175,13 +180,6 @@ export async function typeFollowUp(
 	return `The session of the worker did not reach its composer. The pane showed: ${last.slice(-200)}`;
 }
 
-/** The text of the pane of a session. */
-async function composerText(rt: WorkerRuntime, paneId: string): Promise<string> {
-	const res = await rt.herdr(["pane", "read", paneId, "--source", "recent-unwrapped", "--lines", "200"]);
-	if (res.code !== 0) return "";
-	return res.stdout;
-}
-
 /**
  * Wait until the composer of a session accepts an instruction.
  *
@@ -191,13 +189,13 @@ async function composerText(rt: WorkerRuntime, paneId: string): Promise<string> 
  */
 export async function waitForComposer(
 	rt: WorkerRuntime,
-	paneId: string | null,
+	job: Job,
 	deadlineMs = COMPOSER_TIMEOUT_MS,
 ): Promise<boolean> {
-	if (paneId === null) return false;
+	if (job.paneId === null) return false;
 	const deadline = Date.now() + deadlineMs;
 	while (Date.now() < deadline) {
-		if (composerReady(await composerText(rt, paneId))) return true;
+		if (composerReady(await paneTail(rt, job, 200))) return true;
 		await delay(COMPOSER_POLL_MS);
 	}
 	return false;

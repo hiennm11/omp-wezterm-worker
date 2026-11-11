@@ -103,6 +103,21 @@ export async function weztermSendToPane(
 }
 
 /**
+ * Send the Enter key into a pane.
+ *
+ * WezTerm has no verb for a key press. The Enter travels as a carriage
+ * return at the end of a text, so the function sends it with the same verb
+ * that sends a text. The function returns the reason of the refusal, or null
+ * when WezTerm accepted the text.
+ */
+export async function weztermSendEnter(rt: WorkerRuntime, paneId: string): Promise<string | null> {
+	const number = weztermPaneNumber(paneId);
+	if (number === null) return `The pane id ${paneId} is not a WezTerm pane id.`;
+	const res = await rt.wezterm(["send-text", "--no-paste", "--pane-id", String(number), "\r"]);
+	return res.code === 0 ? null : describeFailure(res);
+}
+
+/**
  * Read the last few visible lines of a pane.
  *
  * This is a debug aid for a stalled worker, never a result source: the
