@@ -11,6 +11,8 @@
  * checks a reply checks the real shape.
  */
 
+import { sessionDirOfArgv, writeSessionTranscript } from "./delivery-helpers.ts";
+
 /** A pane of the fake. */
 export interface FakePane {
 	/** The id of the pane, such as `w1:p7`. */
@@ -41,6 +43,30 @@ export interface HerdrFakeOptions {
 	failSplit?: boolean;
 	/** The id of the next pane that the fake opens. */
 	nextPane?: number;
+	/**
+	 * The session directory of the worker.
+	 *
+	 * The fake writes a transcript into this directory, so a test can model
+	 * the evidence that the worker took its task. Without this value the fake
+	 * reads the directory from the argv of the agent start.
+	 */
+	sessionDir?: string;
+	/**
+	 * When the worker takes its task.
+	 *
+	 * - `at-once`: the agent prompt creates the transcript. This is the
+	 *   default, because a worker normally takes its task at once.
+	 * - `after-enter`: the Enter key creates the transcript.
+	 * - `never`: the worker never takes its task.
+	 */
+	delivery?: "at-once" | "after-enter" | "never";
+	/**
+	 * The delay of the delivery, in ms.
+	 *
+	 * The delay applies to the delivery `at-once`. It models a worker that
+	 * needs a moment before it writes its transcript.
+	 */
+	deliveryDelayMs?: number;
 }
 
 /** The state of the fake. */
@@ -96,6 +122,38 @@ export function herdrFake(options: HerdrFakeOptions = {}): HerdrFake {
 	const counter = { next: options.nextPane ?? 100 };
 	for (const pane of options.panes ?? []) state.panes.add(pane.paneId);
 
+	/**
+	 * The session directory of the worker.
+	 *
+	 * The fake reads the directory from the argv of the agent start, because
+	 * the OMP program receives it with the flag `--session-dir`.
+	 */
+	let sessionDir = options.sessionDir ?? null;
+
+	/**
+	 * Write the transcript of the worker.
+	 *
+	 * The transcript is the evidence that the worker took its task. The fake
+	 * writes it in the session directory of the worker.
+	 */
+	const writeTranscript = () => {
+		if (!sessionDir) return;
+		writeSessionTranscript(sessionDir);
+	};
+
+	/** Write the transcript after the delay of the delivery. */
+	const writeTranscriptLater = () => {
+		const wait = options.deliveryDelayMs ?? 0;
+		if (wait <= 0) {
+			writeTranscript();
+			return;
+		}
+		setTimeout(writeTranscript, wait);
+	};
+
+	/** The delivery that the fake models. */
+	const delivery = options.delivery ?? "at-once";
+
 	const answer = (args: string[]): { code: number; stdout: string; stderr: string } => {
 		state.calls.push(args);
 		if (args[0] === "pane" && args[1] === "list") {
@@ -125,13 +183,20 @@ export function herdrFake(options: HerdrFakeOptions = {}): HerdrFake {
 		if (args[0] === "agent" && args[1] === "start") {
 			if (options.failAgentStart) return { code: 1, stdout: "", stderr: "the agent did not start" };
 			const dash = args.indexOf("--");
-			state.started.push(dash < 0 ? [] : args.slice(dash + 1));
+			const argv = dash < 0 ? [] : args.slice(dash + 1);
+			state.started.push(argv);
+			if (!sessionDir) sessionDir = sessionDirOfArgv(argv);
 			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
 		}
 		if (args[0] === "agent" && args[1] === "prompt") {
 			if (options.failAgentPrompt) return { code: 1, stdout: "", stderr: "the prompt failed" };
 			state.prompts.push(args.slice(3).join(" "));
+			if (delivery === "at-once") writeTranscriptLater();
 			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
+		}
+		if (args[0] === "pane" && args[1] === "send-keys") {
+			if (delivery === "after-enter") writeTranscript();
+			return { code: 0, stdout: "", stderr: "" };
 		}
 		if (args[0] === "pane" && args[1] === "read") {
 			if (options.failPaneRead) return { code: 1, stdout: "", stderr: "the read failed" };

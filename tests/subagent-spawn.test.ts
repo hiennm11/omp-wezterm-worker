@@ -16,6 +16,7 @@ import { acquireOwnership, type Ownership, readOwnership } from "../extensions/l
 import type { RunResult } from "../extensions/lib/process.ts";
 import { persistRuns } from "../extensions/lib/runs.ts";
 import type { AgentDescriptor } from "../extensions/lib/subagent.ts";
+import { deliveryTracker } from "./delivery-helpers.ts";
 import { createHost, RUNTIME, removeDir, sessionContext, type TestHost } from "./harness.ts";
 
 /** The session of the main session. */
@@ -56,6 +57,7 @@ const exec = async (_bin: string, args: string[]): Promise<RunResult> => {
  * The spawn gives a pane id. The pane stays in the list, so the monitor of
  * the worker does not end it.
  */
+const tracker = deliveryTracker();
 const wezterm = async (args: string[]): Promise<RunResult> => {
 	if (args[0] === "pane" && args[1] === "list") {
 		const listing = [...panes].map((pane_id) => ({ pane_id, tab_id: "w1:t1" }));
@@ -71,6 +73,11 @@ const wezterm = async (args: string[]): Promise<RunResult> => {
 		};
 	}
 	if (args[0] === "agent" && args[1] === "start") {
+		tracker.onStart(args);
+		return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
+	}
+	if (args[0] === "agent" && args[1] === "prompt") {
+		tracker.onPrompt();
 		return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
 	}
 	if (args[0] === "pane" && args[1] === "close") {

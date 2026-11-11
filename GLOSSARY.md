@@ -130,6 +130,20 @@ A spawn or a resume that reached a pane. A launch that fails before the pane
 exists does not count.
 _Avoid_: Start, run, attempt
 
+**Delivery proof**:
+The evidence that a worker took its task. The evidence is a session file
+that the send created, or a transcript that grew past the size that it had
+before the send. A launch without the delivery proof fails, and it never
+reports a running worker.
+_Avoid_: Launch receipt, delivery confirmation
+
+**Pasted block**:
+The composer of the OMP TUI renders a long multi-line task as one pasted
+block. The Enter of the agent prompt does not submit that block, so the
+worker never starts. One Enter key submits it. That Enter key is not a
+second instruction. The launch sends the task text one time only.
+_Avoid_: Multiline input, composer block
+
 **Request**:
 The span of work from one user prompt to the next. The limit on launches
 applies to one request.

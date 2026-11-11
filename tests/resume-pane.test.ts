@@ -20,6 +20,7 @@ import { resumeClaudeWorker } from "../extensions/lib/resume-claude.ts";
 import type * as ResumeGuard from "../extensions/lib/resume-guard.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { resumeWorker } from "../extensions/lib/spawn.ts";
+import { deliveryTracker } from "./delivery-helpers.ts";
 
 /** The reason that a resume refuses a source run whose pane is still open. */
 const PRESENT_REFUSAL =
@@ -95,6 +96,7 @@ function fakeWezterm(options: {
 	launch?: { code: number; stdout: string; stderr: string };
 }): { exec: RunFn; calls: string[][] } {
 	const calls: string[][] = [];
+	const tracker = deliveryTracker();
 	const launch = options.launch ?? {
 		code: 0,
 		stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p99", tab_id: "w1:t1" } } }),
@@ -109,6 +111,14 @@ function fakeWezterm(options: {
 		if (args[0] === "pane" && args[1] === "split") return launch;
 		if (args[0] === "pane" && args[1] === "read") {
 			return { code: 0, stdout: "bypass permissions on", stderr: "" };
+		}
+		if (args[0] === "agent" && args[1] === "start") {
+			tracker.onStart(args);
+			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
+		}
+		if (args[0] === "agent" && args[1] === "prompt") {
+			tracker.onPrompt();
+			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
 		}
 		if (bin === "powershell") return { code: 0, stdout: "0", stderr: "" };
 		return { code: 0, stdout: "", stderr: "" };

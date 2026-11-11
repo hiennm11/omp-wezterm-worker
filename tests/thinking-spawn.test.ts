@@ -19,6 +19,7 @@ import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts"
 import { resumeWorker, spawnWorker } from "../extensions/lib/spawn.ts";
 import type { ThinkingLevel } from "../extensions/lib/thinking.ts";
 import { registerSpawnTool } from "../extensions/worker-tools/spawn.ts";
+import { deliveryTracker } from "./delivery-helpers.ts";
 
 /** The context of a call of the spawn tool. */
 const CONTEXT = {
@@ -85,6 +86,7 @@ function ompRuntime(options: { thinking?: string | null } = {}): {
 } {
 	const dir = mkdtempSync(join(tmpdir(), "wt-thinking-"));
 	const calls: string[][] = [];
+	const tracker = deliveryTracker();
 	const exec: RunFn = async (bin, args) => {
 		calls.push(args);
 		if (args[0] === "pane" && args[1] === "list") {
@@ -105,6 +107,11 @@ function ompRuntime(options: { thinking?: string | null } = {}): {
 			};
 		}
 		if (args[0] === "agent" && args[1] === "start") {
+			tracker.onStart(args);
+			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
+		}
+		if (args[0] === "agent" && args[1] === "prompt") {
+			tracker.onPrompt();
 			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
 		}
 		if (bin === "powershell") return { code: 0, stdout: "0", stderr: "" };

@@ -13,6 +13,9 @@
  */
 
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
@@ -22,7 +25,7 @@ import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts"
 import { type HerdrFake, herdrFake } from "./herdr-fake.ts";
 
 /** A job of a worker that runs. */
-function worker(): Job {
+function worker(sessionDir = "/s/wz-1"): Job {
 	return {
 		id: "wz-1",
 		label: "test",
@@ -31,7 +34,7 @@ function worker(): Job {
 		model: null,
 		tools: null,
 		placement: "split",
-		sessionDir: "/s/wz-1",
+		sessionDir,
 		sessionFile: null,
 		worktreePath: null,
 		worktreeBranch: null,
@@ -46,11 +49,30 @@ function worker(): Job {
 	};
 }
 
-/** A runtime whose Herdr answers with the given fake. */
+/**
+ * A session directory that a launch can write into.
+ *
+ * The launch proves that the worker took its task. The proof reads the
+ * session directory of the worker, so a test of a launch needs a real one.
+ */
+function realSessionDir(): { dir: string; sessionDir: string } {
+	const dir = mkdtempSync(join(tmpdir(), "wt-herdr-pane-"));
+	const session = join(dir, "session");
+	mkdirSync(session, { recursive: true });
+	return { dir, sessionDir: session };
+}
+
+/**
+ * A runtime whose Herdr answers with the given fake.
+ *
+ * The bound of the delivery proof is short, so a test of a launch does not
+ * wait for a worker that never takes its task.
+ */
 function runtimeWith(fake: HerdrFake): WorkerRuntime {
 	const rt = createRuntime(async () => ({ code: 0, stdout: "", stderr: "" }));
 	rt.herdr = async (args) => fake.answer(args);
 	rt.paneRuntime = "herdr";
+	rt.deliveryBound = { intervalMs: 1, attempts: 3 };
 	return rt;
 }
 
@@ -181,14 +203,26 @@ test("a task with spaces, quotes and a substitution stays one argv element", asy
 });
 
 test("a task with line breaks reaches the worker through the agent prompt, not through the argv", async () => {
-	const fake = herdrFake();
+	const { dir, sessionDir } = realSessionDir();
+	const fake = herdrFake({ sessionDir });
 	const rt = runtimeWith(fake);
 	try {
 		const task = '# Goal\nDo x.\n\n- a "q" $(x)\n- b';
-		const failure = await launchProgram(rt, worker(), "omp", ["--no-title"], undefined, task);
+		const failure = await launchProgram(
+			rt,
+			worker(sessionDir),
+			"omp",
+			["--no-title", "--session-dir", sessionDir],
+			undefined,
+			task,
+		);
 		assert.equal(failure, null, `the launch failed: ${failure}`);
 		const start = fake.started.at(-1) ?? [];
-		assert.deepEqual(start, ["--no-title"], "the argv of the start holds the task");
+		assert.deepEqual(
+			start,
+			["--no-title", "--session-dir", sessionDir],
+			"the argv of the start holds the task",
+		);
 		assert.ok(
 			start.every((value) => !/[\r\n\t]/.test(value)),
 			"an argv element holds a control character",
@@ -199,6 +233,28 @@ test("a task with line breaks reaches the worker through the agent prompt, not t
 		assert.ok(startAt !== -1 && promptAt > startAt, "the prompt did not follow the start");
 	} finally {
 		rt.closeDb();
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("a task that the worker never takes fails the launch", async () => {
+	const { dir, sessionDir } = realSessionDir();
+	const fake = herdrFake({ delivery: "never", sessionDir });
+	const rt = runtimeWith(fake);
+	try {
+		const failure = await launchProgram(
+			rt,
+			worker(sessionDir),
+			"omp",
+			["--no-title", "--session-dir", sessionDir],
+			undefined,
+			"do the task",
+		);
+		assert.ok(failure?.includes("not delivered"), `unexpected failure: ${failure}`);
+		assert.equal(fake.closed.length, 1, "the launch closed no pane");
+	} finally {
+		rt.closeDb();
+		rmSync(dir, { recursive: true, force: true });
 	}
 });
 

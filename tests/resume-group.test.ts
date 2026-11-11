@@ -19,6 +19,7 @@ import { resumeClaudeWorker } from "../extensions/lib/resume-claude.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { resumeWorker } from "../extensions/lib/spawn.ts";
 import { readRunContext } from "../extensions/lib/worker-context.ts";
+import { deliveryTracker } from "./delivery-helpers.ts";
 
 /** A runtime with a database in a fresh directory. */
 function freshRuntime(exec: RunFn): { rt: WorkerRuntime; dir: string } {
@@ -71,6 +72,7 @@ function sourceJob(id: string, sessionDir: string, overrides: Partial<Job> = {})
  */
 function fakeWezterm(): { exec: RunFn; calls: string[][] } {
 	const calls: string[][] = [];
+	const tracker = deliveryTracker();
 	const exec: RunFn = async (bin, args) => {
 		calls.push(args);
 		if (args[0] === "pane" && args[1] === "list") {
@@ -85,6 +87,14 @@ function fakeWezterm(): { exec: RunFn; calls: string[][] } {
 		}
 		if (args[0] === "pane" && args[1] === "read") {
 			return { code: 0, stdout: "bypass permissions on", stderr: "" };
+		}
+		if (args[0] === "agent" && args[1] === "start") {
+			tracker.onStart(args);
+			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
+		}
+		if (args[0] === "agent" && args[1] === "prompt") {
+			tracker.onPrompt();
+			return { code: 0, stdout: JSON.stringify({ result: { agent: {} } }), stderr: "" };
 		}
 		if (bin === "powershell") return { code: 0, stdout: "0", stderr: "" };
 		return { code: 0, stdout: "", stderr: "" };

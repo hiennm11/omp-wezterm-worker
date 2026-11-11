@@ -16,6 +16,7 @@
 import { backendLabel, readBackend } from "./backend.ts";
 import { LAYOUT_APPLY_VERB } from "./herdr-layout.ts";
 import type { Job } from "./job.ts";
+import { awaitDelivery, deliveryBaseline } from "./launch-delivery.ts";
 import { killPane, sendToPane } from "./pane.ts";
 import { launchWezterm } from "./pane-launch-wezterm.ts";
 import { describeFailure } from "./process.ts";
@@ -82,11 +83,23 @@ export async function launchProgram(
 		return started;
 	}
 	if (task) {
+		/* The baseline is taken before the send, because the size of a
+		   transcript that the send created must not count as evidence. */
+		const baseline = deliveryBaseline(job.sessionDir);
 		const sent = await sendToPane(rt, job, task);
 		if (!sent.ok) {
 			await killPane(rt, job);
 			job.paneId = null;
 			return `Herdr did not deliver the task to the worker in pane ${paneId}: ${sent.error}`;
+		}
+		/* The launch waits for the proof that the worker took the task. A
+		   launch without the proof fails, because the success message of a
+		   launch must name a worker that received its task. */
+		const delivery = await awaitDelivery(rt, job, baseline, rt.deliveryBound);
+		if (!delivery.delivered) {
+			await killPane(rt, job);
+			job.paneId = null;
+			return delivery.error;
 		}
 	}
 	job.tabId = opened.tabId;

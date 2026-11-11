@@ -364,12 +364,22 @@ new session id, and attach tasks that the new session already owns. See
    can put extra text into it. The task is not an argv element: Herdr refuses an
    argument with a line break, and a real task has line breaks. The extension
    sends the task with `herdr agent prompt` after the worker is ready.
-2. The worker runs the real OMP TUI. It gets its own model, tools and session
+2. The launch then proves that the worker took the task. The proof is a
+   session file that the send created, or a transcript that grew past the size
+   that it had before the send. The launch polls the proof every 1000 ms, at
+   most 30 times. When the proof stays absent, the launch sends one
+   `herdr pane send-keys <pane> enter`. That Enter key submits the pasted
+   block that the OMP TUI renders for a long multi-line task. It is not a
+   second instruction, so the task text is never sent twice. When the proof
+   stays absent after the Enter, the launch fails, it closes the pane that it
+   opened, and it never reports a running worker. See
+   [ADR 0030](docs/adr/0030-a-launch-proves-that-the-worker-took-its-task.md).
+3. The worker runs the real OMP TUI. It gets its own model, tools and session
    file. It does **not** inherit the main conversation (OMP child sessions never
    inherit history).
-3. The extension polls the worker's session JSONL for a final assistant text
+4. The extension polls the worker's session JSONL for a final assistant text
    block with no outstanding tool call.
-4. On completion the extension sends the result with `pi.sendUserMessage`
+5. On completion the extension sends the result with `pi.sendUserMessage`
    (`triggerTurn: true`). So the main agent starts a turn and works on the
    result without the user reading a file. See `docs/adr/0004-deliver-with-send-user-message.md`.
 
@@ -969,6 +979,7 @@ omp-wezterm-worker/
 │   │   ├── pane-id.ts           the pane id at the boundary of the CLI
 │   │   ├── pane-launch.ts       opening a pane and starting a worker in it
 │   │   ├── pane-launch-wezterm.ts opening a WezTerm pane for a worker
+│   │   ├── launch-delivery.ts   the proof that a worker took its task
 │   │   ├── claude-herdr.ts      the refusal of the Claude Code backend on WezTerm
 │   │   ├── worktree.ts          the isolated git worktree
 │   │   ├── spawn.ts             starting and resuming a worker
@@ -1190,6 +1201,9 @@ omp-wezterm-worker/
 │   ├── mixed-cleanup.test.ts   the cleanup of a run with a pending event
 │   ├── mixed-helpers.ts        the helpers of the tests of the mixed backends
 │   ├── mixed-machine.ts        the fake machine of the tests of the mixed backends
+│   ├── launch-delivery.test.ts the proof that a worker took its task
+│   ├── launch-delivery-proof.test.ts the launch that proves the delivery
+│   ├── delivery-helpers.ts     the helpers of the tests of the delivery proof
 │   ├── worker.integration.test.ts    a real worker in a real pane
 │   ├── nested.integration.test.ts    the launch limits with a real worker
 │   ├── worktree.integration.test.ts  the worktree of a real worker
@@ -1271,6 +1285,8 @@ breaks a test.
 | `comms-check.test.ts` | A text that scores 80 or more passes. A low score warns in the warn mode and fails in the enforce mode. The checker runs with node on a file that holds the text. A missing skill gives the verdict skipped with a note. A Vietnamese text, a short text and the off mode never start the checker. |
 | `claude-argv.test.ts` | A new Claude Code worker and a resumed one both get the path of the contract file. The contract never goes into the argv as text. The task stays the last argument. |
 | `claude-contract-file.test.ts` | The contract file holds the reporting contract and the same bytes for every run. A spawn on Herdr gives the program the path of the contract file. A resume writes its own contract file. |
+| `launch-delivery.test.ts` | The default bound waits 1000 ms and polls 30 times. A session file that the send created is the evidence. A transcript that grew past the size of the baseline is the evidence. A transcript of the size of the baseline is no evidence. The action waits before the bound and sends one Enter at the bound. The action fails after the Enter and the bound. The wait sends one Enter and returns when the worker took the task. The wait fails when the worker never took the task. The wait sends no Enter when the worker took the task at once. |
+| `launch-delivery-proof.test.ts` | A task that arrives at once needs no Enter and keeps the pane. A task that arrives only after the Enter gets exactly one Enter. A task that never arrives fails the launch and closes the pane. A launch without a task sends no prompt and no Enter. |
 | `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
 | `result.integration.test.ts` | The result tool returns the answer of a finished worker. |
