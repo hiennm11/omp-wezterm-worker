@@ -38,8 +38,7 @@ function pilotTasks(): PlanTask[] {
 function fullTasks(): PlanTask[] {
 	const tasks: PlanTask[] = [];
 	for (let index = 1; index <= 30; index += 1) {
-		const type: TaskType =
-			index % 3 === 0 ? "implementation" : index % 3 === 1 ? "bugfix" : "refactoring";
+		const type: TaskType = index % 3 === 0 ? "implementation" : index % 3 === 1 ? "bugfix" : "refactoring";
 		tasks.push(task(`task-${String(index).padStart(3, "0")}`, type));
 	}
 	return tasks;

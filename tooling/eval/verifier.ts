@@ -25,11 +25,7 @@ const DEADLINE_PASSED = "ETIMEDOUT";
  * The command runs without a shell, so an argument never reaches a shell.
  * The call waits at most `timeoutMs` milliseconds.
  */
-export function runVerifier(
-	command: string[],
-	cwd: string,
-	timeoutMs: number,
-): VerifierResult {
+export function runVerifier(command: string[], cwd: string, timeoutMs: number): VerifierResult {
 	const [program, ...args] = command;
 	const startedAt = Date.now();
 	const result = spawnSync(program, args, {
