@@ -1059,6 +1059,9 @@ omp-wezterm-worker/
 │       ├── verifier.ts           the command, the exit code and the deadline
 │       ├── acceptance.ts         the acceptance verdict and the protected path restore
 │       ├── artifact.ts           the JSON write, the JSON read and the resume
+│       ├── runner.ts             one experiment through the test host
+│       ├── runner-host.ts        the seam that reads the results of the worker tools
+│       ├── run-command.ts        the command that runs the plan of a run
 │       └── datasets/             the tasks of the benchmark
 ├── tests/
 │   ├── harness.ts               a test host for the extension
@@ -1155,6 +1158,7 @@ omp-wezterm-worker/
 │   ├── worktree.integration.test.ts  the worktree of a real worker
 │   ├── native-worktree.integration.test.ts  the worktree of a real native worker
 │   ├── eval-dataset.test.ts      the checksum and the validation of the dataset
+│   ├── eval-runner.test.ts       the runner of one experiment through a fake host
 │   └── eval-planner.test.ts      the matrix, the pilot and the refusals
 ├── docs/
 │   ├── adr/                     the decisions and their reasons

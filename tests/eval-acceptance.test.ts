@@ -51,7 +51,7 @@ function templateFixture(): string {
 	writeFile(
 		dir,
 		"test/pass.test.mjs",
-		'import assert from "node:assert/strict";\ntest("it passes", () => {\n\tassert.equal(1, 1);\n});\n',
+		'import assert from "node:assert/strict";\nimport { test } from "node:test";\n\ntest("it passes", () => {\n\tassert.equal(1, 1);\n});\n',
 	);
 	return dir;
 }

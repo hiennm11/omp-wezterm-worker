@@ -83,6 +83,18 @@ export interface PlanCell {
 	promptHash: string;
 }
 
+/** The plan of a run, as the file `plan.json` holds it. */
+export interface PlanFile {
+	schemaVersion: 1;
+	datasetVersion: string;
+	pilot: boolean;
+	models: string[];
+	efforts: string[];
+	runs: number;
+	experiments: number;
+	cells: PlanCell[];
+}
+
 /** The result of one verifier run. */
 export interface VerifierResult {
 	started: boolean;

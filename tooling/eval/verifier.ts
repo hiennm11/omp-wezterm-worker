@@ -20,6 +20,20 @@ const NO_SUCH_FILE = "ENOENT";
 const DEADLINE_PASSED = "ETIMEDOUT";
 
 /**
+ * The environment of the verifier.
+ *
+ * The variable `NODE_TEST_CONTEXT` belongs to a test runner. A command that
+ * starts `node --test` refuses to run when it inherits that variable, and
+ * the command exits with the code 0. A verifier that runs inside a test
+ * would accept every fixture, so the variable is removed.
+ */
+function verifierEnvironment(): NodeJS.ProcessEnv {
+	const environment = { ...process.env };
+	delete environment.NODE_TEST_CONTEXT;
+	return environment;
+}
+
+/**
  * Run one command in one directory.
  *
  * The command runs without a shell, so an argument never reaches a shell.
@@ -33,6 +47,7 @@ export function runVerifier(command: string[], cwd: string, timeoutMs: number): 
 		timeout: timeoutMs,
 		encoding: "utf8",
 		windowsHide: true,
+		env: verifierEnvironment(),
 	});
 	const durationMs = Date.now() - startedAt;
 	const code = (result.error as NodeJS.ErrnoException | undefined)?.code;
