@@ -100,6 +100,34 @@ test("the loader refuses a task with an unknown expectation", () => {
 	assert.equal(issues[0].field, "verify.expectBefore");
 });
 
+test("the loader refuses a pass expectation on a bugfix task", () => {
+	const root = buildDataset({
+		verify: {
+			command: ["node", "--test", "test/math.test.mjs"],
+			expectBefore: "pass",
+			protectedPaths: [],
+		},
+	});
+	const issues = issuesOf(root);
+	assert.equal(issues.length, 1);
+	assert.equal(issues[0].field, "verify.expectBefore");
+	assert.match(issues[0].message, /refactoring/);
+});
+
+test("the loader refuses a protected path with a parent segment", () => {
+	const root = buildDataset({
+		verify: {
+			command: ["node", "--test", "test/math.test.mjs"],
+			expectBefore: "fail",
+			protectedPaths: ["../outside/test.mjs"],
+		},
+	});
+	const issues = issuesOf(root);
+	assert.equal(issues.length, 1);
+	assert.equal(issues[0].field, "verify.protectedPaths");
+	assert.match(issues[0].message, /\.\.\/outside\/test\.mjs/);
+});
+
 test("the loader applies the defaults of the absent fields", () => {
 	const root = buildDataset();
 	const loaded = loadDataset(root);

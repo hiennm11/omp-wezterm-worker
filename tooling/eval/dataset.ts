@@ -137,7 +137,12 @@ function readManifest(root: string, issues: DatasetIssue[]): DatasetManifest | n
 }
 
 /** Read the check of a task. */
-function readVerify(value: unknown, taskPath: string, issues: DatasetIssue[]): TaskVerify | null {
+function readVerify(
+	value: unknown,
+	taskPath: string,
+	taskType: TaskType,
+	issues: DatasetIssue[],
+): TaskVerify | null {
 	if (!isRecord(value)) {
 		addIssue(issues, taskPath, "verify", "The field verify must hold an object.");
 		return null;
@@ -165,6 +170,14 @@ function readVerify(value: unknown, taskPath: string, issues: DatasetIssue[]): T
 			"The field verify.expectBefore must hold fail or pass.",
 		);
 		valid = false;
+	} else if (expectBefore === "pass" && taskType !== "refactoring") {
+		addIssue(
+			issues,
+			taskPath,
+			"verify.expectBefore",
+			"The field verify.expectBefore may hold pass only for a refactoring task. A test that passes before the work proves nothing.",
+		);
+		valid = false;
 	}
 	const protectedPaths = value.protectedPaths ?? [];
 	if (!Array.isArray(protectedPaths) || !protectedPaths.every((path) => typeof path === "string")) {
@@ -175,6 +188,20 @@ function readVerify(value: unknown, taskPath: string, issues: DatasetIssue[]): T
 			"The field verify.protectedPaths must hold a list of strings.",
 		);
 		valid = false;
+	} else {
+		for (const path of protectedPaths as string[]) {
+			const absolute = path.startsWith("/");
+			const parent = path.split("/").includes("..");
+			const backslash = path.includes("\\");
+			if (!absolute && !parent && !backslash) continue;
+			addIssue(
+				issues,
+				taskPath,
+				"verify.protectedPaths",
+				`The protected path ${path} must be a relative path with / separators.`,
+			);
+			valid = false;
+		}
 	}
 	if (!valid) return null;
 	return {
@@ -219,7 +246,7 @@ function readTask(
 		addIssue(issues, taskPath, "workerTimeoutMs", "The field workerTimeoutMs must hold a number.");
 		valid = false;
 	}
-	const verify = readVerify(value.verify, taskPath, issues);
+	const verify = readVerify(value.verify, taskPath, taskType, issues);
 	if (verify === null) valid = false;
 	const prompt = join(taskDir, PROMPT_FILE);
 	if (!existsSync(prompt)) {

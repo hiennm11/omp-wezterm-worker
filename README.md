@@ -1055,6 +1055,7 @@ omp-wezterm-worker/
 │       ├── dataset.ts            the scan, the validation and the checksum of the dataset
 │       ├── planner.ts            the matrix, the run count and the pilot selection
 │       ├── verifier.ts           the command, the exit code and the deadline
+│       ├── acceptance.ts         the acceptance verdict and the protected path restore
 │       └── datasets/             the tasks of the benchmark
 ├── tests/
 │   ├── harness.ts               a test host for the extension
