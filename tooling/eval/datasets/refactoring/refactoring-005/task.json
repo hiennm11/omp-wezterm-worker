@@ -1,0 +1,12 @@
+{
+	"taskType": "refactoring",
+	"workerTimeoutMs": 300000,
+	"difficulty": "medium",
+	"mechanism": "split one function into a parse function and an apply function",
+	"verify": {
+		"command": ["node", "{dataset}/verify/check.mjs"],
+		"timeoutMs": 60000,
+		"expectBefore": "fail",
+		"protectedPaths": ["test/"]
+	}
+}

@@ -1,0 +1,12 @@
+{
+	"taskType": "bugfix",
+	"workerTimeoutMs": 300000,
+	"difficulty": "medium",
+	"mechanism": "parse that returns NaN for a missing field",
+	"verify": {
+		"command": ["node", "--test", "test/parse-record.test.mjs"],
+		"timeoutMs": 60000,
+		"expectBefore": "fail",
+		"protectedPaths": ["test/"]
+	}
+}

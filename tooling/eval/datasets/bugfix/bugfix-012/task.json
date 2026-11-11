@@ -1,0 +1,12 @@
+{
+	"taskType": "bugfix",
+	"workerTimeoutMs": 300000,
+	"difficulty": "medium",
+	"mechanism": "regular expression that matches a prefix instead of the whole text",
+	"verify": {
+		"command": ["node", "--test", "test/slug.test.mjs"],
+		"timeoutMs": 60000,
+		"expectBefore": "fail",
+		"protectedPaths": ["test/"]
+	}
+}

@@ -219,7 +219,16 @@ test("a run directory holds a copy of the fixture of the pilot", () => {
 	cpSync(DATASET_DIR, copy, { recursive: true });
 	const loaded = loadDataset(copy);
 	assert.ok(loaded.ok, "the copy of the dataset must load");
-	assert.equal(loaded.dataset.tasks.length, 3);
+	const source = loadDataset(DATASET_DIR);
+	assert.ok(source.ok, "the dataset of the repository must load");
+	assert.deepEqual(
+		loaded.dataset.tasks.map((task) => task.taskId),
+		source.dataset.tasks.map((task) => task.taskId),
+	);
+	assert.deepEqual(
+		loaded.dataset.tasks.map((task) => task.fixtureChecksum),
+		source.dataset.tasks.map((task) => task.fixtureChecksum),
+	);
 });
 
 test("the verifier fails a broken fixture inside a test runner", () => {

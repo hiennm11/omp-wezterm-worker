@@ -1,0 +1,12 @@
+{
+	"taskType": "bugfix",
+	"workerTimeoutMs": 300000,
+	"difficulty": "low",
+	"mechanism": "wrong comparison operator in a score threshold",
+	"verify": {
+		"command": ["node", "--test", "test/score.test.mjs"],
+		"timeoutMs": 60000,
+		"expectBefore": "fail",
+		"protectedPaths": ["test/"]
+	}
+}
