@@ -1,6 +1,6 @@
 {
 	"taskType": "refactoring",
-	"workerTimeoutMs": 900000,
+	"workerTimeoutMs": 300000,
 	"verify": {
 		"command": ["node", "--test", "test/name.test.mjs"],
 		"timeoutMs": 60000,

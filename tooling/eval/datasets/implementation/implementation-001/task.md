@@ -9,3 +9,5 @@ The test fails because the module does not export the function that the test nee
 Add the missing export so that every test passes.
 
 Do not change the test file.
+
+When every test passes, call `wezterm_worker_report` once with the state `completed`. Put one sentence that names the new export in the result.
