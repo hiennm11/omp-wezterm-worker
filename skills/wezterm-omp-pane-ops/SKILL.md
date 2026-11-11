@@ -14,8 +14,8 @@ inside a Herdr session (`HERDR_ENV=1`). It never starts a Herdr server. No
 WSL: WSL holds a different `omp` build, and every command here would touch the
 wrong install.
 
-Only the OMP backend runs on Herdr today. The Claude Code backend refuses to
-start, and the reply says so (ADR 0025).
+The OMP backend and the Claude Code backend run on Herdr today. The Claude
+Code backend refuses on WezTerm, and the reply says so (ADR 0027).
 
 ## Sending text to a pane
 
@@ -43,9 +43,10 @@ real task has line breaks. So the extension starts OMP with no task in the
 argv, waits until the agent is ready, and sends the task with `agent prompt`.
 A launch that fails after the pane opened closes that pane.
 
-The Claude Code backend gives a contract of many lines in
-`--append-system-prompt`. That argument cannot reach Herdr, so the backend
-refuses until the contract travels in a file.
+The Claude Code backend gives a contract of many lines. The launch writes the
+contract into the session directory and passes the path with
+`--append-system-prompt-file`. The path has no line break, so it reaches
+Herdr. The contract text itself never goes into the argv.
 
 ## Spawning into a pane
 

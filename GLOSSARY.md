@@ -36,6 +36,13 @@ _Avoid_: Legacy backend, old backend
 The check that Claude Code accepts the session-scoped mod before a worker starts or resumes. Warnings do not refuse the worker.
 _Avoid_: Plugin check
 
+**Contract file**:
+The file in the session directory that holds the reporting contract of a
+Claude Code worker. The launch passes its path to Claude Code, because Herdr
+refuses an argument with a line break. The file holds the same bytes for
+every run.
+_Avoid_: Bootstrap prompt file, system prompt
+
 **Task**:
 The self-contained instruction that a worker receives. It is the full input of
 the worker. The worker never sees the main conversation.
