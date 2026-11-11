@@ -50,6 +50,7 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0026-the-codex-backend-is-removed.md",
 	"docs/adr/0027-two-pane-runtimes.md",
 	"docs/plans/recoverable-omp-supervision.md",
+	"docs/plans/worker-eval-v0.1.md",
 ];
 
 /** The steps that install the skill on a machine that does not hold it. */

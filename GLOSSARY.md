@@ -139,6 +139,7 @@ workers exchange. The check starts the checker of the ste100 skill. A low
 score adds a warning. The enforce mode refuses a task, a steering message and
 a follow-up instruction that score below the minimum. A machine without the
 skill gives the verdict skipped, and the tool never refuses a text then.
+This verdict is not the acceptance verdict of a benchmark.
 _Avoid_: Style check, lint, grammar check
 
 **Thinking level**:
@@ -450,4 +451,34 @@ state of the task. A note of the worker names the run that wrote it, and a
 note of the main session names no run. The text holds 4000 characters at
 most.
 _Avoid_: Board, message, agent
+
+## Eval terms
+
+**Experiment**:
+One run of one task with one model and one effort. It holds evidence. It is not the result of a worker.
+_Avoid_: Trial, test run, benchmark
+
+**Benchmark run**:
+Every experiment of one plan, written to one artifact directory.
+_Avoid_: Batch, session, evaluation
+
+**Acceptance verdict**:
+The value `PASS`, `FAIL` or `BLOCKED` that an external verifier gives a fixture. The report of a worker never sets it. A verdict of the communication check is not an acceptance verdict.
+_Avoid_: Job status, worker report, self-assessment
+
+**Dataset version**:
+The version string of a dataset directory. A change to a fixture, a task text or a verifier changes the version.
+_Avoid_: Dataset tag, snapshot
+
+**Fixture checksum**:
+The SHA-256 of the sorted list of the paths and bytes of a fixture. It proves that two runs started from the same tree.
+_Avoid_: Hash, fingerprint
+
+**Protected path**:
+A path that the runner copies from the dataset template before the verifier runs. It stops a worker from weakening a test.
+_Avoid_: Read-only file, immutable path
+
+**Measured cost**:
+The cost that the provider reported for a model call, summed from the transcript. A missing value stays `unknown`.
+_Avoid_: Estimate, price table, zero cost
 
