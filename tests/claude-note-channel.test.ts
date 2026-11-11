@@ -47,6 +47,44 @@ async function startFixture(): Promise<Fixture> {
 	};
 }
 
+test("a request without the token of the bridge reads no note", async () => {
+	const fixture = await startFixture();
+	try {
+		appendChannelNote(fixture.sessionDir, "main", {
+			runId: null,
+			text: "The build fails on Windows.",
+			at: Date.now(),
+		});
+		const response = await fetch(`${fixture.baseUrl}/channel/notes?runId=wz-1&afterSeq=0`, {
+			headers: { authorization: "Bearer the-wrong-token" },
+		});
+		assert.equal(response.status, 401, "the bridge served a request with a wrong token");
+		const body = await response.json();
+		assert.equal(body.notes, undefined, "the bridge gave the notes to a wrong token");
+	} finally {
+		await fixture.close();
+	}
+});
+
+test("a request for another run reads no note", async () => {
+	const fixture = await startFixture();
+	try {
+		appendChannelNote(fixture.sessionDir, "main", {
+			runId: null,
+			text: "The build fails on Windows.",
+			at: Date.now(),
+		});
+		const response = await fetch(`${fixture.baseUrl}/channel/notes?runId=wz-2&afterSeq=0`, {
+			headers: { authorization: `Bearer ${fixture.token}` },
+		});
+		assert.equal(response.status, 200);
+		const body = await response.json();
+		assert.deepEqual(body.notes, [], "the bridge gave the notes of another run");
+	} finally {
+		await fixture.close();
+	}
+});
+
 test("the mod registers the two channel tools of the worker", async () => {
 	const fixture = await startFixture();
 	try {
