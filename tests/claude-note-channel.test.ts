@@ -7,13 +7,12 @@
  */
 
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-
-import { startBridge } from "../extensions/lib/claude-bridge.ts";
 import { appendChannelNote, readChannelNotes } from "../extensions/lib/channel-store.ts";
+import { startBridge } from "../extensions/lib/claude-bridge.ts";
 import { startMod, toolResult } from "./claude-note-helpers.ts";
 
 /** The names of the tools that the mod registers. */
@@ -35,7 +34,8 @@ interface Fixture {
 async function startFixture(): Promise<Fixture> {
 	const dir = mkdtempSync(join(tmpdir(), "wt-claude-note-"));
 	const sessionDir = join(dir, "session");
-	const bridge = await startBridge("wz-1", () => undefined);
+	mkdirSync(sessionDir, { recursive: true });
+	const bridge = await startBridge("wz-1", () => undefined, sessionDir);
 	return {
 		baseUrl: bridge.baseUrl,
 		token: bridge.token,
@@ -109,6 +109,31 @@ test("a note waits while a permission request is open", async () => {
 		await mod.settlePermission("call-1");
 		await mod.poll();
 		assert.equal(mod.submitted().length, 1, "the note did not arrive after the permission request");
+	} finally {
+		await fixture.close();
+	}
+});
+
+test("a turn that carries a note is not an instruction cycle", async () => {
+	const fixture = await startFixture();
+	try {
+		const mod = await startMod(fixture, join(fixture.sessionDir, "handover.json"));
+		const handler = mod.handler("turn.start");
+		assert.ok(handler, "the mod registers no turn start handler");
+		await handler(mod.dollar, { turnId: "turn-1", text: "The task of the worker." }, () => undefined);
+		const bodies = mod.bodies();
+		const starts = bodies.filter((body) => body.source === "turn.start");
+		assert.equal(starts.length, 1, "the mod posted no turn start");
+
+		await handler(
+			mod.dollar,
+			{ turnId: "turn-2", text: `${PREFIX} The build fails on Windows.` },
+			() => undefined,
+		);
+		const after = mod.bodies().filter((body) => body.source === "turn.start");
+		assert.equal(after.length, 1, "the note turn counted as an instruction cycle");
+		const notes = mod.bodies().filter((body) => body.source === "note.turn");
+		assert.equal(notes.length, 1, "the mod posted no note turn");
 	} finally {
 		await fixture.close();
 	}

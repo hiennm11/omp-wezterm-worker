@@ -50,7 +50,7 @@ export function fakeRuntime(): { rt: WorkerRuntime; dir: string } {
 }
 
 /** The session directory of a worker, with the context of its run. */
-export function workerSession(dir: string, id: string, backend: "omp" | "claude" = "omp"): string {
+export function workerSession(dir: string, id: string, backend: string = "omp"): string {
 	const sessionDir = join(dir, "sessions", id);
 	mkdirSync(sessionDir, { recursive: true });
 	writeRunContext(sessionDir, {

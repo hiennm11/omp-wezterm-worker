@@ -12,6 +12,8 @@
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
+import { type BridgeChannel, channelOf } from "./channel-bridge.ts";
+
 /** One observation that a worker sent. */
 export interface BridgeObservation {
 	backend: string;
@@ -48,6 +50,8 @@ export interface BridgeState {
 	commands: BridgeCommand[];
 	/** The results of the commands, by command id. */
 	results: Map<string, BridgeCommandResult>;
+	/** The channel that the bridge serves to the worker. */
+	channel: BridgeChannel;
 	/** Close the server. */
 	close: () => Promise<void>;
 	/** The port that the server bound. */
@@ -63,11 +67,16 @@ export type ObservationHandler = (observation: BridgeObservation) => void;
  * The server takes the observations through the handler. The handler decides
  * what happens with them, so the bridge stays a transport.
  */
-export async function startBridge(runId: string, onObservation: ObservationHandler): Promise<BridgeState> {
+export async function startBridge(
+	runId: string,
+	onObservation: ObservationHandler,
+	sessionDir: string,
+): Promise<BridgeState> {
 	const token = randomBytes(24).toString("hex");
 	const observations: BridgeObservation[] = [];
 	const commands: BridgeCommand[] = [];
 	const results = new Map<string, BridgeCommandResult>();
+	const channel: BridgeChannel = channelOf(sessionDir, runId);
 	let closed = false;
 
 	const server: Server = createServer((request, response) => {
@@ -134,6 +143,40 @@ export async function startBridge(runId: string, onObservation: ObservationHandl
 			send(response, 200, { command: command ?? null });
 			return;
 		}
+		if (request.method === "GET" && url.pathname === "/channel/notes") {
+			/* A request for another run never finds a note. The bridge
+			   holds the channel of one run only. */
+			const wanted = url.searchParams.get("runId");
+			if (wanted !== runId) {
+				send(response, 200, { notes: [], highestSeq: 0, text: "" });
+				return;
+			}
+			const afterSeq = Number(url.searchParams.get("afterSeq") ?? "0");
+			send(response, 200, channel.mainNotes(Number.isFinite(afterSeq) ? afterSeq : 0));
+			return;
+		}
+		if (request.method === "POST" && url.pathname === "/channel/notes") {
+			const body = await readBody(request);
+			if (!body || typeof body !== "object") {
+				send(response, 400, { error: "invalid json" });
+				return;
+			}
+			const payload = body as { runId?: unknown; text?: unknown };
+			/* A request for another run never writes a note. The bridge
+			   holds the channel of one run only. */
+			if (payload.runId !== runId) {
+				send(response, 404, { error: "this run has no channel" });
+				return;
+			}
+			const text = typeof payload.text === "string" ? payload.text : "";
+			const saved = channel.appendNote(text);
+			if ("refusal" in saved) {
+				send(response, 400, { error: saved.refusal });
+				return;
+			}
+			send(response, 202, saved);
+			return;
+		}
 		send(response, 404, { error: "not found" });
 	}
 
@@ -158,6 +201,7 @@ export async function startBridge(runId: string, onObservation: ObservationHandl
 		observations,
 		commands,
 		results,
+		channel,
 		port,
 		close: () =>
 			new Promise<void>((resolve) => {

@@ -35,9 +35,13 @@ import type { WorkerRuntime } from "./runtime.ts";
  */
 export async function reattachNative(rt: WorkerRuntime, job: Job): Promise<void> {
 	const state = restoreRunState(rt, job);
-	const bridge = await startBridge(job.id, (observation) => {
-		observeNative(rt, state, job.id, observation);
-	});
+	const bridge = await startBridge(
+		job.id,
+		(observation) => {
+			observeNative(rt, state, job.id, observation);
+		},
+		job.sessionDir,
+	);
 	rt.claudeStates.set(job.id, state);
 	rt.bridges.set(job.id, bridge);
 	try {
