@@ -56,7 +56,7 @@ These rules add to the global rules in `~/.agents/AGENTS.md`. The tests in
 - Write the task text in English. Score it with the checker of the ste100 skill before you send it. Run `node <the skill folder>/dist/cli.js <file>`. The score must be 80 or more.
 - Tell the worker to write each red test first and to run it on `master`.
 - Check the report of a worker against the code. A claim without a file and a line is not evidence.
-- Run `npx biome check .` on the branch of a worker yourself. A worker report of a clean lint is not evidence, because three branches failed `biome format` after such a report. Format every new test file.
+- Run the pinned biome on the branch of a worker yourself: `D:/repos/omp-wezterm-worker/node_modules/.bin/biome check .`. A worktree without `node_modules` takes a different biome from `npx`, and that binary reported a clean lint on a branch that failed the repository lint. Run `npm run lint` again on the main checkout after the merge. A worker report of a clean lint is not evidence. Format every new test file.
 - Run the unit list yourself as well. Three worker reports named 23 to 26 failing tests that do not occur when the orchestrator runs the same list on the same commit. A worker count of failures is not evidence either.
 - A worker commits on its own branch. It does not push and does not open a pull request.
 - Change `GLOSSARY.md`, the ADR and `README.md` in the same change as the code.
@@ -64,7 +64,7 @@ These rules add to the global rules in `~/.agents/AGENTS.md`. The tests in
 
 ## Commands and tools
 
-- Run every test with `env -u OMP_WORKER_SESSION_DIR -u PI_SESSION_FILE`. These variables make 5 unit tests fail.
+- Run every test with `unset OMP_WORKER_SESSION_DIR PI_SESSION_FILE` first. The `env -u` form fails in the Git Bash of this machine with `exec: node: not found`. These variables make 5 unit tests fail.
 - Run GitNexus impact with `--repo omp-wezterm-worker`. Without it the command prints an error that a filter can hide.
 - `finalizeJob` has CRITICAL impact and `stopJob` has HIGH impact. Keep a change in them small.
 - `package.json` has `eol=crlf`. After an edit, run `git add --renormalize package.json` and `npx biome format --write package.json`.
@@ -74,7 +74,8 @@ These rules add to the global rules in `~/.agents/AGENTS.md`. The tests in
 ## Git
 
 - Do not push `master`. Use a branch and a pull request.
-- Merge with `gh pr merge N --rebase`. Delete the branch by hand, because the repository does not delete it.
+- Wait until `gh pr view N --json mergeable` reports `MERGEABLE` before the merge. A merge that starts while GitHub still reports `UNKNOWN` fails, and the failure can close the pull request.
+- Merge with `gh pr merge N --rebase`. Read the state after the merge. Delete the branch by hand only when the state is `MERGED`, because a deleted branch closes the pull request.
 - Stage files by name. Never run `git add -A`.
 - Do not merge a pull request without approval of the owner. Do not delete a worktree without it.
 
@@ -92,7 +93,7 @@ These rules add to the global rules in `~/.agents/AGENTS.md`. The tests in
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **omp-wezterm-worker** (2077 symbols, 6487 relationships, 167 execution flows). Use GitNexus graph tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **omp-wezterm-worker** (2991 symbols, 9074 relationships, 240 execution flows). Use GitNexus graph tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? Bootstrap with `npx`, `bunx`, or `pnpm dlx` — e.g. `bunx gitnexus@latest analyze` (npm 11 npx crash; #1939).
 
