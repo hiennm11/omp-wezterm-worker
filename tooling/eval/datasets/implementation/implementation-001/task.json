@@ -1,6 +1,6 @@
 {
 	"taskType": "implementation",
-	"workerTimeoutMs": 900000,
+	"workerTimeoutMs": 300000,
 	"verify": {
 		"command": ["node", "--test", "test/greet.test.mjs"],
 		"timeoutMs": 60000,
