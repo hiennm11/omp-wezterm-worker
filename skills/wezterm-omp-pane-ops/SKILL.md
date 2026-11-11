@@ -344,6 +344,13 @@ this way. The condition `missing_report` means that a cycle ended without a
 report. It does not mean that the worker is dead. Read the transcript before you
 steer.
 
+The extension reminds the worker before it wakes the agent (ADR 0028). A cycle
+that ends without a report gets one reminder in the pane of that worker. The
+reminder names the tool `wezterm_worker_report`. The worker then has 120
+seconds to report. The event `missing_report` comes only when that time
+passes without a report. One cycle gets one reminder, and a restart sends
+nothing. A report inside the cycle resolves the event.
+
 The cycle kind `thinking` means that the last entry is a tool result, or that
 the last assistant message did not end its turn with text. A thinking model can
 take longer than 30 seconds between two tool calls. The kind raises no

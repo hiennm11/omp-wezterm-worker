@@ -378,6 +378,10 @@ _Avoid_: Dialog, permission request, idle worker
 An OMP worker cycle that remains in the thinking state for 600 seconds after its last transcript entry. It raises one event for the owner.
 _Avoid_: Missing report, idle worker
 
+**Report reminder**:
+The instruction that the extension sends into the pane of a worker whose cycle ended without a report. One cycle gets one reminder. The reminder goes to the pane of that worker only. The owner wakes when the worker does not report within the grace of the reminder.
+_Avoid_: Steer, wake, notification
+
 **Native cycle**:
 The native turn that carries one instruction. A cycle starts at the accepted instruction and ends when its turn ends.
 
