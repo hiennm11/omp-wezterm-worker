@@ -510,7 +510,7 @@ export function register(on) {
 			runId: state.runId,
 		});
 		await registerReportTool($);
-		await registerNoteTools($, (tool) => $.tool.register(tool));
+		await registerNoteTools((tool) => $.tool.register(tool));
 		/* The delivered notes live in a file, so a restart of the session
 		   never submits a note twice. */
 		state.deliveredNotes = await readDelivered($, noteContext());

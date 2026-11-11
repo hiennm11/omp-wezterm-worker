@@ -210,7 +210,7 @@ export async function readNotes($, context, afterSeq, delivered) {
 }
 
 /** Register the two tools of the note channel. */
-export async function registerNoteTools($, registerTool) {
+export async function registerNoteTools(registerTool) {
 	await registerTool({
 		name: NOTE_TO_MAIN,
 		description: NOTE_TO_MAIN_DESCRIPTION,
