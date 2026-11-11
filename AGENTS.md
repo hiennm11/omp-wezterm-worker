@@ -66,6 +66,7 @@ These rules add to the global rules in `~/.agents/AGENTS.md`. The tests in
 
 - Run every test with `unset OMP_WORKER_SESSION_DIR PI_SESSION_FILE` first. The `env -u` form fails in the Git Bash of this machine with `exec: node: not found`. These variables make 5 unit tests fail.
 - Run GitNexus impact with `--repo omp-wezterm-worker`. Without it the command prints an error that a filter can hide.
+- The worker eval lives in `tooling/eval/`. Read `skills/worker-eval/SKILL.md` before a benchmark. It starts real workers in panes, one experiment at a time.
 - `finalizeJob` has CRITICAL impact and `stopJob` has HIGH impact. Keep a change in them small.
 - `package.json` has `eol=crlf`. After an edit, run `git add --renormalize package.json` and `npx biome format --write package.json`.
 - Read a file before an edit and copy its tag. Never invent a tag.

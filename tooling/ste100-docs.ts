@@ -23,6 +23,7 @@ export const CHECKED_DOCUMENTS = [
 	"GLOSSARY.md",
 	"README.md",
 	"skills/wezterm-omp-pane-ops/SKILL.md",
+	"skills/worker-eval/SKILL.md",
 	"docs/adr/0001-transcript-is-the-result-source.md",
 	"docs/adr/0002-never-delete-a-workers-work.md",
 	"docs/adr/0003-extension-and-script-not-a-fork.md",
