@@ -926,6 +926,27 @@ retry. The monitor also retries on every poll. See
 - The extension module loads at OMP startup. OMP does not load a new module
   with `/reload-plugins`. Restart OMP.
 
+## The worker eval
+
+`tooling/eval/` measures how well a model solves a task at a given thinking level. It runs real workers through the extension and checks the result with a test, not with the report of the worker.
+
+```text
+node tooling/eval/cli.ts plan --dataset tooling/eval/datasets \
+  --models "omniroute/minimax/MiniMax-M3.1-Flash,omniroute/ds/deepseek-v4-flash" \
+  --efforts "low,medium,high" --out .eval/eval-1
+node tooling/eval/cli.ts run --run .eval/eval-1
+node tooling/eval/cli.ts report --run .eval/eval-1
+node tooling/eval/cli.ts recommend --run .eval/eval-1 --task-type bugfix
+```
+
+The dataset holds 30 tasks across `bugfix`, `implementation`, `refactoring` and `testing`. Each task has a fixture, a verifier and a `solution/` tree. The verifier restores the protected test paths first, so a worker cannot delete a test and pass.
+
+An experiment records three independent axes: the execution outcome, the acceptance verdict and the usage state. A `completed` worker can still give `FAIL`. A blocked run is not a failure.
+
+`.eval/` holds the plan, the manifest, the records and the report. `report` writes a summary to `docs/trials/`. Commit the summary, not the JSON.
+
+The companion skill `skills/worker-eval/SKILL.md` carries the operating rules: one experiment at a time, a throwaway Herdr session, pinned model ids, and the three-valid-run limit of `recommend`. The design is `docs/plans/worker-eval-v0.1.md`.
+
 ## The companion skill
 
 `scripts/install.sh` installs `skills/wezterm-omp-pane-ops/SKILL.md` to
