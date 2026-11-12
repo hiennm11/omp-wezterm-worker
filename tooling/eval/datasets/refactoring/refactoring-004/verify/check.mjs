@@ -34,7 +34,8 @@ if (test.status !== 0) {
 if (!read("src/port.mjs").includes("export function isValidPort(")) {
 	problems.push("the module src/port.mjs does not export the function isValidPort");
 }
-if (!read("src/port.mjs").includes("isValidPort(port)")) {
+const calls = read("src/port.mjs").match(/\bisValidPort\(/g) ?? [];
+if (calls.length < 2) {
 	problems.push("the function parsePort does not call the function isValidPort");
 }
 
