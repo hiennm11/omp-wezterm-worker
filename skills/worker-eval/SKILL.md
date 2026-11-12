@@ -102,3 +102,4 @@ The extension configuration still bounds the run. A test host starts with the de
 - Read the records, not only the table. Check `execution.outcome`, `verification.verdict` and `usage.state` for a sample.
 - A cost of `null` means that the transcript held no price. It is not zero.
 - A run where every configuration passed says nothing about a model. Use a harder task before you draw a conclusion.
+- The current dataset is too easy. The full matrix of 360 runs passed 358 times, so the ranking followed the median time. Do not spend hours on this dataset to choose a model.
