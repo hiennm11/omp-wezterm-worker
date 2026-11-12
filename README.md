@@ -948,6 +948,8 @@ The dataset holds 30 tasks across `bugfix`, `implementation`, `refactoring` and 
 
 An experiment records three independent axes: the execution outcome, the acceptance verdict and the usage state. A `completed` worker can still give `FAIL`. A blocked run is not a failure.
 
+The full matrix ran once: 360 runs, 4 models, 3 efforts, 30 tasks. 358 runs passed. The dataset is too easy to separate the models, so the ranking follows the median time. Do not run the matrix again on this dataset to choose a model. A harder dataset comes first. The summary is `docs/trials/worker-eval-eval-full-2.md`.
+
 `.eval/` holds the plan, the manifest, the records and the report. `report` writes a summary to `docs/trials/`. Commit the summary, not the JSON.
 
 The companion skill `skills/worker-eval/SKILL.md` carries the operating rules: one experiment at a time, a throwaway Herdr session, pinned model ids, and the three-valid-run limit of `recommend`. The design is `docs/plans/worker-eval-v0.1.md`.
