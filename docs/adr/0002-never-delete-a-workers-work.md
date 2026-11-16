@@ -17,3 +17,7 @@ The cost is that worktrees collect under the state directory. The cost is
 also that the branch of each worker stays in the repository. This cost is
 deliberate. An unused worktree is only storage. A deleted worktree means
 lost work.
+
+ADR 0031 changes this rule in one narrow case. The tool
+`wezterm_worker_prune` removes the branch of a worker whose every patch the
+target branch already holds.

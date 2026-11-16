@@ -53,6 +53,7 @@ import { registerNoteToWorkerTool } from "./worker-tools/note-to-worker.ts";
 import { registerNotesFromMainTool } from "./worker-tools/notes-from-main.ts";
 import { registerNotesFromWorkerTool } from "./worker-tools/notes-from-worker.ts";
 import { registerPeekTool } from "./worker-tools/peek.ts";
+import { registerPruneTool } from "./worker-tools/prune.ts";
 import { registerReleaseTool } from "./worker-tools/release.ts";
 import { registerReportTool } from "./worker-tools/report.ts";
 import { registerResolveTool } from "./worker-tools/resolve.ts";
@@ -321,6 +322,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	registerResumeTool(deps);
 	registerCancelTool(deps);
 	registerCleanupTool(deps);
+	registerPruneTool(deps);
 	registerResolveTool(deps);
 	registerReleaseTool(deps);
 	registerTakeoverTool(deps);

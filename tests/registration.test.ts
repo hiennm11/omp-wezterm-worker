@@ -17,6 +17,7 @@ const EXPECTED_TOOLS = [
 	"wezterm_worker_resume",
 	"wezterm_worker_cancel",
 	"wezterm_worker_cleanup",
+	"wezterm_worker_prune",
 	"wezterm_worker_resolve",
 	"wezterm_worker_release",
 	"wezterm_worker_takeover",

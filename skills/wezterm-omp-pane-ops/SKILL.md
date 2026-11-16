@@ -271,11 +271,11 @@ it as the result and you deliver the preamble instead of the answer.
 
 The mechanics of this skill run as an OMP extension at
 `D:\repos\omp-wezterm-worker` (public: `github.com/hiennm11/omp-wezterm-worker`).
-It registers fourteen tools for the main session: `wezterm_spawn_worker`,
+It registers fifteen tools for the main session: `wezterm_spawn_worker`,
 `wezterm_worker_status`, `wezterm_worker_ack`, `wezterm_worker_steer`,
 `wezterm_worker_peek`, `wezterm_worker_result`, `wezterm_worker_resume`,
-`wezterm_worker_cancel`, `wezterm_worker_cleanup`, `wezterm_worker_release`,
-`wezterm_worker_takeover`, `wezterm_worker_resolve`,
+`wezterm_worker_cancel`, `wezterm_worker_cleanup`, `wezterm_worker_prune`,
+`wezterm_worker_release`, `wezterm_worker_takeover`, `wezterm_worker_resolve`,
 `wezterm_worker_note_to_worker` and `wezterm_worker_notes_from_worker`.
 
 **The extension's README is the source of truth for its tools and parameters.**
@@ -432,6 +432,12 @@ first. A checkout with uncommitted changes or untracked files is **kept**. The
 tool lists the changed paths, because those changes are the worker's output.
 `force: true` discards them. The extension never deletes the branch, so
 commits survive the worktree.
+
+`wezterm_worker_prune` is the one exception. It removes the worktree and the
+branch of an old worker whose every patch the target branch already holds.
+The check uses `git cherry`, not the sha, because a rebase merge changes the
+sha of every commit. The default is a dry run, so pass `dryRun: false` to act.
+The prune never forces.
 
 **The extension confirms a steering message. It never guesses.**
 `herdr agent prompt` returns success when Herdr accepts the text. Thus the

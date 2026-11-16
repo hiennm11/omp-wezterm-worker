@@ -53,6 +53,7 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0028-the-extension-reminds-a-worker-that-ends-a-cycle-without-a-report.md",
 	"docs/adr/0029-the-transcript-settles-a-background-job.md",
 	"docs/adr/0030-a-launch-proves-that-the-worker-took-its-task.md",
+	"docs/adr/0031-prune-removes-the-work-that-is-already-merged.md",
 	"docs/plans/recoverable-omp-supervision.md",
 	"docs/plans/worker-eval-v0.1.md",
 ];
