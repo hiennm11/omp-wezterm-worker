@@ -162,7 +162,12 @@ export function runtimeFor(t: TestContext, exec: RunFn): { rt: WorkerRuntime; di
 	const rt = createRuntime(exec);
 	rt.config.stateDir = dir;
 	rt.paneRuntime = "herdr";
-	t.after(() => {
+	/* A monitor action runs after the test body and opens the database again. A close before it ends leaves a handle that locks the directory on Windows. */
+	t.after(async () => {
+		const until = Date.now() + 5_000;
+		while (rt.pendingActions.size > 0 && Date.now() < until) {
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		}
 		rt.closeDb();
 		rmSync(dir, { recursive: true, force: true });
 	});

@@ -1145,6 +1145,8 @@ omp-wezterm-worker/
 ├── tests/
 │   ├── harness.ts               a test host for the extension
 │   ├── worker-processes.ts      the check for a worker process that still runs
+│   ├── temp-root.ts             the temp root of a test run, removed at the exit
+│   ├── temp-root.test.ts        the temp root of a test run
 │   ├── claude-trust-helpers.ts  the answer to the trust dialog of Claude Code
 │   ├── fixtures/                the real texts that the tests read
 │   ├── transcript.test.ts       reading a transcript
@@ -1298,6 +1300,18 @@ panes of the other test. A check also starts real workers and real panes, so
 two checks that run at the same time load the machine twice. Run one check
 at a time.
 
+### The temp root of the unit tests
+
+The script `test:unit` loads the module `tests/temp-root.ts` with `--import`.
+The module makes one directory in the temp folder of the machine. The name of
+the directory starts with `wt-run-`. The module points `TEMP`, `TMP` and
+`TMPDIR` at that directory, so every temp file of a unit test lands inside it.
+The module removes the directory when the process exits, so a test that never
+removes its temp files leaves nothing behind.
+
+The integration tests do not load the module. They start real programs that
+need the normal temp folder of the machine.
+
 ### The essential tests
 
 Each test prevents the loss of one behaviour. A change that breaks a behaviour
@@ -1319,6 +1333,7 @@ breaks a test.
 | `monitor-pane-gone.test.ts` | A worker with a transcript and a gone pane leaves the active set on a tick. An unreadable pane list does not settle the worker. A finished worker is not read and not changed by the pane check. |
 | `supervision.test.ts` | An active task that this process owns and no monitor watches shows `NOT SUPERVISED`. An active task that another session or process owns shows `read-only here` with the session and the process. A read-only row names the answer of the lease and the process id. A watched task, a finished worker and a missing ownership row show no line. The status tool prints the line. |
 | `architecture.test.ts` | No source file exceeds 350 lines. The `lib/` folder never imports the entry or `worker-tools/`. Only `lib/process.ts` starts a child process. Only the entry creates the runtime. |
+| `temp-root.test.ts` | A test that imports the temp root writes its temp files under the root. The root is gone when the process that made it exits. |
 | `limits.test.ts` | One active worker blocks a launch at the default limit. A worker with an unconfirmed stop still counts. A launch that failed before its pane existed does not count. A worker session cannot launch a worker. A user prompt resets the request count. |
 | `usage.test.ts` | A number comes only from a transcript. A model call without usage makes the count partial. A transcript without usage shows unknown. A resumed worker counts only what came after the resume. The request total adds the workers of the request. |
 | `nested.integration.test.ts` | A real worker cannot launch a worker and opens no pane. A second spawn is refused while one worker is active. |

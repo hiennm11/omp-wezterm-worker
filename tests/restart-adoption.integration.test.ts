@@ -24,6 +24,8 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { removeDir } from "./harness.ts";
+
 /** The programs the test needs. */
 function hasProgram(name: string): boolean {
 	const probe = spawnSync(name, ["--version"], { windowsHide: true, encoding: "utf8" });
@@ -198,6 +200,8 @@ test("a new OMP process adopts the worker of a closed session", {
 				/* the pane may already be gone */
 			}
 		}
+		removeDir(repo);
+		removeDir(stateDir);
 	}
 });
 
