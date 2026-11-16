@@ -1144,6 +1144,8 @@ omp-wezterm-worker/
 │       └── datasets/             the tasks of the benchmark
 ├── tests/
 │   ├── harness.ts               a test host for the extension
+│   ├── worker-processes.ts      the check for a worker process that still runs
+│   ├── claude-trust-helpers.ts  the answer to the trust dialog of Claude Code
 │   ├── fixtures/                the real texts that the tests read
 │   ├── transcript.test.ts       reading a transcript
 │   ├── config.test.ts           the config file
@@ -1281,9 +1283,12 @@ so the suite needs no build step and no test framework.
 | `npm run typecheck` | Type check the extension, the tools and the tests. |
 | `npm run check` | Run the lint, the type check, the scores and the tests. |
 
-The integration tests need `omp` and `herdr` on PATH, and a Herdr session
+The integration tests need `omp`, `claude` and `herdr` on PATH, and a Herdr session
 (`HERDR_ENV=1`). Run them in a throwaway session with `HERDR_SOCKET_PATH` set
 to that session, so that a test never touches the panes of your own session.
+A new session holds no workspace. Create one first with `herdr workspace create`,
+and set `HERDR_WORKSPACE_ID` to its id. Without a workspace, every spawn fails with
+"The spawn tool returned no pane id".
 Without them the tests report that they cannot run. They never report a pass
 they did not observe.
 

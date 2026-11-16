@@ -20,10 +20,9 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-
-import { openDatabase } from "../extensions/lib/db.ts";
 
 /** The programs the test needs. */
 function hasProgram(name: string): boolean {
@@ -86,7 +85,14 @@ export default function helper(pi: any) {
 `;
 }
 
-/** The state of the worker in the state directory. */
+/**
+ * The state of the worker in the state directory.
+ *
+ * The test only reads. It opens the file read-only, so it never takes the
+ * write lock that the two OMP processes use. `openDatabase` of the
+ * extension runs `BEGIN IMMEDIATE` for the schema, and that call failed with
+ * "database is locked" while the second process wrote.
+ */
 function workerState(stateDir: string): {
 	status: string | null;
 	ownerPid: number | null;
@@ -95,15 +101,15 @@ function workerState(stateDir: string): {
 } {
 	const file = join(stateDir, "lifecycle.db");
 	if (!existsSync(file)) return { status: null, ownerPid: null, phase: null, delivered: 0 };
-	const db = openDatabase(file);
-	const run = db.handle.prepare("SELECT status FROM runs LIMIT 1").get() as { status: string } | undefined;
-	const owner = db.handle.prepare("SELECT process_id, phase FROM ownership LIMIT 1").get() as
+	const handle = new DatabaseSync(file, { readOnly: true, timeout: 5000 });
+	const run = handle.prepare("SELECT status FROM runs LIMIT 1").get() as { status: string } | undefined;
+	const owner = handle.prepare("SELECT process_id, phase FROM ownership LIMIT 1").get() as
 		| { process_id: number | null; phase: string }
 		| undefined;
-	const sent = db.handle.prepare("SELECT COUNT(*) AS n FROM deliveries WHERE state = 'sent'").get() as {
+	const sent = handle.prepare("SELECT COUNT(*) AS n FROM deliveries WHERE state = 'sent'").get() as {
 		n: number;
 	};
-	db.close();
+	handle.close();
 	return {
 		status: run?.status ?? null,
 		ownerPid: owner?.process_id ?? null,
