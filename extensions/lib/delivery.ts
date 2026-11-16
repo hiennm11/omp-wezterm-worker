@@ -89,19 +89,6 @@ export function deliveriesOfEvent(db: LifecycleDb, eventId: string): DeliveryAtt
 	return rows.map(toAttempt);
 }
 
-/**
- * The delivery attempts that did not settle.
- *
- * A pending or uncertain attempt means that the event may still need a
- * replay.
- */
-export function unsettledDeliveries(db: LifecycleDb): DeliveryAttempt[] {
-	const rows = db.handle
-		.prepare(`${SELECT} WHERE state IN ('pending', 'uncertain') ORDER BY created_at`)
-		.all() as Record<string, unknown>[];
-	return rows.map(toAttempt);
-}
-
 /** Build a delivery attempt from a database row. */
 function toAttempt(row: Record<string, unknown>): DeliveryAttempt {
 	return {
