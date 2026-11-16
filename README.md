@@ -1245,6 +1245,7 @@ omp-wezterm-worker/
 │   ├── nested.integration.test.ts    the launch limits with a real worker
 │   ├── worktree.integration.test.ts  the worktree of a real worker
 │   ├── native-worktree.integration.test.ts  the worktree of a real native worker
+│   ├── mixed-backends.integration.test.ts  an OMP worker and a Claude worker in one session
 │   ├── eval-dataset.test.ts      the checksum and the validation of the dataset
 │   ├── eval-runner.test.ts       the runner of one experiment through a fake host
 │   └── eval-planner.test.ts      the matrix, the pilot and the refusals
@@ -1329,6 +1330,8 @@ breaks a test.
 | `launch-delivery-proof.test.ts` | A task that arrives at once needs no Enter and keeps the pane. A task that arrives only after the Enter gets exactly one Enter. A task that never arrives fails the launch and closes the pane. A launch without a task sends no prompt and no Enter. |
 | `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
+| `native-worktree.integration.test.ts` | A native worker gets its own worktree. A native worker finds its bridge through the handover file. |
+| `mixed-backends.integration.test.ts` | An OMP worker and a Claude worker run at the same time in one session, each on its own backend. The cleanup refuses a result that nobody acknowledged, and the acknowledgement of one result does not settle the other. The cleanup keeps a worktree with changes, and a force removes it while the branch survives. |
 | `result.integration.test.ts` | The result tool returns the answer of a finished worker. |
 | `live-worker.integration.test.ts` | A running worker can be steered, peeked at and cancelled. A steering message reaches the worker. A cancel closes only the pane that the extension created. A worker past its deadline is stopped and its pane is confirmed closed. A session releases the worker that it started, and the worker keeps running. |
 | `restart-adoption.integration.test.ts` | A new OMP process adopts the worker of a closed session. |

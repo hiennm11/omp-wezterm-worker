@@ -175,6 +175,36 @@ test("a fresh run does not accept a completed report without a cycle", () => {
 	assert.equal(claudeBoundReport(state), null);
 });
 
+test("a completed report after a working report of the same cycle is the bound report", () => {
+	const state = createClaudeRunState("run-fresh");
+	applyObservation(state, {
+		backend: "claude",
+		runId: "run-fresh",
+		sessionId: "session-1",
+		source: "turn.start",
+		payload: { turnId: "turn-1" },
+	});
+	applyObservation(state, {
+		backend: "claude",
+		runId: "run-fresh",
+		sessionId: "session-1",
+		source: "report",
+		payload: { cycleId: "turn-1", state: "working", result: null },
+	});
+	applyObservation(state, {
+		backend: "claude",
+		runId: "run-fresh",
+		sessionId: "session-1",
+		source: "report",
+		payload: { cycleId: "turn-1", state: "completed", result: "FINISHED" },
+	});
+	assert.deepEqual(claudeBoundReport(state), {
+		cycleId: "turn-1",
+		state: "completed",
+		result: "FINISHED",
+	});
+});
+
 test("a fresh run does not accept a completed report before its first cycle", () => {
 	const state = createClaudeRunState("run-fresh");
 	applyObservation(state, {

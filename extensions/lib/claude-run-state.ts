@@ -277,8 +277,11 @@ export function claudeCompletionBlocker(state: ClaudeRunState): string | null {
 /**
  * The report that the run may act on, or null when it has none.
  *
- * A restored run accepts its last saved report only before it observes a new
- * cycle. Fresh runs use the current-cycle match and reject reports without one.
+ * The last report of the current cycle wins. A worker can report `working`
+ * before a long step and `completed` at the end of the same cycle, and the
+ * later report is the state of the task. A restored run accepts its last
+ * saved report only before it observes a new cycle. Fresh runs use the
+ * current-cycle match and reject reports without one.
  */
 export function claudeBoundReport(
 	state: ClaudeRunState,
@@ -287,7 +290,8 @@ export function claudeBoundReport(
 		const report = state.reports.at(-1);
 		return report?.cycleId !== null && report !== undefined ? report : null;
 	}
-	for (const report of state.reports) {
+	for (let index = state.reports.length - 1; index >= 0; index -= 1) {
+		const report = state.reports[index];
 		if (report.cycleId !== null && report.cycleId === state.currentCycleId) return report;
 	}
 	return null;
