@@ -168,13 +168,14 @@ export async function runExperiment(
 			closePaneOnFinish: true,
 		});
 		workerId = detailString(spawn.details, "workerId");
-		started = workerId !== null;
+		/* A spawn that failed left a job id, but no worker ran. */
+		started = workerId !== null && spawn.isError !== true;
 		if (spawn.isError === true) {
 			error = host.text(spawn);
 		} else if (workerId === null) {
 			error = "the spawn returned no worker id";
 		}
-		if (workerId !== null) {
+		if (started && workerId !== null) {
 			const ended = await waitForEnd(host, workerId, task.workerTimeoutMs + DEADLINE_GRACE_MS);
 			if (ended.timedOut) {
 				try {
