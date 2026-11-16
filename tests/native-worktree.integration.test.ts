@@ -5,7 +5,8 @@
  * give it its own checkout, so two workers never edit the same one.
  *
  * The test starts a real Claude Code worker. It needs Claude Code and
- * Herdr. The test reports that it cannot run until the machine holds both,
+ * Herdr. The test answers the trust dialog of Claude Code, as the person
+ * does. The test reports that it cannot run until the machine holds both,
  * instead of reporting a pass.
  */
 
@@ -16,10 +17,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
+import { answerTrustDialogs } from "./claude-trust-helpers.ts";
 import { createHost, removeDir, sessionContext } from "./harness.ts";
 
+function hasProgram(name: string): boolean {
+	const probe = spawnSync(name, ["--version"], { windowsHide: true, encoding: "utf8" });
+	return probe.status === 0 || probe.status === 1;
+}
+
 /** The test needs a real Claude Code worker in a Herdr session. */
-const CAN_RUN = false;
+const CAN_RUN = hasProgram("claude") && hasProgram("herdr") && process.env.HERDR_ENV === "1";
 
 /** Build a small git repository for the worker to work in. */
 function makeRepo(): string {
@@ -40,6 +47,7 @@ test("a native worker gets its own worktree", {
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-native-state-"));
 	const host = createHost({ stateDir, cwd: repo });
 	await host.fire("session_start", sessionContext(repo));
+	const stopAnswering = answerTrustDialogs();
 
 	try {
 		const spawned = await host.call("wezterm_spawn_worker", {
@@ -61,6 +69,7 @@ test("a native worker gets its own worktree", {
 		assert.notEqual(details.cwd, repo, "the native worker still works in the shared checkout");
 		assert.ok(existsSync(details.worktreePath), "the worktree of the native worker does not exist");
 	} finally {
+		stopAnswering();
 		await host.cleanup();
 		removeDir(repo);
 	}
@@ -73,6 +82,7 @@ test("a native worker finds its bridge through the handover file", {
 	const stateDir = mkdtempSync(join(tmpdir(), "wt-native-handover-"));
 	const host = createHost({ stateDir, cwd: repo });
 	await host.fire("session_start", sessionContext(repo));
+	const stopAnswering = answerTrustDialogs();
 
 	try {
 		const spawned = await host.call("wezterm_spawn_worker", {
@@ -91,6 +101,7 @@ test("a native worker finds its bridge through the handover file", {
 		assert.match(String(handover.url), /^http:\/\/127\.0\.0\.1:\d+$/);
 		assert.ok(handover.token, "the handover file holds no token");
 	} finally {
+		stopAnswering();
 		await host.cleanup();
 		removeDir(repo);
 	}
