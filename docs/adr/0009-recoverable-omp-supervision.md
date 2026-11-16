@@ -92,6 +92,20 @@ Reject a nonzero legacy idleTimeoutMs setting. Give the owner guidance for the m
 
 Keep the total execution deadline.
 
+### The binding of a report to its cycle
+
+A report belongs to the instruction cycle that produced it. The start of the cycle is the time of the last user entry of the transcript.
+
+A report belongs to the current cycle when its write time is at or after the start of the cycle.
+
+The report file holds the write time of every report. The supervisor reads that time and the start of the cycle.
+
+A report of an earlier cycle cannot finish a later cycle. The owner steers the worker into a new cycle, and the old report stays on the disk as evidence.
+
+A cycle without a known start keeps every report. The transcript holds no evidence of the start then, so the rule cannot refuse a report.
+
+The native backend keeps its own binding. This rule applies to the reports of an OMP run.
+
 ## Recovery and stops
 
 Examine the saved state and the transcript before you declare a failure. Do that when a pane vanishes.

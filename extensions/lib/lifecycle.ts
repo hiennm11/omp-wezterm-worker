@@ -9,12 +9,14 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { clearHandover } from "./bridge-handover.ts";
+import { readCallLedger } from "./calls.ts";
 import type { BridgeState } from "./claude-bridge.ts";
 import { recordResultEvent } from "./events.ts";
 import { releaseExecutionByHolder } from "./groups.ts";
 import { failJob, type Job, type JobStatus, type PendingStop } from "./job.ts";
-import { closeLedger, completionBlockerOf } from "./ledger-sync.ts";
+import { closeLedger, completionBlockerOf, transcriptOf } from "./ledger-sync.ts";
 import { closePaneConfirmed, killPane } from "./pane.ts";
+import { reportsOfCycle } from "./report-binding.ts";
 import { reportState } from "./report-decision.ts";
 import { readReports } from "./report-store.ts";
 import type { WorkerRuntime } from "./runtime.ts";
@@ -196,7 +198,12 @@ export async function settleDetachedJob(rt: WorkerRuntime, job: Job): Promise<vo
 		// the rows that never settled become unknown.
 		const db = rt.openDb();
 		closeLedger(db, job, Date.now());
-		const { state, result } = reportState(readReports(job.sessionDir, job.id));
+		/* A report of an earlier cycle cannot finish this cycle. The
+		   transcript names the start of the current cycle. */
+		const file = transcriptOf(job);
+		const cycleStartAt = file === null ? null : readCallLedger(file).lastUserEntryAt;
+		const reports = readReports(job.sessionDir, job.id);
+		const { state, result } = reportState(reportsOfCycle(reports, cycleStartAt));
 		if (state === "completed") {
 			const blocker = completionBlockerOf(db, job.id);
 			if (!blocker) {

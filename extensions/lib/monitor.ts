@@ -23,6 +23,7 @@ import { persistNativeReport } from "./native-report.ts";
 import { taskKey } from "./owner.ts";
 import { readOwnership } from "./ownership.ts";
 import { paneState } from "./pane.ts";
+import { reportsOfCycle } from "./report-binding.ts";
 import { decideFromReports } from "./report-decision.ts";
 import { settleMissingReport } from "./report-reminder.ts";
 import { readReports } from "./report-store.ts";
@@ -195,7 +196,9 @@ export function monitorJob(rt: WorkerRuntime, job: Job, notify: (job: Job) => vo
 		if (!file) return;
 		const ledger = readCallLedger(file);
 		const reports = readReports(job.sessionDir, job.id);
-		const decision = decideFromReports(ledger, reports);
+		/* A report of an earlier cycle cannot finish this cycle. The filter
+		   keeps it out of the decision. */
+		const decision = decideFromReports(ledger, reportsOfCycle(reports, ledger.lastUserEntryAt));
 		const db = rt.openDb();
 
 		syncExecutions(db, job.id, ledger, job.baselineTurns, now);

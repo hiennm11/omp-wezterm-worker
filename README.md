@@ -993,7 +993,7 @@ omp-wezterm-worker/
 │   │   ├── channel-select.ts    the selection of the notes of a channel
 │   │   ├── channel-delivery.ts  the worker notes of a delivery
 │   │   ├── channel-bridge.ts    the channel that the bridge serves to a worker
-│   │   ├── report-binding.ts    the binding of a report to a run and a cycle
+│   │   ├── report-binding.ts    the binding of a report to its instruction cycle
 │   │   ├── report-decision.ts   the decision that the reports produce
 │   │   ├── report-reminder.ts   the reminder for a cycle without a report
 │   │   ├── usage.ts             the measured token usage of a worker

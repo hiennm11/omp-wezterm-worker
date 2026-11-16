@@ -34,6 +34,19 @@ test("a report is written and read back", () => {
 	}
 });
 
+test("a report keeps the time of its write", () => {
+	const dir = mkdtempSync(join(tmpdir(), "wt-store-"));
+	try {
+		const before = Date.now();
+		appendReport(dir, report("wz-1", "completed", "the answer"));
+		const reports = readReports(dir, "wz-1");
+		assert.equal(typeof reports[0].at, "number", "the report file writes the time");
+		assert.ok((reports[0].at ?? 0) >= before, "the time is the time of the write");
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 test("the reports of two runs stay apart", () => {
 	const dir = mkdtempSync(join(tmpdir(), "wt-store-"));
 	try {

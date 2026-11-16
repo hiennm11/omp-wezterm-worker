@@ -6,7 +6,7 @@
  */
 
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -23,6 +23,23 @@ const USER = {
 	type: "message",
 	id: "e0",
 	message: { role: "user", content: [{ type: "text", text: "do it" }] },
+};
+
+/** A user message that starts a cycle at the given time. */
+function userAt(at: number): unknown {
+	return {
+		type: "message",
+		id: "e0",
+		timestamp: new Date(at).toISOString(),
+		message: { role: "user", content: [{ type: "text", text: "do it" }] },
+	};
+}
+
+/** An assistant message that ends its turn with text. */
+const ANSWER = {
+	type: "message",
+	id: "e1",
+	message: { role: "assistant", content: [{ type: "text", text: "Done." }] },
 };
 
 /** A tool call in an assistant message. */
@@ -114,6 +131,53 @@ test("the report poll keeps a worker that has an open call", async () => {
 		tick();
 
 		assert.equal(job.status, "running", "the open call keeps the worker alive");
+		assert.equal(ended, 0);
+	} finally {
+		rt.closeDb();
+		rmSync(stateDir, { recursive: true, force: true });
+	}
+});
+
+/**
+ * Write a report file with the given write time.
+ *
+ * The report tool writes the time of the write into the file. The test needs
+ * a report of an earlier cycle, so it writes the file itself.
+ */
+function writeReport(sessionDir: string, runId: string, at: number): void {
+	const report = { ...completedReport(runId), at };
+	writeFileSync(
+		join(sessionDir, `.wezterm-worker-reports-${runId}.jsonl`),
+		`${JSON.stringify(report)}\n`,
+		"utf8",
+	);
+}
+
+test("the report poll ignores a report of an earlier cycle", async () => {
+	const stateDir = mkdtempSync(join(tmpdir(), "wz-reportpoll-"));
+	const sessionDir = join(stateDir, "sessions", "wz-1");
+	const { rt, tick } = fakeRuntime(stateDir);
+	try {
+		const firstCycle = Date.now() - 60_000;
+		const secondCycle = Date.now() - 30_000;
+		const file = writeTranscript(sessionDir, "a.jsonl", [
+			userAt(firstCycle),
+			ANSWER,
+			userAt(secondCycle),
+			ANSWER,
+		]);
+		const job = runningJob(sessionDir);
+		job.sessionFile = file;
+		rt.jobs.set(job.id, job);
+		writeReport(sessionDir, job.id, firstCycle);
+
+		let ended = 0;
+		monitorJob(rt, job, () => {
+			ended += 1;
+		});
+		tick();
+
+		assert.equal(job.status, "running", "the report of the old cycle proves nothing");
 		assert.equal(ended, 0);
 	} finally {
 		rt.closeDb();

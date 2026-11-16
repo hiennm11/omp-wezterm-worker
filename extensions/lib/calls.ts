@@ -50,6 +50,13 @@ export interface CallLedger {
 	userMessages: number;
 	/** The id of the last user message entry, when the transcript holds one. */
 	lastUserEntryId: string | null;
+	/**
+	 * The time of the last user message entry, in epoch milliseconds.
+	 *
+	 * The value is the start of the current instruction cycle. It is null
+	 * when the entry holds no valid timestamp.
+	 */
+	lastUserEntryAt: number | null;
 	/** The id of the session header, when the transcript holds one. */
 	sessionId: string | null;
 	/** True when the last assistant message ended its turn with text and held no tool call. */
@@ -100,6 +107,7 @@ export function readCallLedger(file: string): CallLedger {
 		turns: 0,
 		userMessages: 0,
 		lastUserEntryId: null,
+		lastUserEntryAt: null,
 		sessionId: null,
 		lastAssistantEndedTurn: false,
 		toolResultAfterLastAssistant: false,
@@ -122,10 +130,9 @@ export function readCallLedger(file: string): CallLedger {
 			continue;
 		}
 		ledger.lastEntryId = typeof entry.id === "string" ? entry.id : ledger.lastEntryId;
-		if (typeof entry.timestamp === "number") ledger.lastEntryAt = entry.timestamp;
-		else if (typeof entry.timestamp === "string") {
-			const timestamp = Date.parse(entry.timestamp);
-			ledger.lastEntryAt = Number.isNaN(timestamp) ? null : timestamp;
+		const entryAt = entryAtOf(entry);
+		if (typeof entry.timestamp === "number" || typeof entry.timestamp === "string") {
+			ledger.lastEntryAt = entryAt;
 		}
 		if (entry.type === "session" && typeof entry.id === "string") {
 			ledger.sessionId = entry.id;
@@ -140,6 +147,7 @@ export function readCallLedger(file: string): CallLedger {
 		if (message.role === "user") {
 			ledger.userMessages += 1;
 			ledger.lastUserEntryId = entry.id ?? null;
+			ledger.lastUserEntryAt = entryAt;
 			continue;
 		}
 		if (message.role === "assistant") {
@@ -189,6 +197,19 @@ export function readCallLedger(file: string): CallLedger {
 		}
 	}
 	return ledger;
+}
+
+/**
+ * The time of one transcript entry, in epoch milliseconds.
+ *
+ * The entry holds a number of milliseconds or a date string. An entry with
+ * no valid time gives null.
+ */
+function entryAtOf(entry: Entry): number | null {
+	if (typeof entry.timestamp === "number") return entry.timestamp;
+	if (typeof entry.timestamp !== "string") return null;
+	const parsed = Date.parse(entry.timestamp);
+	return Number.isNaN(parsed) ? null : parsed;
 }
 
 /**
