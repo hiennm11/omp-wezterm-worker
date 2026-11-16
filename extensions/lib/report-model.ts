@@ -35,4 +35,12 @@ export interface WorkerReport {
 	needs: string | null;
 	/** The detail that the worker reports about its work. */
 	detail: string | null;
+	/**
+	 * The time of the write of the report, in epoch milliseconds.
+	 *
+	 * The report file adds the field when it writes a report. A report
+	 * without the field belongs to every cycle, because no evidence says
+	 * that it is older.
+	 */
+	at?: number;
 }

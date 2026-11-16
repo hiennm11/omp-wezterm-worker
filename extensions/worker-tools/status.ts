@@ -5,14 +5,16 @@
 import { statSync } from "node:fs";
 
 import { backendLabel, isRemovedBackend, readBackend } from "../lib/backend.ts";
+import { readCallLedger } from "../lib/calls.ts";
 import { readChannelNotes } from "../lib/channel-store.ts";
 import { pendingEvents, type WorkerEvent } from "../lib/events.ts";
 import { isActive, type Job, type JobStatus } from "../lib/job.ts";
-import { completionBlockerOf } from "../lib/ledger-sync.ts";
+import { completionBlockerOf, transcriptOf } from "../lib/ledger-sync.ts";
 import { nativeJobUsageReport, requestUsageOf } from "../lib/native-usage-report.ts";
 import { taskKey } from "../lib/owner.ts";
 import { readOwnership } from "../lib/ownership.ts";
 import { REMOVED_BACKEND_REFUSAL, removedRunStatus } from "../lib/removed-backend.ts";
+import { reportsOfCycle } from "../lib/report-binding.ts";
 import { reportState } from "../lib/report-decision.ts";
 import { readReports } from "../lib/report-store.ts";
 import { snapshotNotice, turnsLabel } from "../lib/restored-run.ts";
@@ -188,8 +190,12 @@ function isRestored(rt: WorkerRuntime, job: Job): boolean {
  */
 function completionBlocker(rt: WorkerRuntime, job: Job): string | null {
 	if (!isActive(job)) return null;
+	/* A report of an earlier cycle cannot finish this cycle. The transcript
+	   names the start of the current cycle. */
+	const file = transcriptOf(job);
+	const cycleStartAt = file === null ? null : readCallLedger(file).lastUserEntryAt;
 	const reports = readReports(job.sessionDir, job.id);
-	const { state } = reportState(reports);
+	const { state } = reportState(reportsOfCycle(reports, cycleStartAt));
 	if (state !== "completed") return null;
 	return completionBlockerOf(rt.openDb(), job.id);
 }

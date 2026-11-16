@@ -286,6 +286,13 @@ that ends its turn with text and holds no tool call. A tool result that follows
 the last assistant message keeps the cycle open.
 _Avoid_: Turn, assistant message, step
 
+**Cycle start**:
+The time of the last user entry of a transcript. It is the start of the current
+instruction cycle. A report belongs to that cycle when the report was written
+at or after that time. The start is unknown when the entry holds no valid
+timestamp, and then every report belongs to the cycle.
+_Avoid_: Cycle end, report time
+
 **Execution record**:
 A durable row that holds one unit of worker execution. The row holds the start
 evidence and the settlement evidence. A record that never settles keeps an
