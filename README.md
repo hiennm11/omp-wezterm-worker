@@ -95,6 +95,7 @@ confirm the picker.
 | `wezterm_worker_resume` | Reopen a **finished** worker in a new pane, continuing its transcript, optionally with a follow-up instruction. The follow-up instruction is scored in Simplified Technical English, like the instruction of a steer. A low score refuses the resume before it reaches a pane. |
 | `wezterm_worker_cancel` | Cancel a worker and close **only** the pane that worker created. The cancel counts only after the pane list shows the pane gone. A worker whose stop is not confirmed stays `running`, and the tool accepts it again. |
 | `wezterm_worker_cleanup` | Release a finished worker's transcript directory and its isolated worktree. A worktree with uncommitted changes is kept unless `force` is set. |
+| `wezterm_worker_prune` | Remove the worktree and the branch of the old workers whose work the target branch already holds. The default is a dry run, so the tool changes nothing until you pass `dryRun: false`. A worker with uncommitted changes, with an untracked file, with a stash, or with a commit that the target branch does not hold keeps its worktree and its branch. The tool never forces. |
 | `wezterm_worker_release` | Stop the supervision of a worker and give the authority away. The worker keeps running. |
 | `wezterm_worker_takeover` | Take the supervision of a worker that another session owned. The previous owner must have released the task, or its process must be confirmed gone. A live owner keeps the task. A session can take back a task that it released itself. The takeover does not replay pending events. |
 | `wezterm_worker_resolve` | Settle an unknown worker outcome. It records what you confirmed. It does not create a worker completion report. The resolutions `abandoned` and `incomplete` free an unresolved launch attempt. The resolution `recorded_result` is refused for an unresolved launch. |
@@ -104,14 +105,15 @@ confirm the picker.
 `/wezterm-workers` prints the roster in the TUI.
 
 The tools `wezterm_worker_steer`, `wezterm_worker_cancel`,
-`wezterm_worker_cleanup`, `wezterm_worker_resume`, `wezterm_worker_ack`,
-`wezterm_worker_resolve`, `wezterm_worker_note_to_worker` and
-`wezterm_worker_notes_from_worker` check the authority of the task before they
-act. The delivery of a result checks it too. A session that does not hold the
-authority gets one refusal that names the session that holds it. The refusal
-says `Worker <id> belongs to session <S> (phase <P>). This session only reads
-it.` A session without an identity and a task without an ownership row keep the
-old behaviour. The automatic path of a monitor checks the authority too.
+`wezterm_worker_cleanup`, `wezterm_worker_prune`, `wezterm_worker_resume`,
+`wezterm_worker_ack`, `wezterm_worker_resolve`, `wezterm_worker_note_to_worker`
+and `wezterm_worker_notes_from_worker` check the authority of the task before
+they act. The delivery of a result checks it too. A session that does not hold
+the authority gets one refusal that names the session that holds it. The
+refusal says `Worker <id> belongs to session <S> (phase <P>). This session only
+reads it.` A session without an identity and a task without an ownership row
+keep the old behaviour. The automatic path of a monitor checks the authority
+too.
 
 The worker reports its own task state through `wezterm_worker_report`. That
 tool is worker-only. The main session never gets it.
@@ -868,15 +870,41 @@ keeps that work. The extension never removes a worktree on its own.
 | Worker finishes, is cancelled, or times out | Kept. The branch `omp/worker/<jobId>` and the checkout both survive. |
 | `wezterm_worker_cleanup` without `force` | Kept when the checkout has uncommitted changes or untracked files. The changed paths are listed. |
 | `wezterm_worker_cleanup` with `force: true` | Removed. The branch is **kept**, so commits the worker made survive. |
+| `wezterm_worker_prune` with `dryRun: false` | Removed when every patch of the branch is already in the target branch. The branch is **deleted** too. |
 
 Cleanup checks the checkout with `git status --porcelain` before removing
 anything. The tool reports a worktree with changes and does not delete it. The
 changes are the worker's output. Pass `force: true` only when you plan to
 discard them.
 
-The extension never deletes the branch. Remove it yourself with
+The cleanup never deletes the branch. Remove it yourself with
 `git branch -d omp/worker/<jobId>` once you merge its content or no longer
 need it.
+
+### The prune
+
+The tool `wezterm_worker_prune` removes the old worktrees and the old
+branches whose work the target branch already holds. It runs the same path as
+`wezterm_worker_cleanup`, so the same gates apply.
+
+The default is a dry run. The tool changes nothing and lists every worker
+with the reason it keeps it or the reason it would remove it. Pass
+`dryRun: false` to act.
+
+The check of the work uses `git cherry <into> <branch>`, not the sha of the
+commit. A rebase merge changes the sha of every commit, so a check of the sha
+would keep merged work and could delete unmerged work. A line that starts with
+`+` means that the patch is not in the target branch, and the worker keeps
+its worktree and its branch.
+
+The target branch is the parameter `into`. The default is the default branch
+of the repository of the worker, which is the target of
+`refs/remotes/origin/HEAD`. A repository without that ref keeps its workers.
+
+The prune never forces. A worker with uncommitted changes, with an untracked
+file or with a stash keeps its worktree and its branch. The branch is deleted
+with `git branch -D`, because a rebase merge leaves the branch unmerged for
+`git branch -d`. See `docs/adr/0031-prune-removes-the-work-that-is-already-merged.md`.
 
 ## Failure handling
 
@@ -1010,6 +1038,8 @@ omp-wezterm-worker/
 │   │   ├── pane-launch-wezterm.ts opening a WezTerm pane for a worker
 │   │   ├── launch-delivery.ts   the proof that a worker took its task
 │   │   ├── worktree.ts          the isolated git worktree
+│   │   ├── cleanup-action.ts    the cleanup of one worker, with every gate
+│   │   ├── prune.ts             the decision of the prune
 │   │   ├── spawn.ts             starting and resuming a worker
 │   │   ├── spawn-claude.ts      starting a Claude Code worker
 │   │   ├── resume-claude.ts     resuming a Claude Code worker
@@ -1084,6 +1114,7 @@ omp-wezterm-worker/
 │       ├── kit.ts               the shared reply and the worker lookup
 │       ├── spawn.ts, status.ts, steer.ts, peek.ts
 │       ├── result.ts, resume.ts, cancel.ts, cleanup.ts
+│       ├── prune.ts             the prune of the old workers
 │       ├── report.ts, ack.ts, release.ts, resolve.ts
 │       ├── takeover.ts          the takeover of a task of another session
 │       ├── note-to-main.ts      the note of a worker for the main session
@@ -1222,6 +1253,8 @@ omp-wezterm-worker/
 │   ├── resume-group.test.ts     the group of a resume and of a resumed run
 │   ├── cleanup-group.test.ts    the cleanup of a resumed run
 │   ├── cleanup-native.test.ts   the cleanup of a native run
+│   ├── prune.test.ts           the prune of the old workers
+│   ├── prune-helpers.ts        the helpers of the tests of the prune
 │   ├── native-run-helpers.ts    the helpers of the tests of a native run
 │   ├── authority.test.ts       the authority rules of the control and cleanup tools
 │   ├── authority-tools.test.ts the authority check of the four control tools
@@ -1357,7 +1390,7 @@ breaks a test.
 | `process-probe.test.ts` | The probe reads the start time of a live process. Two reads of one process give the same start time. The probe reports a gone process as gone. |
 | `trial-report.test.ts` | The report names a failing check. A check detail stays on one line. The report holds no path of the machine. |
 | `trial-paths.test.ts` | A path under the project becomes a relative path. A path outside it becomes a placeholder. The name of the user never appears. |
-| `registration.test.ts` | The extension registers the eight tools that the agent needs. It registers the roster command. |
+| `registration.test.ts` | The extension registers the tools that the agent needs. It registers the roster command. |
 | `error-drain.test.ts` | The errors of a session reach the logger when the session shuts down. The extension registers no handler for `session_end`, because OMP emits no such event. |
 | `backend.test.ts` | A run without a backend field is an OMP run. A run of the removed backend keeps its value. The removed backend is not a backend that a spawn may name. A report of an earlier cycle cannot finish newer work. |
 | `legacy-codex-run.test.ts` | A run with the backend codex still loads from the database. A run of the removed backend that was active loads as an ended run. The status tool lists it as an ended run. A resume, a steer and a cancel refuse it. The run never looks like a run of OMP. |
@@ -1401,6 +1434,7 @@ breaks a test.
 | `resume-group.test.ts` | A resume of a resumed run takes the group of the first run. A native resume of a resumed run takes the group of the first run. A resume of a source run without a group refuses, and it changes no group. |
 | `cleanup-group.test.ts` | The cleanup of a resumed run refuses while another run holds the group, and the transcript stays. The cleanup of a run without a group deletes the transcript. |
 | `cleanup-native.test.ts` | The cleanup of a native run refuses while an event waits for the owner, and the transcript stays. The cleanup deletes the transcript after the owner handled the event. The cleanup of a running native run refuses. The cleanup keeps the worktree while the pane of the native run is open. |
+| `prune.test.ts` | A dry run changes nothing and lists the worker that a real run removes. A worker whose commits were rebased into the target loses its worktree and its branch. A worker with a commit that the target does not hold keeps its worktree and its branch. A worker with an uncommitted file keeps its worktree and its branch. A worker with a stash keeps its worktree and its branch. A worker that is younger than `olderThanDays` is kept. A worker that holds a pending event is kept, and the other workers go. A worker without a default branch and without `into` is kept, and the message names `into`. A worker goes when the branch that `into` names holds its work. A subagent cannot prune. |
 | `authority.test.ts` | A task without an ownership row and a session without an identity pass both rules. The owner of an active task passes both rules. The owner of a releasing task and the owner of a released task fail the control rule. Another session fails both rules while the task is active or releasing. Another session passes the cleanup rule while the task is released. The control rule of a released task names the takeover tool. The details of a refusal name the worker, the owner and the phase. |
 | `authority-tools.test.ts` | The cancel of a worker of another session is refused, and the pane stays. The steer of a worker of another session is refused, and the pane receives nothing. The cleanup of a worker of another session is refused, and the transcript stays. The resume of a worker of another session is refused, and the request counts no launch. A session without an identity cancels a worker. A worker without an ownership row is cancelled. A release that starts during a cancel waits for the cancel. The cancel of a task that this session is releasing or released is refused. |
 | `authority-record.test.ts` | The ack of a session that does not own the task is refused, and the table of the handling holds no row. The resolve of a session that does not own the task is refused, and the table of the resolutions holds no row. The ack checks the worker of the event, not the worker of the parameter. The owner of a task records an ack and a resolve with the generation. An event without a worker is acknowledged. A session without an identity acknowledges an event. A task without an ownership row acknowledges an event. The delivery of a session that does not own the task sends no message, writes no attempt, and warns once. The delivery of the owner sends the message and writes one sent attempt. |

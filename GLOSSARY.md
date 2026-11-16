@@ -121,6 +121,13 @@ A worktree with no uncommitted changes and no untracked files. The extension
 removes only a clean worktree without the user saying so.
 _Avoid_: Untouched worktree, pristine worktree
 
+**Prune**:
+The removal of the worktree and the branch of an old worker whose every patch
+the target branch already holds. The check compares the patches with
+`git cherry`, so a rebase merge does not change the result. The prune never
+forces, and its default is a dry run.
+_Avoid_: Garbage collection, vacuum, sweep
+
 **Stopped**:
 The state of a worker whose pane the pane list confirms is gone. A close
 request that the pane runtime accepted is not enough.
