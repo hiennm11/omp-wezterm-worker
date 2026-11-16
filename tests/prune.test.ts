@@ -119,6 +119,46 @@ test("a worker with an uncommitted file keeps its worktree and its branch", asyn
 	}
 });
 
+test("a dry run does not list a worker with an uncommitted file", async () => {
+	const fixture = await pruneFixture();
+	try {
+		await addWorker(fixture, { id: "wz-1", commits: ["feature"], uncommitted: true });
+		await applyWorkerCommits(fixture, "wz-1");
+
+		const result = await pruneTool(fixture.rt).execute("t1", {});
+		const details = result.details;
+
+		assert.equal(itemsOf(details.wouldRemove).length, 0, "a dirty worktree is on the list of the dry run");
+		assert.match(workerOf(details.kept, "wz-1").reason, /uncommitted/);
+	} finally {
+		finish(fixture);
+	}
+});
+
+test("a worker that still runs keeps its worktree and its branch", async () => {
+	const fixture = await pruneFixture();
+	try {
+		const job = await addWorker(fixture, { id: "wz-1", commits: ["feature"] });
+		await applyWorkerCommits(fixture, "wz-1");
+		/* A running worker can keep the end time of an earlier run. */
+		job.status = "running";
+
+		const result = await pruneTool(fixture.rt).execute("t1", { dryRun: false });
+		const details = result.details;
+
+		assert.equal(itemsOf(details.removed).length, 0);
+		assert.equal(itemsOf(details.wouldRemove).length, 0);
+		assert.equal(existsSync(job.worktreePath ?? ""), true, "the worktree of a running worker was removed");
+		assert.equal(
+			await branchExists(fixture.repo, "omp/worker/wz-1"),
+			true,
+			"the branch of a running worker was removed",
+		);
+	} finally {
+		finish(fixture);
+	}
+});
+
 test("a worker with a stash keeps its worktree and its branch", async () => {
 	const fixture = await pruneFixture();
 	try {
