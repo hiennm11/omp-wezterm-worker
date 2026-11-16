@@ -520,6 +520,8 @@ Refusing live-owner displacement limits automatic recovery. It also prevents con
 
 At-least-once replay can repeat delivery after a crash. It cannot guarantee exactly-once external actions.
 
+No test proves the acknowledgement of a result after a restart with a live worker. The unit tests prove the replay of a delivery in the states `pending` and `uncertain` with a fake host. The integration tests prove the acknowledgement and the cleanup with a real worker, and prove the restart and the adoption of a live worker with a real second process. No single test joins the two. The owner accepts this limit on 2026-11-16.
+
 Owner resolution keeps the worker completion rule clean. The owner decides an unknown outcome without forging a report.
 
 A resource group costs a shared identifier on each run. It removes a race between a resume and a cleanup.
