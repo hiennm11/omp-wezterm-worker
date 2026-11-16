@@ -97,6 +97,8 @@ export class FakeHost implements RunnerHost {
 	resultText = "the worker fixed the module";
 	/** The spawn refuses the worker when this flag is true. */
 	refuse = false;
+	/** The spawn creates the job, and the pane fails to open, when this flag is true. */
+	paneFails = false;
 	/** The work of the worker. It runs when the spawn starts a worker. */
 	work: ((fixtureDir: string) => void) | null = null;
 
@@ -104,6 +106,15 @@ export class FakeHost implements RunnerHost {
 		this.calls.push(name);
 		if (name === "wezterm_spawn_worker") {
 			this.spawnArgs = args;
+			if (this.paneFails) {
+				const error = 'Herdr did not open a pane for this worker: {"code":"workspace_not_found"}';
+				this.statusRow = { ...this.statusRow, status: "failed", error, turns: 0 };
+				return {
+					content: [{ type: "text", text: `Worker failed to start: ${error}` }],
+					details: { workerId: "wz-test-1", status: "failed", error },
+					isError: true,
+				};
+			}
 			if (this.refuse) {
 				return {
 					content: [{ type: "text", text: "the extension refused the launch" }],

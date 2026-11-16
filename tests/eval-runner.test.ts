@@ -86,6 +86,18 @@ test("a refused spawn gives a BLOCKED and no start", async () => {
 	assert.equal(record.execution.outcome, "not_started");
 });
 
+test("a spawn that fails to open a pane gives a BLOCKED, not a FAIL", async () => {
+	const runDir = tempDir();
+	const host = new FakeHost();
+	host.paneFails = true;
+	const record = await runExperiment(host, bugfixTask(), cell(), paths(runDir), environment());
+	assert.equal(record.verification.verdict, "BLOCKED");
+	assert.equal(record.execution.started, false);
+	assert.match(record.verification.reason, /did not start/);
+	assert.match(record.execution.error ?? "", /did not open a pane/);
+	assert.equal(host.calls.includes("wezterm_worker_status"), false);
+});
+
 test("a deleted test file comes back after the restore", async () => {
 	const runDir = tempDir();
 	const host = new FakeHost();
