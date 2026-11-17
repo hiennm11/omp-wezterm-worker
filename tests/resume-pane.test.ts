@@ -310,3 +310,27 @@ test("a gone pane refuses no resume", async () => {
 	const { sourcePaneRefusal } = await loadGuard();
 	assert.equal(sourcePaneRefusal("gone", "w1:p42"), null);
 });
+
+test("a resume keeps the count of the file changes that the transcript already holds", async () => {
+	const { exec } = fakeWezterm({
+		panes: { result: { panes: [] } },
+		launch: { code: 1, stdout: "", stderr: "the split failed" },
+	});
+	const { rt, dir } = freshRuntime(exec);
+	try {
+		const db = rt.openDb();
+		const sessionDir = sessionDirOf(dir, "wz-source-6");
+		const calls = ["edit", "write", "read"].map((name) => ({ type: "toolCall", name, id: `c_${name}` }));
+		const line = JSON.stringify({ type: "message", message: { role: "assistant", content: calls } });
+		writeFileSync(join(sessionDir, "a.jsonl"), `${line}\n`, "utf8");
+		const source = sourceJob("wz-source-6", sessionDir, { paneId: null });
+		createGroup(db, "grp-wz-source-6", sessionDir, 1000);
+
+		await resumeWorker(rt, source, { jobId: "wz-resume-6" });
+
+		assert.equal(rt.jobs.get("wz-resume-6")?.editCalls, 2, "the resume read the count from the transcript");
+	} finally {
+		rt.closeDb();
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
