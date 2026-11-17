@@ -80,6 +80,11 @@ worker's work. Only a text-only turn concludes it. The missing report rule
 uses the instruction cycle instead of the turn.
 _Avoid_: Message, response, step
 
+**File change**:
+A tool call of a worker that writes to a file. The calls are `edit`, `write`
+and `ast_edit`. The status tool counts them for an OMP worker.
+_Avoid_: Edit, write operation
+
 **Delivery**:
 The act of putting a worker's result into the main session. The main agent
 then reacts to it. A delivery that does not wake the agent is not a delivery.

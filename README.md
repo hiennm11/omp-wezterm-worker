@@ -87,7 +87,7 @@ confirm the picker.
 | Tool | Purpose |
 |---|---|
 | `wezterm_spawn_worker` | Start a worker. Returns worker id, pane id, tab id, cwd, transcript path. Does not wait. |
-| `wezterm_worker_status` | List workers, or inspect one by id. Shows lifecycle state, elapsed time, idle time, the tool running right now, turn count, steering count, the tokens used, and a pending stop. A list without an id shows every active worker, every worker with an event that waits for you, and the 10 newest workers that ended. The older workers stay hidden, and the reply names their count. |
+| `wezterm_worker_status` | List workers, or inspect one by id. Shows lifecycle state, elapsed time, idle time, the tool running right now, turn count, the count of the file changes of an OMP worker, steering count, the tokens used, and a pending stop. A list without an id shows every active worker, every worker with an event that waits for you, and the 10 newest workers that ended. The older workers stay hidden, and the reply names their count. |
 | `wezterm_worker_ack` | Record that you handled a worker event. A delivery does not prove that you handled it. |
 | `wezterm_worker_steer` | Send a new instruction into a **running** worker. It arrives as a follow-up user message and the worker keeps going. |
 | `wezterm_worker_peek` | Show the last visible lines of a worker's pane. A debug aid for a worker that looks stuck. |
@@ -307,6 +307,7 @@ interrupt the turn.
 | `idle` | Time since the worker last wrote to its transcript. A worker that is thinking or waiting on a slow tool still writes, so a growing `idle` means it is stuck. |
 | `running` | The tool the worker is inside right now, when there is one. |
 | `turns` | How many assistant turns the worker has taken. |
+| `changes` | How many tool calls of the worker changed a file. The line counts the calls of `edit`, `write` and `ast_edit`. Only an OMP worker shows the line. A worker whose transcript cannot be read shows no line. |
 | `steers` | How many steering messages this worker took. An OMP worker counts only the instructions that its transcript confirmed. |
 | `tokens` | The tokens this worker used, summed from every transcript under its session folder. A value the transcript does not hold is `unknown`, never an estimate. |
 | `stop` | Shown only while a stop waits for confirmation: why the pane is not confirmed gone. Call `wezterm_worker_cancel` again to retry. |
@@ -1091,6 +1092,7 @@ omp-wezterm-worker/
 │   │   ├── events.ts            the worker events and their handling
 │   │   ├── event-wake.ts        the wake of the main session for an actionable event
 │   │   ├── status-list.ts       the list of workers that the status tool shows
+│   │   ├── status-edits.ts      the line of the status tool that counts the file changes
 │   │   ├── resolution.ts        the owner resolution of an unknown outcome
 │   │   ├── delivery.ts          the delivery attempts of a pending event
 │   │   ├── stop-intent.ts       the stop intents of a run
