@@ -297,6 +297,7 @@ export async function resumeWorker(
 			const summary = summarizeSession(existing[0]);
 			job.baselineTurns = summary.turns;
 			job.turns = summary.turns;
+			job.editCalls = summary.editCalls;
 			job.lastTranscriptSize = statSync(existing[0]).size;
 		} catch {
 			/* an unreadable transcript just means no baseline */

@@ -153,6 +153,13 @@ export interface Job {
 	 * run has no native cycle count.
 	 */
 	nativeCycles?: number;
+	/**
+	 * The number of tool calls that changed a file.
+	 *
+	 * The job keeps a copy, so a finished run still shows how many changes it
+	 * made. An OMP run counts them; a native run has no count.
+	 */
+	editCalls?: number;
 }
 
 /** A worker that has not finished yet. */
