@@ -8,7 +8,7 @@
  */
 
 import assert from "node:assert/strict";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 
@@ -113,6 +113,26 @@ test("a worker with an uncommitted file keeps its worktree and its branch", asyn
 		const kept = workerOf(details.kept, "wz-1");
 		assert.match(kept.reason, /uncommitted/);
 		assert.equal(existsSync(job.worktreePath ?? ""), true, "the worktree was removed");
+		assert.equal(await branchExists(fixture.repo, "omp/worker/wz-1"), true, "the branch was removed");
+	} finally {
+		finish(fixture);
+	}
+});
+
+test("a worker whose worktree is gone from the disk is kept and the reason names the worktree", async () => {
+	const fixture = await pruneFixture();
+	try {
+		const job = await addWorker(fixture, { id: "wz-1", commits: ["feature"] });
+		await applyWorkerCommits(fixture, "wz-1");
+		rmSync(job.worktreePath ?? "", { recursive: true, force: true });
+
+		const result = await pruneTool(fixture.rt).execute("t1", { dryRun: false });
+		const details = result.details;
+
+		assert.equal(itemsOf(details.removed).length, 0);
+		const kept = workerOf(details.kept, "wz-1");
+		assert.match(kept.reason, /worktree is gone/);
+		assert.doesNotMatch(kept.reason, /stash/);
 		assert.equal(await branchExists(fixture.repo, "omp/worker/wz-1"), true, "the branch was removed");
 	} finally {
 		finish(fixture);
