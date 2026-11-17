@@ -15,6 +15,7 @@
  * cleanup until the owner handles it.
  */
 
+import { formatRateLimit } from "./claude-rate-limit.ts";
 import type { LifecycleDb } from "./db.ts";
 import { beginDelivery, deliveriesOfEvent, markSent, markUncertain } from "./delivery.ts";
 import { createEvent, type EventCondition, pendingEvents, type WorkerEvent } from "./events.ts";
@@ -89,13 +90,17 @@ export function wakesMainSession(event: WorkerEvent): boolean {
  */
 export function formatWake(event: WorkerEvent, worker: EventWorker, now: number): string {
 	const seconds = Math.max(0, Math.round((now - worker.startedAt) / 1000));
-	return [
+	const lines = [
 		`Worker ${worker.id} (${worker.label}) needs your attention.`,
 		`The condition is ${event.condition}. The run time is ${seconds} seconds. The event id is ${event.id}.`,
+	];
+	if (event.condition === "rate_limited") lines.push(formatRateLimit(event.payload));
+	lines.push(
 		"Read the worker with wezterm_worker_peek.",
 		"Steer the worker with wezterm_worker_steer.",
 		"Record the handling with wezterm_worker_ack.",
-	].join("\n");
+	);
+	return lines.join("\n");
 }
 
 /**

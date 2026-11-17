@@ -9,6 +9,7 @@
 import { statSync } from "node:fs";
 
 import { readCallLedger } from "./calls.ts";
+import { checkRateLimit } from "./claude-rate-limit.ts";
 import { claudeBoundReport, claudeCompletionBlocker } from "./claude-run-state.ts";
 import { settleCycleEvents } from "./cycle-event.ts";
 import { type CycleState, cycleInterventionCondition, readCycleState } from "./cycle-state.ts";
@@ -295,6 +296,11 @@ export function monitorNativeJob(rt: WorkerRuntime, job: Job, notify: (job: Job)
 		   person answers it in the pane, so the request is raised as an
 		   event and it stays open until the request settles. */
 		recordNativeEvents(rt, job.id, state, now);
+
+		/* A worker that hits the usage limit of its account raises an event
+		   for the owner. The run stays running, and the owner decides to
+		   cancel the worker or to wait. */
+		checkRateLimit(rt, job.id, state, now);
 
 		/* A session that did not start waits for the person. The missing
 		   session start is the fact, and the pane text names the cause.
