@@ -483,6 +483,21 @@ first edit of a worker, run `git status` in the owner checkout.
 `biome check` and left an import in the wrong order and an unused import. Run
 the check yourself on the branch of the worker.
 
+**A test that a worker wrote can pass and still miss a break.** One worker wrote
+tests that set `editCalls` on a fake job and read it back. Four mutations of the
+code survived: three functions that copy the count, and the check of the removed
+backend. Remove one rule or one copy by hand and run the tests. A test must go
+through the real code path, for example with a real transcript file. Put this
+step in the task. A worker does not run a mutation by itself.
+
+**An integration test that needs a live worker must not give it a task that ends.**
+A task that counts to 200 ends in less than a minute on a fast model. A worker
+that ended is no longer active, so the test failed at random: the fourth spawn
+met `maxLaunchesPerRequest` and not `maxActiveWorkers`. Use `BUSY_TASK` from
+`tests/harness.ts`. It runs `sleep 600`, and the cleanup cancels the worker.
+When a test fails once and passes alone, read the diagnostics of the failed run
+before you blame the load of the machine.
+
 **Ask for the first red test early.** One worker analysed for 62 minutes and
 made no commit. One steering message later it made a commit within 10 minutes.
 Put a time limit for the first test in the task. The deep analysis was still
