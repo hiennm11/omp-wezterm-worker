@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { parseLastApiError, readLastApiError } from "../extensions/lib/claude-api-error.ts";
+import { parseLastApiError, readLastApiError, TAIL_BYTES } from "../extensions/lib/claude-api-error.ts";
 
 /** The row of an assistant message that failed with a rate limit. */
 const RATE_LIMIT_ROW = JSON.stringify({
@@ -107,6 +107,22 @@ test("the reader finds the error row at the end of a large file", () => {
 		const error = readLastApiError(file, home);
 		assert.equal(error?.error, "rate_limit");
 		assert.equal(error?.resetsAt, 1792135800000);
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("the reader does not take an error row that is older than the tail", () => {
+	const home = mkdtempSync(join(tmpdir(), "wz-home-"));
+	const projects = join(home, ".claude", "projects", "C--repo");
+	mkdirSync(projects, { recursive: true });
+	const file = join(projects, "session-1.jsonl");
+	const filler = `${JSON.stringify({ type: "assistant", text: "x".repeat(1000) })}\n`;
+	let body = "";
+	while (body.length < 2 * TAIL_BYTES) body += filler;
+	writeFileSync(file, `${RATE_LIMIT_ROW}\n${body}`);
+	try {
+		assert.equal(readLastApiError(file, home), null, "an old row outside the tail is not read");
 	} finally {
 		rmSync(home, { recursive: true, force: true });
 	}
