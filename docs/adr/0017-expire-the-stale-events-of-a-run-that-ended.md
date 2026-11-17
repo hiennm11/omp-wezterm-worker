@@ -8,7 +8,7 @@ A pending worker event blocks cleanup. It also appears in every status reply. An
 
 ## Decision
 
-The system can expire only `missing_report`, `idle_after_working`, `execution_loss`, `thinking_stall` and `startup_blocked` events. A result holds the worker answer. The conditions `needs_input`, `permission_request`, `unresolved_launch` and `unknown_outcome` need an owner decision. They never expire.
+The system can expire only `missing_report`, `idle_after_working`, `execution_loss`, `thinking_stall`, `startup_blocked` and `rate_limited` events. A result holds the worker answer. The conditions `needs_input`, `permission_request`, `unresolved_launch` and `unknown_outcome` need an owner decision. They never expire.
 
 The system expires an event only when its run is in a final state and the configured limit has passed since the later of the event creation time and the run end time. The default limit is 24 hours. The config key is `eventExpiryMs`. A value of `0` disables expiry.
 

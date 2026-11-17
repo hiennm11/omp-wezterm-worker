@@ -403,6 +403,12 @@ The state of a native worker whose session did not start. The worker waits
 for the person, who accepts the trust dialog of Claude Code in the pane.
 _Avoid_: Dialog, permission request, idle worker
 
+**Rate limit**:
+The state of a Claude worker that reached the usage limit of its account. The
+worker stops its work, and the run stays running. The event `rate_limited`
+tells the owner. The owner decides to cancel the worker or to wait.
+_Avoid_: Execution loss, startup block, failed worker
+
 **Thinking stall**:
 An OMP worker cycle that remains in the thinking state for 600 seconds after its last transcript entry. It raises one event for the owner.
 _Avoid_: Missing report, idle worker
