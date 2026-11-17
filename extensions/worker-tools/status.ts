@@ -20,6 +20,7 @@ import { reportState } from "../lib/report-decision.ts";
 import { readReports } from "../lib/report-store.ts";
 import { snapshotNotice, turnsLabel } from "../lib/restored-run.ts";
 import type { WorkerRuntime } from "../lib/runtime.ts";
+import { editsText } from "../lib/status-edits.ts";
 import { selectStatusJobs } from "../lib/status-list.ts";
 import { pendingStopIntentOf } from "../lib/stop-reconcile.ts";
 import { type LeaseAnswer, supervisionLine } from "../lib/supervision.ts";
@@ -70,6 +71,8 @@ interface StatusRow {
 	turns: number;
 	/** The turn count with the words of a restored run. */
 	turnsText: string;
+	/** The count of the file changes, when the worker shows the line. */
+	editsText: string | null;
 	/** The measured token usage of this worker. */
 	usage: UsageReport;
 	steers: number;
@@ -136,6 +139,7 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime, lease: 
 		currentTool: removed ? null : j.currentTool,
 		turns,
 		turnsText: turnsLabel(turns, restored),
+		editsText: editsText(backend, removed, j.editCalls, turnsLabel(turns, restored)),
 		usage: measured,
 		steers: j.steers,
 		timeoutMs: j.timeoutMs,
@@ -258,6 +262,7 @@ function formatRow(r: StatusRow): string {
 		r.result ? `  result    : ${r.result}` : null,
 		r.native ? `  native    : ${r.native}` : null,
 		`  turns     : ${r.turnsText}${r.steers > 0 ? ` (${r.steers} steering message(s))` : ""}`,
+		r.editsText ? `  changes   : ${r.editsText}` : null,
 		`  tokens    : ${formatUsage(r.usage)}`,
 		r.worktreePath
 			? `  worktree  : ${r.worktreePath} (branch ${r.worktreeBranch ?? "-"})` +
