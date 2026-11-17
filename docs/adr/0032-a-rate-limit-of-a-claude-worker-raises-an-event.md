@@ -82,7 +82,15 @@ The mock of a real session gives no `quotaLimits`. The event then carries no
 reset time. The unit tests cover the time of the reset.
 
 The proof did not use the real limit of an account. The proof used a local
-mock server that answered every request with the status 429. The proof did
-not check the interactive mode of Claude Code, so the reason of the end of a
-turn in that mode stays unknown. The design depends on the value `error`. A
-probe of 2026-11-17 saw that value in the print mode.
+mock server that answered every request with the status 429.
+
+A run on 2026-11-17 used the production extension, a real Claude Code
+session in a pane of a throwaway Herdr session, and that mock. The hook
+`turn.complete` carried the reason `error`. The owner read the transcript
+and raised the event `rate_limited`. The event existed 15 seconds after the
+first request. It carried the status 429 and no reset time. The transcript
+row held the field `error` with the value `rate_limit`, as the design needs.
+
+The text of the row of the mock says "not your usage limit". The row of a
+real account limit says "You've hit your 5-hour limit". The kind `rate_limit`
+is the same in both rows, and the owner reads only the kind.
