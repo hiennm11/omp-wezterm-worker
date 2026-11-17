@@ -70,6 +70,7 @@ export function observeTranscript(job: Job, now: number): SessionSummary | null 
 	const summary = summarizeSession(file);
 	job.currentTool = summary.currentTool;
 	job.turns = summary.turns;
+	job.editCalls = summary.editCalls;
 	if (previousFile !== file) {
 		job.lastActivityAt = now;
 		return summary;

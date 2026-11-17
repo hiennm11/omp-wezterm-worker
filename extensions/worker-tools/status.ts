@@ -42,6 +42,7 @@ function refreshActivity(job: Job, now: number): void {
 	job.sessionFile = files[0];
 	job.currentTool = summary.currentTool;
 	job.turns = summary.turns;
+	job.editCalls = summary.editCalls;
 	try {
 		const size = statSync(files[0]).size;
 		if (size !== job.lastTranscriptSize) {
