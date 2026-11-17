@@ -139,7 +139,7 @@ function row(j: Job, now: number, usage: UsageReport, rt: WorkerRuntime, lease: 
 		currentTool: removed ? null : j.currentTool,
 		turns,
 		turnsText: turnsLabel(turns, restored),
-		editsText: editsText(backend, removed, j.editCalls, turnsLabel(turns, restored)),
+		editsText: editsText(backend, j.editCalls, turnsLabel(turns, restored)),
 		usage: measured,
 		steers: j.steers,
 		timeoutMs: j.timeoutMs,
