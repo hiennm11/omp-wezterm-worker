@@ -6,7 +6,7 @@
  */
 
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -67,7 +67,11 @@ function nativeJob(sessionDir: string): Job {
 
 test("the text of a rate limit names the reset time and the owner decides", () => {
 	const text = formatRateLimit(
-		JSON.stringify({ resetsAt: Date.UTC(2026, 10, 17, 12, 30), rateLimitType: "five_hour", apiErrorStatus: 429 }),
+		JSON.stringify({
+			resetsAt: Date.UTC(2026, 10, 17, 12, 30),
+			rateLimitType: "five_hour",
+			apiErrorStatus: 429,
+		}),
 	);
 	assert.match(text, /five_hour/);
 	assert.match(text, /The run still runs\./);

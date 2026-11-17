@@ -9,7 +9,7 @@
  * to cancel the worker or to wait. A newer turn resolves the event.
  */
 
-import { type ClaudeApiError, readLastApiError, RATE_LIMIT_ERROR } from "./claude-api-error.ts";
+import { type ClaudeApiError, RATE_LIMIT_ERROR, readLastApiError } from "./claude-api-error.ts";
 import type { ClaudeRunState } from "./claude-run-state.ts";
 import type { LifecycleDb } from "./db.ts";
 import { raiseEvent } from "./event-wake.ts";
@@ -102,21 +102,9 @@ export function recordRateLimit(
  * A worker that started a new turn went on, so the event is obsolete. The
  * history of the event stays. A run without the event writes nothing.
  */
-export function resolveRateLimit(
-	db: LifecycleDb,
-	runId: string,
-	turnId: string | null,
-	now: number,
-): void {
+export function resolveRateLimit(db: LifecycleDb, runId: string, turnId: string | null, now: number): void {
 	const evidence = evidenceId(turnId);
-	resolveObsoleteEvent(
-		db,
-		runId,
-		evidence,
-		RATE_LIMIT_CONDITION,
-		"The worker started a new turn.",
-		now,
-	);
+	resolveObsoleteEvent(db, runId, evidence, RATE_LIMIT_CONDITION, "The worker started a new turn.", now);
 }
 
 /**

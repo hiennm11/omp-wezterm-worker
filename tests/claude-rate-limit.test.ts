@@ -12,7 +12,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { applyObservation, type ClaudeRunState, createClaudeRunState } from "../extensions/lib/claude-run-state.ts";
+import {
+	applyObservation,
+	type ClaudeRunState,
+	createClaudeRunState,
+} from "../extensions/lib/claude-run-state.ts";
 import { eventsOfRun, pendingEvents, type WorkerEvent } from "../extensions/lib/events.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { monitorNativeJob } from "../extensions/lib/monitor.ts";
@@ -143,7 +147,6 @@ function startedTurn(turnId = "turn-2") {
 /** Run the monitor of a worker with the given observations. */
 async function runMonitor(
 	observations: unknown[],
-	fixture: Fixture,
 ): Promise<{ rt: WorkerRuntime; tick: () => void; events: WorkerEvent[]; state: ClaudeRunState }> {
 	const stateDir = mkdtempSync(join(tmpdir(), "wz-limit-"));
 	const sessionDir = join(stateDir, "sessions", "wz-1");
@@ -165,7 +168,7 @@ async function runMonitor(
 test("a failed turn with a rate limit raises one event", async () => {
 	const fixture = fixtureWith([RATE_LIMIT_ROW]);
 	try {
-		const { rt, events } = await runMonitor([failedTurn(fixture.transcript)], fixture);
+		const { rt, events } = await runMonitor([failedTurn(fixture.transcript)]);
 		assert.equal(events.length, 1, "the rate limit raises one event");
 		assert.equal(events[0]?.condition, "rate_limited");
 		assert.equal(events[0]?.actionable, true);
@@ -189,7 +192,7 @@ test("a failed turn without quota limits raises the event without a reset time",
 	});
 	const fixture = fixtureWith([row]);
 	try {
-		const { rt, events } = await runMonitor([failedTurn(fixture.transcript)], fixture);
+		const { rt, events } = await runMonitor([failedTurn(fixture.transcript)]);
 		assert.equal(events.length, 1);
 		const payload = JSON.parse(events[0]?.payload ?? "{}");
 		assert.equal(payload.resetsAt, null);
@@ -204,7 +207,7 @@ test("a failed turn without quota limits raises the event without a reset time",
 test("a failed turn with another error raises no rate limit event", async () => {
 	const fixture = fixtureWith([OTHER_ERROR_ROW]);
 	try {
-		const { rt, events } = await runMonitor([failedTurn(fixture.transcript)], fixture);
+		const { rt, events } = await runMonitor([failedTurn(fixture.transcript)]);
 		assert.equal(events.length, 0, "another API error raises no rate limit event");
 		rt.closeDb();
 	} finally {
@@ -218,7 +221,7 @@ test("a rate limit at the end of a large transcript raises the event", async () 
 	while (body.length < 5 * 1024 * 1024) body += filler;
 	const fixture = fixtureWith([RATE_LIMIT_ROW], body);
 	try {
-		const { rt, events } = await runMonitor([failedTurn(fixture.transcript)], fixture);
+		const { rt, events } = await runMonitor([failedTurn(fixture.transcript)]);
 		assert.equal(events.length, 1, "the reader reads the tail of a large file");
 		rt.closeDb();
 	} finally {
@@ -233,7 +236,7 @@ test("a path outside the projects of Claude Code raises no event", async () => {
 	process.env.USERPROFILE = home;
 	process.env.HOME = home;
 	try {
-		const { rt, events } = await runMonitor([failedTurn(outside)], { home, transcript: outside });
+		const { rt, events } = await runMonitor([failedTurn(outside)]);
 		assert.equal(events.length, 0, "the owner reads no file outside the projects of Claude Code");
 		rt.closeDb();
 	} finally {
@@ -244,10 +247,7 @@ test("a path outside the projects of Claude Code raises no event", async () => {
 test("a replayed failed turn raises no second event", async () => {
 	const fixture = fixtureWith([RATE_LIMIT_ROW]);
 	try {
-		const { rt, events } = await runMonitor(
-			[failedTurn(fixture.transcript), failedTurn(fixture.transcript)],
-			fixture,
-		);
+		const { rt, events } = await runMonitor([failedTurn(fixture.transcript), failedTurn(fixture.transcript)]);
 		assert.equal(events.length, 1, "one limit gives one event");
 		rt.closeDb();
 	} finally {
@@ -258,7 +258,7 @@ test("a replayed failed turn raises no second event", async () => {
 test("a later turn resolves the event and the history stays", async () => {
 	const fixture = fixtureWith([RATE_LIMIT_ROW]);
 	try {
-		const { rt, tick, events, state } = await runMonitor([failedTurn(fixture.transcript)], fixture);
+		const { rt, tick, events, state } = await runMonitor([failedTurn(fixture.transcript)]);
 		assert.equal(pendingEvents(rt.openDb()).length, 1, "the event waits for the owner");
 
 		applyObservation(state, startedTurn());
@@ -268,6 +268,23 @@ test("a later turn resolves the event and the history stays", async () => {
 		assert.equal(pendingEvents(rt.openDb()).length, 0, "the new turn resolves the event");
 		assert.equal(eventsOfRun(rt.openDb(), "wz-1").length, 1, "the history of the event stays");
 		assert.equal(events[0]?.condition, "rate_limited");
+		rt.closeDb();
+	} finally {
+		rmSync(fixture.home, { recursive: true, force: true });
+	}
+});
+
+test("the owner reads the transcript once for a failed turn", async () => {
+	const fixture = fixtureWith([OTHER_ERROR_ROW]);
+	try {
+		const { rt, tick, events } = await runMonitor([failedTurn(fixture.transcript)]);
+		assert.equal(events.length, 0, "the first read finds no rate limit");
+
+		writeFileSync(fixture.transcript, `${RATE_LIMIT_ROW}\n`);
+		tick();
+		await settle();
+
+		assert.equal(pendingEvents(rt.openDb()).length, 0, "a later poll does not read the file again");
 		rt.closeDb();
 	} finally {
 		rmSync(fixture.home, { recursive: true, force: true });
