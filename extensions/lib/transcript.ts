@@ -31,6 +31,8 @@ export interface SessionSummary {
 	latestText: string | null;
 	/** Number of assistant turns (assistant messages) seen so far. */
 	turns: number;
+	/** Number of tool calls that change a file. */
+	editCalls: number;
 	/** Assistant turns counted since the newest user message. */
 	turnsSinceLastUser: number;
 	/** Tool calls counted since the newest user message. */
@@ -56,6 +58,7 @@ export function emptySummary(): SessionSummary {
 		currentTool: null,
 		latestText: null,
 		turns: 0,
+		editCalls: 0,
 		turnsSinceLastUser: 0,
 		toolCallsSinceLastUser: 0,
 		toolResultsSinceLastUser: 0,
@@ -87,6 +90,9 @@ export function listSessionFiles(sessionDir: string): string[] {
 		return [];
 	}
 }
+
+/** Names of the tool calls that change a file. */
+export const CHANGE_TOOL_NAMES = ["edit", "write", "ast_edit"];
 
 /** Names of the tool calls in one assistant message. */
 function toolCallNames(blocks: ContentBlock[]): string[] {
@@ -142,6 +148,9 @@ export function summarizeSession(file: string): SessionSummary {
 			const calls = blocks.filter((b) => b.type === "toolCall").length;
 			summary.toolCalls += calls;
 			summary.toolCallsSinceLastUser += calls;
+			summary.editCalls += blocks.filter(
+				(b) => b.type === "toolCall" && CHANGE_TOOL_NAMES.includes(b.name ?? ""),
+			).length;
 			summary.turns += 1;
 			summary.turnsSinceLastUser += 1;
 			if (text) {
