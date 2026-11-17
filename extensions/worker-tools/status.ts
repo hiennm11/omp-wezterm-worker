@@ -288,7 +288,8 @@ export function registerStatusTool({ pi, rt }: ToolDeps): void {
 			"List the WezTerm pane workers of this session, or inspect one by id. " +
 			"Returns lifecycle state (queued/running/completed/failed/cancelled), pane id, cwd, transcript path, " +
 			"elapsed time, time since the last worker activity, the tool the worker is running right now, " +
-			"how many turns it took, the tokens it used, and whether its pane is still alive. " +
+			"how many turns it took, how many of its calls changed a file, " +
+			"the tokens it used, and whether its pane is still alive. " +
 			"A list without a worker id shows every active worker, every worker with an event that waits for you, " +
 			"and the 10 newest workers that ended. The older workers stay hidden, and the reply names their count.",
 		parameters: z.object({
