@@ -7,6 +7,7 @@ import { statSync } from "node:fs";
 import { backendLabel, isRemovedBackend, readBackend } from "../lib/backend.ts";
 import { readCallLedger } from "../lib/calls.ts";
 import { readChannelNotes } from "../lib/channel-store.ts";
+import { formatRateLimit } from "../lib/claude-rate-limit.ts";
 import { pendingEvents, type WorkerEvent } from "../lib/events.ts";
 import { isActive, type Job, type JobStatus } from "../lib/job.ts";
 import { completionBlockerOf, transcriptOf } from "../lib/ledger-sync.ts";
@@ -231,8 +232,11 @@ function nativeSummary(rt: WorkerRuntime, job: Job): string | null {
  */
 function formatEvent(event: WorkerEvent): string {
 	const line = `  ${event.id}  ${event.condition}  (worker ${event.runId})`;
-	if (event.condition !== "startup_blocked") return line;
-	return `${line}  The session waits at the trust dialog of Claude Code. Accept it in the pane.`;
+	if (event.condition === "startup_blocked") {
+		return `${line}  The session waits at the trust dialog of Claude Code. Accept it in the pane.`;
+	}
+	if (event.condition === "rate_limited") return `${line}  ${formatRateLimit(event.payload)}`;
+	return line;
 }
 
 function formatRow(r: StatusRow): string {

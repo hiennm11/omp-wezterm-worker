@@ -19,7 +19,8 @@ export type EventCondition =
 	| "unresolved_launch"
 	| "unknown_outcome"
 	| "permission_request"
-	| "startup_blocked";
+	| "startup_blocked"
+	| "rate_limited";
 
 /** One worker event. */
 export interface WorkerEvent {

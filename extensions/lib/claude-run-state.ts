@@ -47,6 +47,15 @@ export interface ClaudeRunState {
 	lastActivityAt: number;
 	/** The cycles whose turn ended. The usage of a turn arrives with its end. */
 	completedTurns: Set<string>;
+	/** The turn that failed with an error, and the path of its transcript. */
+	failedTurn: {
+		turnId: string | null;
+		transcriptPath: string | null;
+		/** True when the owner read the tail of the transcript for this turn. */
+		read: boolean;
+		/** True when a newer turn started, so the failure is obsolete. */
+		obsolete: boolean;
+	} | null;
 	/** The time of the last run snapshot, in epoch milliseconds. */
 	snapshotAt: number | null;
 }
@@ -70,6 +79,7 @@ export function createClaudeRunState(runId: string): ClaudeRunState {
 		seenObservations: new Set(),
 		lastActivityAt: Date.now(),
 		completedTurns: new Set(),
+		failedTurn: null,
 		snapshotAt: null,
 	};
 }
@@ -119,6 +129,9 @@ export function applyObservation(state: ClaudeRunState, observation: BridgeObser
 			if (state.currentCycleId === turnId) return false;
 			state.currentCycleId = turnId;
 			state.cycles.push(turnId);
+			/* A new turn means that the worker went on. The failure of the
+			   earlier turn is obsolete. The owner resolves its event. */
+			if (state.failedTurn !== null) state.failedTurn.obsolete = true;
 			/* A cycle that starts carries the instruction that the owner
 			   accepted. The instruction leaves the pending list, because
 			   the work of that instruction now runs. */
@@ -221,6 +234,18 @@ export function applyObservation(state: ClaudeRunState, observation: BridgeObser
 			addNativeUsage(state.usage, payload.usage ?? null);
 			const turnId = payload.turnId;
 			if (typeof turnId === "string") state.completedTurns.add(turnId);
+			/* A turn that failed with an error names the path of the
+			   transcript. The owner reads the tail of that file, because
+			   the hook names no kind of error. */
+			if (payload.reason === "error") {
+				const path = payload.transcriptPath;
+				state.failedTurn = {
+					turnId: typeof turnId === "string" ? turnId : null,
+					transcriptPath: typeof path === "string" ? path : null,
+					read: false,
+					obsolete: false,
+				};
+			}
 			return true;
 		}
 		default:

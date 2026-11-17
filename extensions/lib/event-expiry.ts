@@ -9,6 +9,7 @@ const EXPIRABLE_CONDITIONS: Record<EventCondition, true> | Partial<Record<EventC
 	execution_loss: true,
 	thinking_stall: true,
 	startup_blocked: true,
+	rate_limited: true,
 };
 
 /** Return no-action events whose run and event both exceed the expiry limit. */
