@@ -81,6 +81,7 @@ export function registerEventHandlers(on, deps) {
 			agentId: e.agentId ?? null,
 			usage: e.usage ?? null,
 			durationMs: e.durationMs ?? null,
+			transcriptPath: await readTranscriptPath($, e.reason),
 		});
 		return next(e);
 	});
@@ -263,5 +264,24 @@ function registerNoteHandlers(on, deps) {
 				return { result: `the notes were not read: ${String(error?.message ?? error)}`, isError: true };
 			}
 		});
+	}
+}
+
+/**
+ * The path of the transcript of the session, or null.
+ *
+ * The mod sends the path only when a turn ended with an error. The owner
+ * reads the tail of the file, because the hook of the mod names no kind of
+ * error. A failed call of the host sends null, and the owner raises no
+ * event.
+ */
+async function readTranscriptPath($, reason) {
+	if (reason !== "error") return null;
+	try {
+		const info = await $.session.info();
+		const path = info?.transcriptPath;
+		return typeof path === "string" && path.length > 0 ? path : null;
+	} catch {
+		return null;
 	}
 }
