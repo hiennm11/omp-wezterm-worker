@@ -205,6 +205,9 @@ export async function pruneWorker(rt: WorkerRuntime, job: Job, options: PruneOpt
 	}
 
 	const state = await inspectWorktree(rt, job.worktreePath);
+	if (!state.exists) {
+		return kept(job.id, "its worktree is gone from the disk");
+	}
 	if (!state.clean) {
 		return kept(job.id, `it has uncommitted changes (${state.changes.length})`);
 	}
