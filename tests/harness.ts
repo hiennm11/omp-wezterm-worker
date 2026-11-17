@@ -22,6 +22,18 @@ import { sessionContext } from "./session-context.ts";
 
 export { RUNTIME, sessionContext };
 
+/**
+ * A task that keeps the worker busy until the test cancels it.
+ *
+ * A worker that finished is no longer active, and its pane may be gone. A
+ * task that only counts ends in less than a minute on a fast model, so a
+ * test that needs a live worker cannot use it. A wait in the shell outlasts
+ * the test, and the cleanup cancels the worker.
+ */
+export const BUSY_TASK =
+	"Run the shell command `sleep 600` with the bash tool and wait until it ends. " +
+	"Do not write a file and do not run another command. Then reply with the word DONE.";
+
 export interface ToolResult {
 	content: Array<{ type: string; text: string }>;
 	details?: unknown;

@@ -13,7 +13,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { workerDiagnostics } from "./diagnostic-helpers.ts";
-import { createHost, currentPanes, detailString, removeDir, sessionContext, waitFor } from "./harness.ts";
+import {
+	BUSY_TASK,
+	createHost,
+	currentPanes,
+	detailString,
+	removeDir,
+	sessionContext,
+	waitFor,
+} from "./harness.ts";
 
 const ACTIVE_WORKER_WAIT_MS = 30_000;
 
@@ -23,12 +31,6 @@ function hasProgram(name: string): boolean {
 }
 
 const CAN_RUN = hasProgram("omp") && hasProgram("herdr") && process.env.HERDR_ENV === "1";
-
-/** A task that keeps the worker busy for a while. */
-const LONG_TASK =
-	"Count from 1 to 200 slowly. Write one number per line into a file named count.txt " +
-	"in the current working directory, using the write tool, one number at a time. " +
-	"Then reply with the word DONE.";
 
 test("a worker cannot launch a worker", {
 	skip: !CAN_RUN ? "omp or herdr is not available, or this is not a Herdr session" : false,
@@ -114,8 +116,7 @@ test("a spawn over the active worker limit is refused", {
 	try {
 		const workerIds: string[] = [];
 		for (const [index, label] of ["first", "second", "third"].entries()) {
-			const task = LONG_TASK.replace("count.txt", `count-${label}.txt`);
-			const spawned = await host.call("wezterm_spawn_worker", { task, cwd: repo, label });
+			const spawned = await host.call("wezterm_spawn_worker", { task: BUSY_TASK, cwd: repo, label });
 			const workerId = detailString(spawned.details, "workerId");
 			assert.ok(workerId, `The ${label} spawn returned no worker id: ${host.text(spawned)}`);
 			workerIds[index] = workerId;
