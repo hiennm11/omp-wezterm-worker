@@ -307,7 +307,7 @@ interrupt the turn.
 | `idle` | Time since the worker last wrote to its transcript. A worker that is thinking or waiting on a slow tool still writes, so a growing `idle` means it is stuck. |
 | `running` | The tool the worker is inside right now, when there is one. |
 | `turns` | How many assistant turns the worker has taken. |
-| `changes` | How many tool calls of the worker changed a file. The line counts the calls of `edit`, `write` and `ast_edit`. Only an OMP worker shows the line. A worker whose transcript cannot be read shows no line. |
+| `changes` | How many tool calls of the worker changed a file. The line counts the calls of `edit`, `write` and `ast_edit`. It does not count a file that the worker writes with the `bash` tool, so a worker that changes files only with `bash` shows `0 edit call(s)`. Read the `git status` of the worker for the real change. Only an OMP worker shows the line. A worker whose transcript cannot be read shows no line. |
 | `steers` | How many steering messages this worker took. An OMP worker counts only the instructions that its transcript confirmed. |
 | `tokens` | The tokens this worker used, summed from every transcript under its session folder. A value the transcript does not hold is `unknown`, never an estimate. |
 | `stop` | Shown only while a stop waits for confirmation: why the pane is not confirmed gone. Call `wezterm_worker_cancel` again to retry. |
