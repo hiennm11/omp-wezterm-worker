@@ -220,8 +220,9 @@ report tool and the command bridge.
 | The steering | A steering instruction goes through the bridge. The native session queues it, and a running tool is not interrupted. |
 | The permission | A permission request raises an event for the owner. The person answers it in the pane. A steering instruction is refused while the request is open. |
 
-| The events | The status tool lists the events that wait for the owner. The owner acknowledges each one with its event id. The conditions are `result`, `needs_input`, `missing_report`, `thinking_stall`, `idle_after_working`, `execution_loss`, `unresolved_launch`, `unknown_outcome`, `permission_request` and `startup_blocked`. OMP raises `thinking_stall` after 600 seconds without a transcript entry. |
+| The events | The status tool lists the events that wait for the owner. The owner acknowledges each one with its event id. The conditions are `result`, `needs_input`, `missing_report`, `thinking_stall`, `idle_after_working`, `execution_loss`, `unresolved_launch`, `unknown_outcome`, `permission_request`, `startup_blocked` and `rate_limited`. OMP raises `thinking_stall` after 600 seconds without a transcript entry. |
 | The startup | A Claude worker in a new repository raises `startup_blocked`, because the session waits at the trust dialog of Claude Code. The person accepts the dialog in the pane. |
+| The rate limit | A Claude worker that hits the usage limit of its account raises `rate_limited`. The run stays `running`. The status names the time of the reset. The owner cancels the worker or the owner waits. |
 | The mod validation | The extension refuses a Claude spawn when the installed Claude Code rejects the session mod or cannot validate it. This check adds about 1.5 seconds. |
 | The usage | The native CLI reports the usage of a turn when the turn ends. A run waits for the end of its turn, so the measured counts survive the end of the run. The usage of a request adds the native workers to the OMP ones. |
 | The activity | A native worker writes no OMP transcript. Its activity comes from the native observations, so the idle deadline never stops a worker that is still working. |
@@ -1047,6 +1048,8 @@ omp-wezterm-worker/
 │   │   ├── claude-session.ts    the Claude Code session of a worker
 │   │   ├── claude-bridge.ts     the loopback bridge of a native worker
 │   │   ├── claude-run-state.ts  the native state of a Claude Code run
+│   │   ├── claude-api-error.ts the API error in the transcript of a Claude session
+│   │   ├── claude-rate-limit.ts the rate limit event of a Claude Code run
 │   │   ├── native-ledger.ts     the execution ledger of a native run
 │   │   ├── native-events.ts     the events of a native run
 │   │   ├── native-report.ts     the report of a native run
@@ -1225,6 +1228,10 @@ omp-wezterm-worker/
 │   ├── monitor-native.test.ts   the monitor of a native worker and its outstanding rows
 │   ├── startup-block.test.ts    the startup block of a native worker
 │   ├── startup-block-monitor.test.ts the startup block in the monitor and in the status
+│   ├── claude-api-error.test.ts the API error in the transcript of a Claude session
+│   ├── claude-rate-limit.test.ts the rate limit event of a native worker
+│   ├── claude-rate-limit-text.test.ts the text of the rate limit event
+│   ├── claude-mod-rate-limit.test.ts the path of the transcript in the Claude Code mod
 │   ├── wait-result.test.ts      the settlement of a background job that a wait result names
 │   ├── background-job-settlement.test.ts the settlement of a background job in every shape
 │   ├── report-poll.test.ts      the report poll and the outstanding executions
@@ -1404,6 +1411,10 @@ breaks a test.
 | `monitor-native.test.ts` | The native monitor keeps a worker that has an open execution row. The native monitor ends a worker when its execution row settles. |
 | `startup-block.test.ts` | The three facts of the startup block give the reason of the trust dialog. A session that started gives no reason. A launch of 59 seconds gives no reason and a launch of 61 seconds gives the reason. A pane without the words of the dialog gives no reason. |
 | `startup-block-monitor.test.ts` | The native monitor raises one event for a worker that waits at the trust dialog, and a second poll raises no second event. A pane without the dialog raises no event. A session that starts later resolves the event. The status tells the person to accept the trust dialog. |
+| `claude-api-error.test.ts` | The last error row of the tail gives the error and its status. The reset time of the row is in milliseconds. A row without quota limits gives no reset time. A cut first line does not hide the last error row. An empty file gives no error row. A file without an error row gives no error row. The reader finds the error row at the end of a large file. The reader refuses a path outside the projects of Claude Code. |
+| `claude-rate-limit.test.ts` | A failed turn with a rate limit raises one event. A failed turn without quota limits raises the event without a reset time. A failed turn with another error raises no rate limit event. A rate limit at the end of a large transcript raises the event. A path outside the projects of Claude Code raises no event. A replayed failed turn raises no second event. A later turn resolves the event and the history stays. |
+| `claude-rate-limit-text.test.ts` | The text of a rate limit names the reset time and the owner decides. The text of a rate limit without a reset time says that the time is unknown. The status shows the text of the rate limit. |
+| `claude-mod-rate-limit.test.ts` | A failed turn sends the path of the transcript. A turn without an error sends no path. A failed host call sends a null path. |
 | `unresolved-launch.test.ts` | An unresolved launch raises one actionable event, and the payload names the attempt and the job. A second recovery raises no second event. The takeover path raises the event for a task that it took. The status lists the event. The resolution `abandoned` and the resolution `incomplete` free the attempt. The resolution `recorded_result` is refused, and the attempt stays unresolved. A session that does not own the task cannot resolve the event. |
 | `native-snapshot.test.ts` | A report of the cycle of the snapshot binds after the snapshot. A second snapshot holds the newer state. A snapshot of a closed turn lets the run finish. A snapshot of an open turn blocks the run until the turn ends. A pending instruction of the snapshot blocks the run until it is delivered. The calls and the permission requests of the snapshot become the open ones. An open tool row that the snapshot does not hold becomes settled. A tool row that the snapshot holds stays open. A tool row that the worker created after the snapshot stays open. A background row stays open. A new owner binds the report of a snapshot run and settles the old row. |
 | `native-background.test.ts` | A background call opens a row of kind background, and a foreground call opens a row of kind tool. The return of a background call leaves its row open, and the return of a foreground call settles its row. A failed background call settles its row. A started task stores its task id. A notification settles the row of its call for the statuses `completed` and `failed`, and a notification without a call id or without a status leaves the row open. A second notification changes nothing. Two background tasks settle their own rows. A stop settles the row of its task id, and a stop of an unknown task changes nothing. A settled or a stopped task leaves the open calls. A completion report waits for the row of a background task. |
