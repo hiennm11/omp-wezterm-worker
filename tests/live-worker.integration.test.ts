@@ -16,6 +16,7 @@ import { test } from "node:test";
 import { readReports } from "../extensions/lib/report-store.ts";
 import {
 	answerAfterLastUser,
+	BUSY_TASK,
 	createHost,
 	currentPanes,
 	detailBoolean,
@@ -147,7 +148,7 @@ test("a running worker can be cancelled and only its pane closes", {
 
 	try {
 		const spawned = await host.call("wezterm_spawn_worker", {
-			task: LONG_TASK,
+			task: BUSY_TASK,
 			cwd: repo,
 			label: "cancel",
 		});
@@ -190,7 +191,7 @@ test("a worker past its deadline is stopped and its pane is confirmed closed", {
 
 	try {
 		const spawned = await host.call("wezterm_spawn_worker", {
-			task: LONG_TASK,
+			task: BUSY_TASK,
 			cwd: repo,
 			label: "deadline",
 			timeoutMs: 5_000,
@@ -238,7 +239,7 @@ test("a session releases the worker that it started, and the worker keeps runnin
 
 	try {
 		const spawned = await host.call("wezterm_spawn_worker", {
-			task: LONG_TASK,
+			task: BUSY_TASK,
 			cwd: repo,
 			label: "release",
 		});
