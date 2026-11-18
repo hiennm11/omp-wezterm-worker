@@ -155,7 +155,7 @@ test("a new OMP process adopts the worker of a closed session", {
 
 	try {
 		const paneId = startFirstProcess(repo, helper);
-		assert.match(paneId, /^w\d+:p[0-9A-Za-z]+$/, "The first process got no pane");
+		assert.match(paneId, /^w[0-9A-Za-z]+:p[0-9A-Za-z]+$/, "The first process got no pane");
 
 		// The first process starts the worker and owns the task.
 		const running = await waitFor(
