@@ -70,9 +70,9 @@ A spawn of a worker whose OMP process is slow now takes longer than before.
 The launch waits up to 30 s for the evidence. It sends one Enter key after
 that wait. The wait ends as soon as the evidence appears.
 
-The Claude Code backend sends its task in the argv of the program, so it
-takes the same path as the WezTerm launch. The proof applies to the OMP
-backend on Herdr, because only that path sends the task into a composer.
+The Claude Code backend on Herdr also sends its task with the agent prompt,
+and it proves the delivery with the submit that its mod reports to the
+bridge. See ADR 0033. On WezTerm the task stays in the argv of the program.
 
 ## Consequences for the tests
 

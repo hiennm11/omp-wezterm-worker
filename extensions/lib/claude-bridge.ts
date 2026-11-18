@@ -23,6 +23,22 @@ export interface BridgeObservation {
 	payload: unknown;
 }
 
+/**
+ * True when the worker reported the submit of a prompt.
+ *
+ * The mod of Claude Code reports `prompt.submit.ingress` for every prompt
+ * that the session takes. A launch uses it as the proof that the worker took
+ * its task.
+ */
+export function promptSubmitted(observations: readonly BridgeObservation[], prompt: string): boolean {
+	return observations.some((observation) => {
+		if (observation.source !== "prompt.submit.ingress") return false;
+		const payload = observation.payload;
+		if (typeof payload !== "object" || payload === null || !("text" in payload)) return false;
+		return typeof payload.text === "string" && payload.text.includes(prompt);
+	});
+}
+
 /** One command that the owner wants the worker to run. */
 export interface BridgeCommand {
 	id: string;

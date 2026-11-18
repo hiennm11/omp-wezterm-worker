@@ -48,8 +48,11 @@ The Claude Code backend gives a contract and a task of many lines. The launch
 writes the contract to `.claude-contract.md` and the task to
 `.claude-task.md` in the session directory. It passes the contract path with
 `--append-system-prompt-file`. It passes the session directory with
-`--add-dir`, so the worker can read the task file. The prompt is one line that
-names the task file. No text with a line break goes into the argv.
+`--add-dir`, so the worker can read the task file. The argv holds no prompt.
+A prompt in the argv makes Claude work at once, and Herdr can then miss the
+idle state and time out. The launch starts Claude bare. It sends the one-line
+prompt that names the task file with `agent prompt`. The submit that the mod
+reports to the bridge proves that the worker took it (ADR 0033).
 
 ## Spawning into a pane
 

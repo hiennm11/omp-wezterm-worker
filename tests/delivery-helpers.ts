@@ -12,6 +12,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import type { WorkerRuntime } from "../extensions/lib/runtime.ts";
+
 /** The name of the transcript that the helpers write. */
 const TRANSCRIPT = "session.jsonl";
 
@@ -70,4 +72,24 @@ export function deliveryTracker(): DeliveryTracker {
 			if (sessionDir) writeSessionTranscript(sessionDir);
 		},
 	};
+}
+
+/**
+ * Report the submit of a prompt, as the mod of a Claude Code worker does.
+ *
+ * A Claude worker proves its delivery with the observation
+ * `prompt.submit.ingress` on its bridge, not with a transcript in the session
+ * directory. A fake of a pane runtime calls this when the agent prompt
+ * arrives.
+ */
+export function reportPromptSubmit(rt: WorkerRuntime, text: string): void {
+	for (const bridge of rt.bridges.values()) {
+		bridge.observations.push({
+			backend: "claude",
+			runId: null,
+			sessionId: null,
+			source: "prompt.submit.ingress",
+			payload: { text },
+		});
+	}
 }
