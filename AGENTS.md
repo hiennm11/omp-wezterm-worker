@@ -66,9 +66,7 @@ These rules add to the global rules in `~/.agents/AGENTS.md`. The tests in
 
 - Run every test with `unset OMP_WORKER_SESSION_DIR PI_SESSION_FILE` first. The `env -u` form fails in the Git Bash of this machine with `exec: node: not found`. These variables make 5 unit tests fail.
 - An isolated worktree holds no `node_modules`. Run `npm ci` there before a check. Without it, `npx biome` installs biome 0.3.3, so a lint report from that worktree means nothing.
-- Run GitNexus impact with `--repo omp-wezterm-worker`. Without it the command prints an error that a filter can hide.
 - The worker eval lives in `tooling/eval/`. Read `skills/worker-eval/SKILL.md` before a benchmark. It starts real workers in panes, one experiment at a time.
-- `finalizeJob` has CRITICAL impact and `stopJob` has HIGH impact. Keep a change in them small.
 - `package.json` has `eol=crlf`. After an edit, run `git add --renormalize package.json` and `npx biome format --write package.json`.
 - Read a file before an edit and copy its tag. Never invent a tag.
 - OMP reads the configuration once at start. A change of code or configuration needs a restart of OMP.
@@ -91,51 +89,6 @@ These rules add to the global rules in `~/.agents/AGENTS.md`. The tests in
 
 - Run `npm run check`. It runs the lint, the type check, the scores and every test. Run it one time, and not while another check runs.
 - The integration tests need `omp`, `herdr` and a Herdr session. Run them in a throwaway session with `HERDR_SOCKET_PATH` set to that session, so that a test never touches the panes of your own session. Report a test that did not run.
-
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
-
-This project is indexed by GitNexus as **omp-wezterm-worker** (2991 symbols, 9074 relationships, 240 execution flows). Use GitNexus graph tools to understand code, assess impact, and navigate safely.
-
-> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? Bootstrap with `npx`, `bunx`, or `pnpm dlx` — e.g. `bunx gitnexus@latest analyze` (npm 11 npx crash; #1939).
-
-## Always Do
-
-- **MUST run impact analysis before editing.** Use `impact({target: "symbolName", direction: "upstream"})` (MCP) or `node .gitnexus/run.cjs impact "symbolName" --direction upstream --repo .` (CLI fallback); report callers, processes, and risk. Never substitute grep for graph analysis.
-- **MUST analyze graph changes before committing.** Use `detect_changes({scope: "all"})` (MCP) or `node .gitnexus/run.cjs detect-changes --scope all --repo .` (CLI fallback). For regression review: `detect_changes({scope: "compare", base_ref: "master"})` or `node .gitnexus/run.cjs detect-changes --scope compare --base-ref "master" --repo .`.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
-- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
-
-## Never Do
-
-- NEVER edit a function, class, or method before MCP/CLI impact analysis.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
-- NEVER commit before MCP/CLI graph change analysis.
-
-## Resources
-
-| Resource | Use for |
-| --- | --- |
-| `gitnexus://repo/omp-wezterm-worker/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/omp-wezterm-worker/clusters` | All functional areas |
-| `gitnexus://repo/omp-wezterm-worker/processes` | All execution flows |
-| `gitnexus://repo/omp-wezterm-worker/process/{name}` | Step-by-step execution trace |
-
-## CLI
-
-| Task | Read this skill file |
-| --- | --- |
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus-cli/SKILL.md` |
-
-<!-- gitnexus:end -->
 
 ## Agent skills
 
