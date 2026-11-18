@@ -8,8 +8,9 @@ import { createGroup, readGroup } from "../extensions/lib/groups.ts";
 import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import type { RunFn } from "../extensions/lib/process.ts";
 import { resumeClaudeWorker } from "../extensions/lib/resume-claude.ts";
-import { createRuntime } from "../extensions/lib/runtime.ts";
+import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { spawnClaudeWorker } from "../extensions/lib/spawn-claude.ts";
+import { reportPromptSubmit } from "./delivery-helpers.ts";
 
 const FAIL_TEXT = "json: Invalid JSON syntax: Unexpected EOF";
 
@@ -153,6 +154,7 @@ test("resume accepts a validated plugin and launches the worker", async () => {
 
 test("spawn accepts validation warnings and launches the worker", async () => {
 	const calls: { bin: string; args: string[] }[] = [];
+	const slot: { rt: WorkerRuntime | null } = { rt: null };
 	const exec: RunFn = async (bin, args) => {
 		calls.push({ bin, args });
 		if (args[0] === "plugin") return { code: 0, stdout: "Found 1 warning", stderr: "" };
@@ -165,9 +167,13 @@ test("spawn accepts validation warnings and launches the worker", async () => {
 				stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p88", tab_id: "w1:t1" } } }),
 				stderr: "",
 			};
+		/* The mod of the worker reports the submit of the task prompt. */
+		if (args[0] === "agent" && args[1] === "prompt" && slot.rt) reportPromptSubmit(slot.rt, args[3] ?? "");
 		return { code: 0, stdout: "", stderr: "" };
 	};
 	const { rt, dir } = setup(exec);
+	slot.rt = rt;
+	rt.deliveryBound = { intervalMs: 1, attempts: 3 };
 	try {
 		const result = await spawnClaudeWorker(rt, {
 			jobId: "wz-warning",

@@ -18,6 +18,7 @@ import { freshRunState, type Job } from "../extensions/lib/job.ts";
 import { resumeClaudeWorker } from "../extensions/lib/resume-claude.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { spawnClaudeWorker } from "../extensions/lib/spawn-claude.ts";
+import { reportPromptSubmit } from "./delivery-helpers.ts";
 import { herdrFake } from "./herdr-fake.ts";
 import { weztermFake } from "./wezterm-fake.ts";
 
@@ -63,10 +64,15 @@ function weztermRuntime(dir: string): WorkerRuntime {
 function herdrRuntime(dir: string): WorkerRuntime {
 	const fake = herdrFake();
 	const rt = createRuntime(async () => ({ code: 0, stdout: "", stderr: "" }));
-	rt.herdr = async (args) => fake.answer(args);
+	rt.herdr = async (args) => {
+		const res = fake.answer(args);
+		if (args[0] === "agent" && args[1] === "prompt") reportPromptSubmit(rt, args[3] ?? "");
+		return res;
+	};
 	rt.paneRuntime = "herdr";
 	rt.config.stateDir = dir;
 	rt.config.runtime = "herdr";
+	rt.deliveryBound = { intervalMs: 1, attempts: 3 };
 	return rt;
 }
 

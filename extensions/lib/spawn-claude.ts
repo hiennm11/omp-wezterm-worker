@@ -14,9 +14,15 @@ import { mkdirSync } from "node:fs";
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
 import { writeClaudeContract, writeClaudeTask } from "./bootstrap-prompt.ts";
 import { handoverFile, writeHandover } from "./bridge-handover.ts";
-import { startBridge } from "./claude-bridge.ts";
+import { promptSubmitted, startBridge } from "./claude-bridge.ts";
 import { createClaudeRunState } from "./claude-run-state.ts";
-import { checkClaude, claudeArgv, preparePlugin, validatePlugin } from "./claude-session.ts";
+import {
+	checkClaude,
+	claudeArgv,
+	claudeTaskPrompt,
+	preparePlugin,
+	validatePlugin,
+} from "./claude-session.ts";
 import { createGroup, setGroupWorktree } from "./groups.ts";
 import { freshRunState, type Job } from "./job.ts";
 import { finalizeJob } from "./lifecycle.ts";
@@ -163,6 +169,11 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 	setGroupWorktree(db, groupId, job.worktreePath, job.worktreeOrigin, job.worktreeBranch, Date.now());
 
 	markIssued(db, attemptId, Date.now());
+	/* The prompt names the task file. The launch sends it after the start,
+	   because a prompt in the argv makes Claude work at once and Herdr then
+	   waits for an idle state that may not come in time. The submit that the
+	   mod reports to the bridge proves that the worker took the prompt. */
+	const prompt = taskFile ? claudeTaskPrompt(taskFile) : undefined;
 	const failure = await launchProgram(
 		rt,
 		job,
@@ -173,8 +184,6 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 			contractFile,
 			sessionDir: job.sessionDir,
 			model: job.model,
-			cwd: job.cwd,
-			taskFile,
 		}),
 		{
 			WEZTERM_WORKER_RUN_ID: jobId,
@@ -183,6 +192,8 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 			WEZTERM_WORKER_HANDOVER: handoverFile(job.sessionDir),
 			WEZTERM_WORKER_SESSION_DIR: job.sessionDir,
 		},
+		prompt,
+		() => prompt !== undefined && promptSubmitted(bridge.observations, prompt),
 	);
 	if (failure) {
 		markUnused(db, attemptId, Date.now());

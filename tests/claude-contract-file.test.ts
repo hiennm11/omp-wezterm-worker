@@ -19,6 +19,7 @@ import type { RunFn, RunResult } from "../extensions/lib/process.ts";
 import { resumeClaudeWorker } from "../extensions/lib/resume-claude.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { spawnClaudeWorker } from "../extensions/lib/spawn-claude.ts";
+import { reportPromptSubmit } from "./delivery-helpers.ts";
 
 /** One launch of a Claude worker, with the contract that it found. */
 interface Launch {
@@ -34,8 +35,9 @@ interface Launch {
  * The launch reads the contract file, so a test sees the contract at the
  * moment that the program starts.
  */
-function herdrRuntime(dir: string): { rt: WorkerRuntime; launches: Launch[] } {
+function herdrRuntime(dir: string): { rt: WorkerRuntime; launches: Launch[]; prompts: string[] } {
 	const launches: Launch[] = [];
+	const prompts: string[] = [];
 	const exec: RunFn = async (_bin, args): Promise<RunResult> => {
 		if (args[0] === "pane" && args[1] === "list") {
 			return { code: 0, stdout: JSON.stringify({ result: { panes: [] } }), stderr: "" };
@@ -51,6 +53,11 @@ function herdrRuntime(dir: string): { rt: WorkerRuntime; launches: Launch[] } {
 			launches.push({ args, contract: contractAt(args) });
 			return { code: 0, stdout: "", stderr: "" };
 		}
+		if (args[0] === "agent" && args[1] === "prompt") {
+			prompts.push(args[3] ?? "");
+			reportPromptSubmit(rt, args[3] ?? "");
+			return { code: 0, stdout: "", stderr: "" };
+		}
 		if (args[0] === "pane" && args[1] === "read") {
 			return { code: 0, stdout: "bypass permissions on", stderr: "" };
 		}
@@ -60,7 +67,8 @@ function herdrRuntime(dir: string): { rt: WorkerRuntime; launches: Launch[] } {
 	rt.config.stateDir = dir;
 	rt.config.claudeBin = "claude";
 	rt.paneRuntime = "herdr";
-	return { rt, launches };
+	rt.deliveryBound = { intervalMs: 1, attempts: 3 };
+	return { rt, launches, prompts };
 }
 
 /** The text of the contract file of an argv, or null when the argv names none. */
@@ -152,9 +160,9 @@ test("a Claude spawn on Herdr gives the program the path of the contract", async
 	}
 });
 
-test("a Claude spawn on Herdr takes a task with line breaks", async () => {
+test("a Claude spawn on Herdr starts bare and sends a one-line task prompt", async () => {
 	const dir = mkdtempSync(join(tmpdir(), "wt-claude-contract-"));
-	const { rt, launches } = herdrRuntime(dir);
+	const { rt, launches, prompts } = herdrRuntime(dir);
 	const task = "# Goal\nFix the bug.\n\n\t- step one\n- step two";
 	try {
 		const job = await spawnClaudeWorker(rt, {
@@ -165,10 +173,18 @@ test("a Claude spawn on Herdr takes a task with line breaks", async () => {
 		});
 		assert.equal(job.status, "running", job.error ?? "the spawn failed");
 		assert.equal(launches.length, 1, "the program started once");
-		const prompt = launches[0].args[launches[0].args.length - 1];
 		const file = join(job.sessionDir, ".claude-task.md");
-		assert.ok(prompt.includes(file), "the prompt names no task file");
 		assert.equal(readFileSync(file, "utf8"), task);
+		/* A prompt in the argv makes Claude work at once, and Herdr then
+		   waits for an idle state that may not come. */
+		assert.equal(
+			launches[0].args.some((arg) => arg.includes(file)),
+			false,
+			"the task prompt is in the argv",
+		);
+		assert.equal(prompts.length, 1, "the task did not go through the agent prompt");
+		assert.ok(prompts[0].includes(file), "the prompt names no task file");
+		assert.equal(/[\r\n\t]/.test(prompts[0]), false, "the prompt has a line break");
 	} finally {
 		for (const bridge of rt.bridges.values()) await bridge.close();
 		rt.closeDb();

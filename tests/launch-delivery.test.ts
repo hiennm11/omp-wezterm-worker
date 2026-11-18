@@ -18,6 +18,7 @@ import {
 	deliveryAction,
 	deliveryBaseline,
 	deliveryEvidence,
+	sessionEvidence,
 } from "../extensions/lib/launch-delivery.ts";
 import { createRuntime, type WorkerRuntime } from "../extensions/lib/runtime.ts";
 import { writeSessionTranscript } from "./delivery-helpers.ts";
@@ -126,7 +127,7 @@ test("the wait sends one Enter and returns when the worker took the task", async
 	const rt = runtimeWith(fake);
 	try {
 		const job = worker(session);
-		const baseline = deliveryBaseline(session);
+		const found = sessionEvidence(session);
 		/* The worker writes its transcript when the Enter arrives. */
 		const original = fake.answer;
 		rt.herdr = async (args) => {
@@ -134,7 +135,7 @@ test("the wait sends one Enter and returns when the worker took the task", async
 			if (args[0] === "pane" && args[1] === "send-keys") writeSessionTranscript(session);
 			return res;
 		};
-		const result = await awaitDelivery(rt, job, baseline, FAST);
+		const result = await awaitDelivery(rt, job, found, FAST);
 		assert.equal(result.delivered, true, result.error ?? "");
 		assert.equal(result.error, null);
 		const keys = fake.calls.filter((args) => args[0] === "pane" && args[1] === "send-keys");
@@ -152,8 +153,8 @@ test("the wait fails when the worker never took the task", async () => {
 	const rt = runtimeWith(fake);
 	try {
 		const job = worker(session);
-		const baseline = deliveryBaseline(session);
-		const result = await awaitDelivery(rt, job, baseline, FAST);
+		const found = sessionEvidence(session);
+		const result = await awaitDelivery(rt, job, found, FAST);
 		assert.equal(result.delivered, false);
 		assert.match(result.error ?? "", /not delivered/);
 		const keys = fake.calls.filter((args) => args[0] === "pane" && args[1] === "send-keys");
@@ -172,9 +173,9 @@ test("the wait sends no Enter when the worker took the task at once", async () =
 		const job = worker(session);
 		/* The baseline is taken before the send. The send creates the
 		   transcript, so the transcript is the evidence. */
-		const baseline = deliveryBaseline(session);
+		const found = sessionEvidence(session);
 		writeFileSync(join(session, "a.jsonl"), "{}\n", "utf8");
-		const result = await awaitDelivery(rt, job, baseline, FAST);
+		const result = await awaitDelivery(rt, job, found, FAST);
 		assert.equal(result.delivered, true, result.error ?? "");
 		const keys = fake.calls.filter((args) => args[0] === "pane" && args[1] === "send-keys");
 		assert.equal(keys.length, 0, "the launch sent an Enter that it did not need");

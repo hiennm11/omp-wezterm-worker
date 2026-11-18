@@ -69,14 +69,13 @@ export function claudeArgv(options: {
 	contractFile: string;
 	sessionDir: string;
 	model: string | null;
-	cwd: string;
-	taskFile: string | null;
 }): string[] {
-	/* The contract and the task travel in files. Both have many lines, and
-	   Herdr refuses an argument with a line break. A path has no line break,
-	   so it reaches the program of the pane. The flag --add-dir comes first
-	   and takes a list of values: the next flag ends the list, so the prompt
-	   at the end of the argv stays a prompt. */
+	/* The contract travels in a file. It has many lines, and Herdr refuses an
+	   argument with a line break. A path has no line break, so it reaches the
+	   program of the pane. The argv holds no prompt: a prompt in the argv
+	   makes Claude work at once, and Herdr then waits for an idle state that
+	   may never come inside its time limit. The launch sends the task after
+	   the start. */
 	const args = [
 		"--add-dir",
 		options.sessionDir,
@@ -90,8 +89,12 @@ export function claudeArgv(options: {
 	/* An omitted model keeps the default of Claude Code. The extension never
 	   adds a model that the user did not name. */
 	if (options.model) args.push("--model", options.model);
-	if (options.taskFile) args.push(`Read the file ${options.taskFile} and carry out the task in it.`);
 	return args;
+}
+
+/** The one-line prompt that tells a Claude worker to read its task file. */
+export function claudeTaskPrompt(taskFile: string): string {
+	return `Read the file ${taskFile} and carry out the task in it.`;
 }
 
 /**

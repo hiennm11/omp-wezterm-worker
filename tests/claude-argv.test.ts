@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { claudeArgv, claudeResumeArgv } from "../extensions/lib/claude-session.ts";
+import { claudeArgv, claudeResumeArgv, claudeTaskPrompt } from "../extensions/lib/claude-session.ts";
 
 const base = {
 	sessionId: "sid-1",
@@ -17,12 +17,7 @@ function contractFile(args: string[]): string | undefined {
 }
 
 test("a new Claude worker gets the path of the contract file", () => {
-	const args = claudeArgv({
-		...base,
-		cwd: "D:\\work",
-		taskFile: "C:\\state\\sessions\\wz-x\\.claude-task.md",
-	});
-	assert.equal(contractFile(args), base.contractFile);
+	assert.equal(contractFile(claudeArgv(base)), base.contractFile);
 });
 
 test("a resumed Claude worker gets the path of the contract file", () => {
@@ -31,22 +26,30 @@ test("a resumed Claude worker gets the path of the contract file", () => {
 });
 
 test("the contract never goes into the argv as text", () => {
-	const args = claudeArgv({ ...base, cwd: "D:\\work", taskFile: null });
-	assert.equal(args.includes("--append-system-prompt"), false);
+	assert.equal(claudeArgv(base).includes("--append-system-prompt"), false);
 });
 
-test("the prompt names the task file and holds no line break", () => {
-	const taskFile = "C:\\state\\sessions\\wz-x\\.claude-task.md";
-	const args = claudeArgv({ ...base, cwd: "D:\\work", taskFile });
-	const prompt = args[args.length - 1];
-	assert.ok(prompt.includes(taskFile));
+test("the argv holds no prompt, so Claude waits for the task from the launch", () => {
+	const args = claudeArgv({ ...base, model: "opus" });
+	assert.equal(args[args.length - 1], "opus");
 	assert.equal(
 		args.some((arg) => /[\r\n\t]/.test(arg)),
 		false,
 	);
+	assert.equal(
+		args.some((arg) => arg.includes(".claude-task.md")),
+		false,
+	);
+});
+
+test("the task prompt names the task file and holds no line break", () => {
+	const taskFile = "C:\\state\\sessions\\wz-x\\.claude-task.md";
+	const prompt = claudeTaskPrompt(taskFile);
+	assert.ok(prompt.includes(taskFile));
+	assert.equal(/[\r\n\t]/.test(prompt), false);
 });
 
 test("the session directory is readable by the worker", () => {
-	const args = claudeArgv({ ...base, cwd: "D:\\work", taskFile: null });
+	const args = claudeArgv(base);
 	assert.equal(args[args.indexOf("--add-dir") + 1], base.sessionDir);
 });

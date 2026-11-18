@@ -55,6 +55,7 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0030-a-launch-proves-that-the-worker-took-its-task.md",
 	"docs/adr/0031-prune-removes-the-work-that-is-already-merged.md",
 	"docs/adr/0032-a-rate-limit-of-a-claude-worker-raises-an-event.md",
+	"docs/adr/0033-a-claude-worker-starts-bare-and-takes-its-task-by-prompt.md",
 	"docs/plans/recoverable-omp-supervision.md",
 	"docs/plans/worker-eval-v0.1.md",
 ];

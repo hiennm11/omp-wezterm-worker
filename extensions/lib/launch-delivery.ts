@@ -61,6 +61,14 @@ export interface DeliveryResult {
 	error: string | null;
 }
 
+/**
+ * The check that the worker took its task.
+ *
+ * The OMP backend proves it with its transcript. The Claude Code backend
+ * proves it with the submit that its mod reports to the bridge.
+ */
+export type DeliveryProof = () => boolean;
+
 /** The action that the launch takes after a poll that found no evidence. */
 export type DeliveryAction = "wait" | "enter" | "fail";
 
@@ -100,6 +108,17 @@ export function deliveryEvidence(sessionDir: string, baseline: DeliveryBaseline)
 }
 
 /**
+ * The proof of an OMP worker: the transcript evidence of its session directory.
+ *
+ * The function takes the baseline when it runs, so the caller must run it
+ * before the send of the task.
+ */
+export function sessionEvidence(sessionDir: string): DeliveryProof {
+	const baseline = deliveryBaseline(sessionDir);
+	return () => deliveryEvidence(sessionDir, baseline);
+}
+
+/**
  * The action that the launch takes after a poll that found no evidence.
  *
  * The function is a pure function of the polls, of the Enter, and of the
@@ -132,13 +151,13 @@ function notDelivered(job: Job, detail: string | null): string {
 export async function awaitDelivery(
 	rt: WorkerRuntime,
 	job: Job,
-	baseline: DeliveryBaseline,
+	found: DeliveryProof,
 	bound: DeliveryBound = DEFAULT_DELIVERY_BOUND,
 ): Promise<DeliveryResult> {
 	let polls = 0;
 	let entered = false;
 	for (;;) {
-		if (deliveryEvidence(job.sessionDir, baseline)) return { delivered: true, error: null };
+		if (found()) return { delivered: true, error: null };
 		const action = deliveryAction(polls, entered, bound);
 		if (action === "fail") {
 			return { delivered: false, error: notDelivered(job, null) };
