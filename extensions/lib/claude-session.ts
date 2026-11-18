@@ -67,14 +67,19 @@ export function claudeArgv(options: {
 	sessionId: string;
 	pluginDir: string;
 	contractFile: string;
+	sessionDir: string;
 	model: string | null;
 	cwd: string;
-	task: string;
+	taskFile: string | null;
 }): string[] {
-	/* The contract travels in a file. The text has many lines, and Herdr
-	   refuses an argument with a line break. The path has no line break, so it
-	   reaches the program of the pane. */
+	/* The contract and the task travel in files. Both have many lines, and
+	   Herdr refuses an argument with a line break. A path has no line break,
+	   so it reaches the program of the pane. The flag --add-dir comes first
+	   and takes a list of values: the next flag ends the list, so the prompt
+	   at the end of the argv stays a prompt. */
 	const args = [
+		"--add-dir",
+		options.sessionDir,
 		"--session-id",
 		options.sessionId,
 		"--plugin-dir",
@@ -85,7 +90,7 @@ export function claudeArgv(options: {
 	/* An omitted model keeps the default of Claude Code. The extension never
 	   adds a model that the user did not name. */
 	if (options.model) args.push("--model", options.model);
-	if (options.task) args.push(options.task);
+	if (options.taskFile) args.push(`Read the file ${options.taskFile} and carry out the task in it.`);
 	return args;
 }
 

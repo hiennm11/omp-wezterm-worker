@@ -152,6 +152,30 @@ test("a Claude spawn on Herdr gives the program the path of the contract", async
 	}
 });
 
+test("a Claude spawn on Herdr takes a task with line breaks", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "wt-claude-contract-"));
+	const { rt, launches } = herdrRuntime(dir);
+	const task = "# Goal\nFix the bug.\n\n\t- step one\n- step two";
+	try {
+		const job = await spawnClaudeWorker(rt, {
+			jobId: "wz-claude-multiline",
+			task,
+			cwd: dir,
+			sessionId: "11111111-1111-4111-8111-111111111111",
+		});
+		assert.equal(job.status, "running", job.error ?? "the spawn failed");
+		assert.equal(launches.length, 1, "the program started once");
+		const prompt = launches[0].args[launches[0].args.length - 1];
+		const file = join(job.sessionDir, ".claude-task.md");
+		assert.ok(prompt.includes(file), "the prompt names no task file");
+		assert.equal(readFileSync(file, "utf8"), task);
+	} finally {
+		for (const bridge of rt.bridges.values()) await bridge.close();
+		rt.closeDb();
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 test("a Claude resume writes its own contract file", async () => {
 	const dir = mkdtempSync(join(tmpdir(), "wt-claude-contract-"));
 	const { rt, launches } = herdrRuntime(dir);
