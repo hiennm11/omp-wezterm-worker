@@ -12,7 +12,7 @@
 import { mkdirSync } from "node:fs";
 
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
-import { writeClaudeContract } from "./bootstrap-prompt.ts";
+import { writeClaudeContract, writeClaudeTask } from "./bootstrap-prompt.ts";
 import { handoverFile, writeHandover } from "./bridge-handover.ts";
 import { startBridge } from "./claude-bridge.ts";
 import { createClaudeRunState } from "./claude-run-state.ts";
@@ -104,8 +104,10 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 	   Herdr refuses an argument with a line break. The write comes before
 	   the launch, so a failed write refuses the run and opens no pane. */
 	let contractFile: string;
+	let taskFile: string | null = null;
 	try {
 		contractFile = writeClaudeContract(job.sessionDir);
+		if (job.task) taskFile = writeClaudeTask(job.sessionDir, job.task);
 	} catch (e) {
 		await finalizeJob(rt, job, "failed", e instanceof Error ? e.message : String(e), null);
 		return job;
@@ -169,9 +171,10 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 			sessionId: params.sessionId,
 			pluginDir,
 			contractFile,
+			sessionDir: job.sessionDir,
 			model: job.model,
 			cwd: job.cwd,
-			task: job.task,
+			taskFile,
 		}),
 		{
 			WEZTERM_WORKER_RUN_ID: jobId,

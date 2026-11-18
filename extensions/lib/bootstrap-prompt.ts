@@ -124,3 +124,20 @@ export function writeClaudeContract(sessionDir: string): string {
 	writeFileSync(file, REPORTING_CONTRACT, "utf8");
 	return file;
 }
+
+/** The file that holds the task of a Claude Code worker. */
+export function claudeTaskFile(sessionDir: string): string {
+	return join(sessionDir, ".claude-task.md");
+}
+
+/**
+ * Write the task of a Claude Code worker into its session.
+ *
+ * The task has many lines, and Herdr refuses an argument with a line break.
+ * The prompt of the launch names this file instead of holding the task.
+ */
+export function writeClaudeTask(sessionDir: string, task: string): string {
+	const file = claudeTaskFile(sessionDir);
+	writeFileSync(file, task, "utf8");
+	return file;
+}

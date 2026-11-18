@@ -44,10 +44,12 @@ real task has line breaks. So the extension starts OMP with no task in the
 argv, waits until the agent is ready, and sends the task with `agent prompt`.
 A launch that fails after the pane opened closes that pane.
 
-The Claude Code backend gives a contract of many lines. The launch writes the
-contract into the session directory and passes the path with
-`--append-system-prompt-file`. The path has no line break, so it reaches
-Herdr. The contract text itself never goes into the argv.
+The Claude Code backend gives a contract and a task of many lines. The launch
+writes the contract to `.claude-contract.md` and the task to
+`.claude-task.md` in the session directory. It passes the contract path with
+`--append-system-prompt-file`. It passes the session directory with
+`--add-dir`, so the worker can read the task file. The prompt is one line that
+names the task file. No text with a line break goes into the argv.
 
 ## Spawning into a pane
 
