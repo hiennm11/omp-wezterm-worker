@@ -54,13 +54,14 @@ export function planPruneReport(results: PruneResult[]): PruneReport {
 export function pruneSummaryLines(report: PruneReport): string[] {
 	const lines: string[] = [];
 	if (report.noWorktree > 0) {
-		lines.push(`${report.noWorktree} workers have no worktree and are skipped.`);
+		const subject = report.noWorktree === 1 ? "1 worker has" : `${report.noWorktree} workers have`;
+		lines.push(`${subject} no worktree and ${report.noWorktree === 1 ? "is" : "are"} skipped.`);
 	}
 	if (report.goneWorktree > 0) {
-		lines.push(
-			`${report.goneWorktree} workers have a worktree that is gone from the disk and hold no branch. ` +
-				`They are skipped.`,
-		);
+		const subject = report.goneWorktree === 1 ? "1 worker has" : `${report.goneWorktree} workers have`;
+		const verb = report.goneWorktree === 1 ? "holds" : "hold";
+		const pronoun = report.goneWorktree === 1 ? "It is" : "They are";
+		lines.push(`${subject} a worktree that is gone from the disk and ${verb} no branch. ${pronoun} skipped.`);
 	}
 	return lines;
 }
