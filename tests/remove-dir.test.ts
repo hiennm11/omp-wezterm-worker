@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { removeDir } from "./harness.ts";
+import { removeDir } from "./remove-dir.ts";
 
 /**
  * Start a process that holds the directory as its working directory.

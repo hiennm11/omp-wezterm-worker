@@ -224,7 +224,7 @@ async function endOfTest(hosts: TestHost[], stateDir: string): Promise<void> {
 	for (const host of hosts) {
 		await host.fire("session_shutdown", sessionContext(stateDir));
 	}
-	removeDir(stateDir);
+	await removeDir(stateDir);
 }
 
 test("the main session keeps the authority of its worker after a second load of the extension", async () => {

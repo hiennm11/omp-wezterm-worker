@@ -71,7 +71,7 @@ test("a native worker gets its own worktree", {
 	} finally {
 		stopAnswering();
 		await host.cleanup();
-		removeDir(repo);
+		await removeDir(repo);
 	}
 });
 
@@ -103,6 +103,6 @@ test("a native worker finds its bridge through the handover file", {
 	} finally {
 		stopAnswering();
 		await host.cleanup();
-		removeDir(repo);
+		await removeDir(repo);
 	}
 });

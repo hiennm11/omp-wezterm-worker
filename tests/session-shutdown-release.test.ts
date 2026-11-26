@@ -146,7 +146,7 @@ test("a closing session releases the running worker and keeps the ended run", as
 		assert.equal(phaseOf(stateDir, ENDED), "active", "the ended run lost its ownership");
 	} finally {
 		RUNTIME.closeDb();
-		removeDir(stateDir);
+		await removeDir(stateDir);
 	}
 });
 
@@ -163,7 +163,7 @@ test("a closing session clears the monitors and closes the database", async () =
 		assert.equal(RUNTIME.db, null, "the database of the session stays open");
 	} finally {
 		RUNTIME.closeDb();
-		removeDir(stateDir);
+		await removeDir(stateDir);
 	}
 });
 
@@ -178,7 +178,7 @@ test("the shutdown of a subagent releases no task of the main session", async ()
 		assert.equal(phaseOf(stateDir, RUNNING), "active", "the subagent released the task of the main session");
 	} finally {
 		RUNTIME.closeDb();
-		removeDir(stateDir);
+		await removeDir(stateDir);
 	}
 });
 
@@ -211,6 +211,6 @@ test("a new process of the same session adopts the worker of a closed session", 
 		}
 	} finally {
 		RUNTIME.closeDb();
-		removeDir(stateDir);
+		await removeDir(stateDir);
 	}
 });

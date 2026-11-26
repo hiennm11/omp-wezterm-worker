@@ -100,7 +100,7 @@ test("a worker cannot launch a worker", {
 	} finally {
 		clearInterval(watch);
 		await host.cleanup();
-		removeDir(repo);
+		await removeDir(repo);
 	}
 });
 
@@ -168,6 +168,6 @@ test("a spawn over the active worker limit is refused", {
 		assert.deepEqual(currentPanes().sort(), panesAfterThree);
 	} finally {
 		await host.cleanup();
-		removeDir(repo);
+		await removeDir(repo);
 	}
 });

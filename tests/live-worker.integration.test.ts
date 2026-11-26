@@ -132,7 +132,7 @@ test("a running worker can be steered, peeked at and cancelled", {
 		}
 	} finally {
 		await host.cleanup();
-		removeDir(repo);
+		await removeDir(repo);
 	}
 });
 
@@ -175,7 +175,7 @@ test("a running worker can be cancelled and only its pane closes", {
 		}
 	} finally {
 		await host.cleanup();
-		removeDir(repo);
+		await removeDir(repo);
 	}
 });
 
@@ -225,7 +225,7 @@ test("a worker past its deadline is stopped and its pane is confirmed closed", {
 		}
 	} finally {
 		await host.cleanup();
-		removeDir(repo);
+		await removeDir(repo);
 	}
 });
 
@@ -255,6 +255,6 @@ test("a session releases the worker that it started, and the worker keeps runnin
 		assert.ok(currentPanes().includes(paneId), "The release closed the pane of the worker");
 	} finally {
 		await host.cleanup();
-		removeDir(repo);
+		await removeDir(repo);
 	}
 });

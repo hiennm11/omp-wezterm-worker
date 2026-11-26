@@ -200,8 +200,8 @@ test("a new OMP process adopts the worker of a closed session", {
 				/* the pane may already be gone */
 			}
 		}
-		removeDir(repo);
-		removeDir(stateDir);
+		await removeDir(repo);
+		await removeDir(stateDir);
 	}
 });
 

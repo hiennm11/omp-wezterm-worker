@@ -160,6 +160,6 @@ test("the worker lifecycle, with a real worker", {
 		await second.cleanup();
 	} finally {
 		await host.cleanup();
-		removeDir(repo);
+		await removeDir(repo);
 	}
 });
