@@ -21,6 +21,7 @@ import { readOwnership } from "./ownership.ts";
 import { paneState } from "./pane.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { stopIntentRefusal } from "./stop-reconcile.ts";
+import { claimVacantTask } from "./vacant-task.ts";
 import { inspectWorktree, removeWorktree } from "./worktree.ts";
 
 /** A refusal that stops the cleanup. */
@@ -146,8 +147,12 @@ async function releaseWorktree(rt: WorkerRuntime, job: Job, force: boolean): Pro
 export async function cleanupJob(rt: WorkerRuntime, job: Job, force: boolean): Promise<CleanupOutcome> {
 	const branch = job.worktreeBranch;
 	const owner = readOwnership(rt.openDb(), taskKey(job.id)).owner;
-	const refusal = cleanupRefusal(owner, rt.sessionId, job.id);
-	if (refusal) return stopped({ text: refusal, details: refusalDetails(job.id, owner) }, branch);
+	/* A task of another session can be vacant. The claim takes the task when
+	   the run ended and the owner process is gone. */
+	await claimVacantTask(rt, job.id, owner);
+	const claimed = readOwnership(rt.openDb(), taskKey(job.id)).owner;
+	const refusal = cleanupRefusal(claimed, rt.sessionId, job.id);
+	if (refusal) return stopped({ text: refusal, details: refusalDetails(job.id, claimed) }, branch);
 
 	// A pending stop intent means that a destructive command may have
 	// run. The cleanup must not act on a worker whose pane may

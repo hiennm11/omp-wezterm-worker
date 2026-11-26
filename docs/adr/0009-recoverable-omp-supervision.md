@@ -309,6 +309,9 @@ The lease of the session is the evidence that the first owner is gone. The first
 
 A closing session releases the tasks that it still supervises. See ADR 0019.
 
+A row of an ended run does not block another session. That session claims the
+task on demand. See ADR 0034.
+
 Apply the active worker limit across the shared state directory. Reserve launches atomically.
 
 Keep the per-request launch limit local to its main session.

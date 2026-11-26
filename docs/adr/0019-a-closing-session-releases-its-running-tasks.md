@@ -67,6 +67,9 @@ closing process. The job is still active.
 A row of a run that ended stays as it is. A row of another process stays as
 it is. The row of another session stays as it is.
 
+A row of an ended run does not block another session. That session claims the
+task on demand. See ADR 0034.
+
 The decision is a pure function. It takes the ownership row, the job list, the
 session id, the process id and the process start time. It returns the ids of
 the tasks to release. A test proves it without a pane.

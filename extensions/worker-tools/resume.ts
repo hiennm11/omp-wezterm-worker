@@ -16,6 +16,7 @@ import { resumeClaudeWorker } from "../lib/resume-claude.ts";
 import { resumeWorker } from "../lib/spawn.ts";
 import { stopIntentRefusal } from "../lib/stop-reconcile.ts";
 import { isSubagent, subagentControlRefusal } from "../lib/subagent.ts";
+import { claimVacantTask } from "../lib/vacant-task.ts";
 import { commsDetails, commsRefusalLine, findJob, refusalReply, reply, type ToolDeps } from "./kit.ts";
 
 export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
@@ -84,8 +85,12 @@ export function registerResumeTool({ pi, rt, deliver }: ToolDeps): void {
 			   refused resume counts no launch. */
 			return rt.runAction(`resume:${job.id}`, async () => {
 				const owner = readOwnership(rt.openDb(), taskKey(job.id)).owner;
-				const refusal = cleanupRefusal(owner, rt.sessionId, job.id);
-				if (refusal) return reply(refusal, refusalDetails(job.id, owner), true);
+				/* A task of another session can be vacant. The claim takes the task
+				   when the run ended and the owner process is gone. */
+				await claimVacantTask(rt, job.id, owner);
+				const claimed = readOwnership(rt.openDb(), taskKey(job.id)).owner;
+				const refusal = cleanupRefusal(claimed, rt.sessionId, job.id);
+				if (refusal) return reply(refusal, refusalDetails(job.id, claimed), true);
 				// A pending stop intent means that a destructive command may have
 				// run. The resume must not start a second writer on a worker
 				// whose pane may already be closed.

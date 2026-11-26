@@ -8,8 +8,10 @@
 
 import { type Disposition, readEvent, recordHandling } from "../lib/events.ts";
 import type { ToolCtx } from "../lib/host.ts";
-import { generationOf } from "../lib/owner.ts";
+import { generationOf, taskKey } from "../lib/owner.ts";
+import { readOwnership } from "../lib/ownership.ts";
 import { subagentControlRefusal } from "../lib/subagent.ts";
+import { claimVacantTask } from "../lib/vacant-task.ts";
 import { writeUnderAuthority } from "../lib/write-authority.ts";
 import { reply, type ToolDeps } from "./kit.ts";
 
@@ -62,6 +64,11 @@ export function registerAckTool({ pi, rt }: ToolDeps): void {
 			const event = readEvent(db, eventId);
 			if (!event) {
 				return reply(`Unknown event id: ${eventId}`, { acknowledged: false }, true);
+			}
+			/* A task of another session can be vacant. The claim takes the task
+			   when the run ended and the owner process is gone. */
+			if (event.runId !== null) {
+				await claimVacantTask(rt, event.runId, readOwnership(db, taskKey(event.runId)).owner);
 			}
 			/* The authority of the task of the event is checked in the same
 			   transaction as the write. The event names its worker, so the

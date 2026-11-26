@@ -240,6 +240,11 @@ must release the task, or the extension must confirm that the process of the
 previous owner ended. A session can also take back a task that it released.
 _Avoid_: Resume, restart
 
+**Vacant task**:
+A task whose run ended and whose owner process is gone. Another session can
+claim the task on demand.
+_See also_: Takeover
+
 **Worker event**:
 A result, input request, or intervention condition that the main session must handle.
 _Avoid_: Task, turn, notification text
