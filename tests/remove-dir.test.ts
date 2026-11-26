@@ -15,12 +15,12 @@ import { removeDir } from "./remove-dir.ts";
  * lives until the test ends it, so no timer guesses how long it holds.
  */
 async function holdDirectory(dir: string): Promise<ChildProcess> {
-	const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+	const child = spawn(process.execPath, ["-e", "console.log('ready'); setInterval(() => {}, 1000)"], {
 		cwd: dir,
-		stdio: "ignore",
+		stdio: ["ignore", "pipe", "ignore"],
 		windowsHide: true,
 	});
-	await once(child, "spawn");
+	await once(child.stdout, "data");
 	return child;
 }
 

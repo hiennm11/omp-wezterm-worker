@@ -8,6 +8,7 @@
 
 import assert from "node:assert/strict";
 import { type ChildProcess, spawn } from "node:child_process";
+import { once } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -42,13 +43,15 @@ function emptyWorktreeDir(): { root: string; path: string } {
 	return { root, path };
 }
 
-/** A process that holds the directory as its working directory. */
-function holder(cwd: string): ChildProcess {
-	return spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], {
+/** A process that holds the directory as its working directory. It returns once the process runs. */
+async function holder(cwd: string): Promise<ChildProcess> {
+	const child = spawn(process.execPath, ["-e", "console.log('ready'); setTimeout(() => {}, 60000)"], {
 		cwd,
-		stdio: "ignore",
+		stdio: ["ignore", "pipe", "ignore"],
 		windowsHide: true,
 	});
+	await once(child.stdout, "data");
+	return child;
 }
 
 /** End a process and wait until it is gone. */
@@ -64,7 +67,7 @@ test("an empty directory that a process holds is removed after the process ends"
 	skip: WINDOWS_ONLY,
 }, async () => {
 	const { root, path } = emptyWorktreeDir();
-	const child = holder(path);
+	const child = await holder(path);
 	try {
 		setTimeout(() => void stop(child), 700);
 		const rt = createRuntime(gitThatLeavesTheDirectory(path, { listed: false }));
@@ -81,7 +84,7 @@ test("a directory that a process holds past the wait is reported as not removed"
 	skip: WINDOWS_ONLY,
 }, async () => {
 	const { root, path } = emptyWorktreeDir();
-	const child = holder(path);
+	const child = await holder(path);
 	try {
 		const rt = createRuntime(gitThatLeavesTheDirectory(path, { listed: false }));
 		const outcome = await removeWorktree(rt, "/repo", path, 400);
