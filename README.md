@@ -113,7 +113,10 @@ the authority gets one refusal that names the session that holds it. The
 refusal says `Worker <id> belongs to session <S> (phase <P>). This session only
 reads it.` A session without an identity and a task without an ownership row
 keep the old behaviour. The automatic path of a monitor checks the authority
-too.
+too. A task whose run ended and whose owner process is gone is vacant. The
+tools `wezterm_worker_ack`, `wezterm_worker_resolve`,
+`wezterm_worker_cleanup` and `wezterm_worker_resume` claim such a task. See
+`docs/adr/0034-a-vacant-task-is-claimed-on-demand.md`.
 
 The worker reports its own task state through `wezterm_worker_report`. That
 tool is worker-only. The main session never gets it.
@@ -702,6 +705,14 @@ released task has no owner. A session without an identity and a task without
 an ownership row keep the old behaviour. So a worker from before the ownership
 existed still works. The automatic path of a monitor checks the authority too.
 
+**A vacant task is claimed on demand.** A task whose run ended and whose
+owner process is gone blocks nobody. The tools `wezterm_worker_ack`,
+`wezterm_worker_resolve`, `wezterm_worker_cleanup` and
+`wezterm_worker_resume` claim such a task and go on. The tools
+`wezterm_worker_steer` and `wezterm_worker_cancel` keep their refusal,
+because a live worker must have one writer. See
+`docs/adr/0034-a-vacant-task-is-claimed-on-demand.md`.
+
 **A monitor that lost the authority stops.** Every poll of a monitor reads the
 ownership row of the task. A row of another session, or a released row of this
 session, stops the monitor. Such a monitor ends no worker, writes no ledger
@@ -1082,6 +1093,7 @@ omp-wezterm-worker/
 │   │   ├── session-release.ts   the release of the tasks of a closing session
 │   │   ├── authority.ts         the authority rules of the control and cleanup tools
 │   │   ├── write-authority.ts   the authority check of a write for a task
+│   │   ├── vacant-task.ts       the claim of a task whose run ended
 │   │   ├── attach.ts            the supervision of a worker that this session owns
 │   │   ├── attempts.ts          the launch attempts and the capacity
 │   │   ├── groups.ts            the resources that two runs share
