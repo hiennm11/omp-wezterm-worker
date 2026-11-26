@@ -154,6 +154,44 @@ export async function addWorker(fixture: PruneFixture, options: WorkerOptions): 
 }
 
 /**
+ * Add a worker that holds no worktree to the fixture.
+ *
+ * The worker ended long ago and it never had a worktree. The prune has
+ * nothing to do with it.
+ */
+export function addWorklessWorker(fixture: PruneFixture, id: string): Job {
+	const ended = fixture.now - 30 * DAY;
+	const sessionDir = join(fixture.stateDir, "sessions", id);
+	mkdirSync(sessionDir, { recursive: true });
+	writeFileSync(join(sessionDir, "a.jsonl"), "", "utf8");
+	const job: Job = {
+		id,
+		label: id,
+		task: "task",
+		cwd: fixture.repo,
+		model: null,
+		tools: null,
+		placement: "split",
+		sessionDir,
+		sessionFile: join(sessionDir, "a.jsonl"),
+		worktreePath: null,
+		worktreeBranch: null,
+		worktreeOrigin: null,
+		timeoutMs: 0,
+		idleTimeoutMs: 0,
+		closePaneOnFinish: true,
+		...freshRunState(ended),
+		status: "completed",
+		paneId: null,
+		runtime: "herdr",
+		createdAt: ended,
+		finishedAt: ended,
+	};
+	fixture.rt.jobs.set(id, job);
+	return job;
+}
+
+/**
  * Put the commits of the worker into the target branch.
  *
  * The copy of the patch gets another sha, so the branch of the worker is not
