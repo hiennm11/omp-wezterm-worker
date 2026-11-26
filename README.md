@@ -893,6 +893,14 @@ anything. The tool reports a worktree with changes and does not delete it. The
 changes are the worker's output. Pass `force: true` only when you plan to
 discard them.
 
+On Windows a process can hold the empty directory after git removed the files.
+The MCP servers of the OMP daemon start in the working directory of the worker
+and live for about 16 seconds after the pane closes. The removal then waits up
+to 30 seconds for that directory. It removes only a directory that is empty and
+that git no longer lists as a worktree. A directory that still holds a file is
+never removed. A directory that stays held is reported as `worktree NOT removed`
+and the path stays. See `docs/adr/0036-the-removal-of-a-worktree-waits-for-its-empty-directory.md`.
+
 The cleanup never deletes the branch. Remove it yourself with
 `git branch -d omp/worker/<jobId>` once you merge its content or no longer
 need it.
@@ -1045,6 +1053,7 @@ omp-wezterm-worker/
 │   │   ├── report-decision.ts   the decision that the reports produce
 │   │   ├── report-reminder.ts   the reminder for a cycle without a report
 │   │   ├── usage.ts             the measured token usage of a worker
+│   │   ├── usage-restore.ts     the totals of a persisted job, checked field by field
 │   │   ├── runtime.ts           the shared state and the services (the test seam)
 │   │   ├── process.ts           running a child process
 │   │   ├── host.ts              the shape of the OMP extension API
@@ -1389,6 +1398,7 @@ breaks a test.
 | `stop.test.ts` | A cancel ends a worker only when the pane list shows the pane gone. An unreadable pane list does not count as a closed pane. An unconfirmed stop leaves the worker running, and a retry ends it. |
 | `stop-reconcile.test.ts` | The verdict follows the pane state and never guesses. A pending intent is confirmed when its pane is gone. A run without a pane counts as gone. A pending intent fails when its pane still exists. A pending intent stays pending when the pane list cannot be read. The reconciliation leaves the intent of another session alone. A pending intent refuses the action and a settled intent does not. |
 | `stop-intent-gate.test.ts` | The cleanup refuses a run with a pending stop intent and goes on after the confirmation. The status shows the pending stop intent of a run. |
+| `worktree-leftover-dir.test.ts` | A process holds the empty directory of a removed worktree. The removal waits and succeeds after the process ends. A held directory is reported after the wait. A directory with a file and a directory that git still lists are kept. |
 | `steer.test.ts` | A steer call sends the instruction once. The transcript confirms the delivery. An unrelated message does not confirm it. An old message with the same text does not confirm it. An unconfirmed delivery is not sent again. |
 | `monitor.test.ts` | A worker with no deadline never times out. An active worker still times out at the total deadline. A worker that keeps writing is not stopped as idle. A resumed worker does not report its old answer. |
 | `monitor-authority.test.ts` | The verdict follows the owner, the session and the phase. The monitor of the owner ends an overdue worker. A released task stops its monitor and leaves the worker alone. A task that another session took stops the monitor of the old session. The releasing phase makes the monitor wait and does not stop it. A native monitor stops when the task is released. |

@@ -22,10 +22,10 @@ import {
 	readUsageTotals,
 	requestUsage,
 	requestWorkerIds,
-	restoreUsageTotals,
 	subtractTotals,
 	usageReport,
 } from "../extensions/lib/usage.ts";
+import { restoreUsageTotals } from "../extensions/lib/usage-restore.ts";
 
 /** The usage object of one model call. */
 function usage(overrides: Record<string, unknown> = {}): Record<string, unknown> {

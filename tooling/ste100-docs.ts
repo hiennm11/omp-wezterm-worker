@@ -58,6 +58,7 @@ export const CHECKED_DOCUMENTS = [
 	"docs/adr/0033-a-claude-worker-starts-bare-and-takes-its-task-by-prompt.md",
 	"docs/adr/0034-a-vacant-task-is-claimed-on-demand.md",
 	"docs/adr/0035-the-spawn-asks-omp-for-the-advisor.md",
+	"docs/adr/0036-the-removal-of-a-worktree-waits-for-its-empty-directory.md",
 	"docs/plans/recoverable-omp-supervision.md",
 	"docs/plans/worker-eval-v0.1.md",
 ];

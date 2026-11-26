@@ -86,12 +86,12 @@ export function emptyTotals(): UsageTotals {
 }
 
 /** All token counts are zero. */
-function emptyCounts(): TokenCounts {
+export function emptyCounts(): TokenCounts {
 	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, total: 0 };
 }
 
 /** A finite number that is not negative, or null. */
-function count(value: unknown): number | null {
+export function count(value: unknown): number | null {
 	return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
@@ -328,40 +328,4 @@ export function requestWorkerIds(jobs: ReadonlyMap<string, Job>, ids: readonly s
 export function requestUsage(jobs: ReadonlyMap<string, Job>, ids: readonly string[]): UsageReport {
 	const kept = requestWorkerIds(jobs, ids);
 	return combineReports(kept.map((id) => jobUsage(jobs.get(id) as Job)));
-}
-
-/** Rebuild the totals of a persisted job, or null when the value is not usable. */
-export function restoreUsageTotals(value: unknown): UsageTotals | null {
-	if (typeof value !== "object" || value === null) return null;
-	const entry = value as Record<string, unknown>;
-	for (const group of ["turns", "sideCalls"] as const) {
-		const counts = entry[group];
-		if (typeof counts !== "object" || counts === null) return null;
-		const record = counts as Record<string, unknown>;
-		for (const key of Object.keys(emptyCounts()) as Array<keyof TokenCounts>) {
-			if (count(record[key]) === null) return null;
-		}
-	}
-	// A total that was saved before the advisor group existed has no such group.
-	let advisor = emptyCounts();
-	if (entry.advisor !== undefined) {
-		if (typeof entry.advisor !== "object" || entry.advisor === null) return null;
-		const record = entry.advisor as Record<string, unknown>;
-		for (const key of Object.keys(emptyCounts()) as Array<keyof TokenCounts>) {
-			if (count(record[key]) === null) return null;
-		}
-		advisor = entry.advisor as TokenCounts;
-	}
-	for (const key of ["calls", "callsWithoutUsage", "cost", "files"] as const) {
-		if (count(entry[key]) === null) return null;
-	}
-	return {
-		turns: entry.turns as TokenCounts,
-		sideCalls: entry.sideCalls as TokenCounts,
-		advisor,
-		calls: entry.calls as number,
-		callsWithoutUsage: entry.callsWithoutUsage as number,
-		cost: entry.cost as number,
-		files: entry.files as number,
-	};
 }
