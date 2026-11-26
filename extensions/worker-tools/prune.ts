@@ -102,7 +102,6 @@ export function registerPruneTool({ pi, rt }: ToolDeps): void {
 				removed,
 				wouldRemove,
 				kept,
-				skipped: { noWorktree: report.noWorktree, goneWorktree: report.goneWorktree },
 			});
 		},
 	});
