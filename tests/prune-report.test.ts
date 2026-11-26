@@ -9,17 +9,17 @@
  */
 
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { test } from "node:test";
-
-import { registerPruneTool } from "../extensions/worker-tools/prune.ts";
 import type { WorkerRuntime } from "../extensions/lib/runtime.ts";
+import { registerPruneTool } from "../extensions/worker-tools/prune.ts";
 import {
 	addWorker,
 	addWorklessWorker,
 	applyWorkerCommits,
 	branchExists,
 	finish,
+	git,
 	pruneFixture,
 	toolOf,
 } from "./prune-helpers.ts";
@@ -100,6 +100,26 @@ test("the report has no line that counts the skipped workers when no worker is s
 
 		assert.equal(workerLines(text).length, 1);
 		assert.equal(summaryLines(text).length, 0);
+	} finally {
+		finish(fixture);
+	}
+});
+
+test("the report skips a worker whose worktree is gone and that holds no branch", async () => {
+	const fixture = await pruneFixture();
+	try {
+		const job = await addWorker(fixture, { id: "wz-1", commits: ["feature"] });
+		await applyWorkerCommits(fixture, "wz-1");
+		rmSync(job.worktreePath ?? "", { recursive: true, force: true });
+		await git(fixture.repo, ["worktree", "prune"]);
+		await git(fixture.repo, ["branch", "-D", "omp/worker/wz-1"]);
+
+		const result = await pruneTool(fixture.rt).execute("t1", {});
+		const text = result.content[0]?.text ?? "";
+
+		assert.equal(workerLines(text).length, 0, "the report names a worker that it skips");
+		assert.equal(summaryLines(text).length, 1);
+		assert.match(summaryLines(text)[0] ?? "", /worktree that is gone/);
 	} finally {
 		finish(fixture);
 	}
