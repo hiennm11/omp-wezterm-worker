@@ -8,22 +8,24 @@
 import type { ToolCtx } from "../lib/host.ts";
 import { isActive } from "../lib/job.ts";
 import { DEFAULT_OLDER_THAN_DAYS, type PruneResult, pruneWorker } from "../lib/prune.ts";
+import { type PruneReport, planPruneReport, pruneSummaryLines } from "../lib/prune-report.ts";
 import { subagentControlRefusal } from "../lib/subagent.ts";
 import { reply, type ToolDeps } from "./kit.ts";
 
 /**
  * The text of the report of the prune.
  *
- * The text names every worker and the reason of its state, so the user sees
- * what the tool did and what it left alone.
+ * The text names every worker that needs a decision and the reason of its
+ * state. It counts the workers that the report skips.
  */
-function reportText(dryRun: boolean, results: PruneResult[]): string {
+function reportText(dryRun: boolean, report: PruneReport): string {
 	const headline = dryRun ? "Prune (dry run):" : "Prune:";
-	const lines = results.map((result) => {
+	const lines = report.listed.map((result) => {
 		if (result.state === "removed") return `- ${result.workerId}: removed. ${result.reason}`;
 		if (result.state === "would-remove") return `- ${result.workerId}: would remove. ${result.reason}`;
 		return `- ${result.workerId}: kept. ${result.reason}`;
 	});
+	lines.push(...pruneSummaryLines(report));
 	return `${headline}\n${lines.join("\n")}`;
 }
 
@@ -86,18 +88,21 @@ export function registerPruneTool({ pi, rt }: ToolDeps): void {
 						workerId: job.id,
 						state: "kept",
 						reason: `the prune failed: ${e instanceof Error ? e.message : String(e)}`,
+						skip: null,
 					});
 				}
 			}
 
-			const removed = results.filter((result) => result.state === "removed");
-			const wouldRemove = results.filter((result) => result.state === "would-remove");
-			const kept = results.filter((result) => result.state === "kept");
-			return reply(reportText(dryRun, results), {
+			const report = planPruneReport(results);
+			const removed = report.listed.filter((result) => result.state === "removed");
+			const wouldRemove = report.listed.filter((result) => result.state === "would-remove");
+			const kept = report.listed.filter((result) => result.state === "kept");
+			return reply(reportText(dryRun, report), {
 				dryRun,
 				removed,
 				wouldRemove,
 				kept,
+				skipped: { noWorktree: report.noWorktree, goneWorktree: report.goneWorktree },
 			});
 		},
 	});

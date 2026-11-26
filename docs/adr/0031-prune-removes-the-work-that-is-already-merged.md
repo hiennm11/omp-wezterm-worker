@@ -24,8 +24,12 @@ old workers whose work the target branch already holds.
 ### The default is a dry run
 
 The tool changes nothing until the user passes `dryRun: false`. A dry run
-lists every worker and names the worker that a real run would remove. The
-user sees the result before anything goes.
+lists every worker that needs a decision and names the worker that a real run
+would remove. The user sees the result before anything goes.
+
+The report does not name a worker that holds no worktree, and it does not
+name a worker whose worktree is gone from the disk and that holds no branch.
+The report counts these workers in one summary line.
 
 ### The candidate
 

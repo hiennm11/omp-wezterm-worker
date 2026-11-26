@@ -25,11 +25,16 @@ export const DEFAULT_OLDER_THAN_DAYS = 7;
 /** The state of a worker after the prune. */
 export type PruneState = "removed" | "would-remove" | "kept";
 
+/** The reason why the report of the prune skips a worker. */
+export type PruneSkip = "no-worktree" | "gone-worktree";
+
 /** One worker of the report of the prune. */
 export interface PruneResult {
 	workerId: string;
 	state: PruneState;
 	reason: string;
+	/** The reason why the report skips the worker, or null when it names the worker. */
+	skip: PruneSkip | null;
 }
 
 /** The decision about one worker. */
@@ -38,6 +43,8 @@ interface PruneDecision {
 	eligible: boolean;
 	/** The reason why the worker is not a candidate, or null. */
 	reason: string | null;
+	/** The reason why the report skips the worker, or null when it names the worker. */
+	skip: PruneSkip | null;
 }
 
 /**
@@ -49,19 +56,27 @@ interface PruneDecision {
  */
 function pruneDecision(job: Job, now: number, olderThanDays: number): PruneDecision {
 	if (job.status !== "completed" && job.status !== "failed" && job.status !== "cancelled") {
-		return { eligible: false, reason: `it is still ${job.status}` };
+		return { eligible: false, reason: `it is still ${job.status}`, skip: null };
 	}
-	if (job.finishedAt === null) return { eligible: false, reason: "it has no end time" };
+	if (job.finishedAt === null) {
+		return { eligible: false, reason: "it has no end time", skip: null };
+	}
 	if (now - job.finishedAt < olderThanDays * DAY_MS) {
-		return { eligible: false, reason: `it is younger than ${olderThanDays} days` };
+		return { eligible: false, reason: `it is younger than ${olderThanDays} days`, skip: null };
 	}
-	if (job.worktreePath === null) return { eligible: false, reason: "it has no worktree" };
-	return { eligible: true, reason: null };
+	if (job.worktreePath === null) {
+		return { eligible: false, reason: "it has no worktree", skip: "no-worktree" };
+	}
+	return { eligible: true, reason: null, skip: null };
 }
 
-/** A worker that the prune keeps. */
-function kept(workerId: string, reason: string): PruneResult {
-	return { workerId, state: "kept", reason };
+/**
+ * A worker that the prune keeps.
+ *
+ * The parameter `skip` names the reason why the report skips the worker.
+ */
+function kept(workerId: string, reason: string, skip: PruneSkip | null = null): PruneResult {
+	return { workerId, state: "kept", reason, skip };
 }
 
 /**
@@ -148,6 +163,18 @@ async function branchCheckedOut(
 }
 
 /**
+ * True when the repository holds the branch.
+ *
+ * A command that fails leaves the answer unknown, so the function returns
+ * true. The caller then keeps the worker on the list.
+ */
+async function branchExists(rt: WorkerRuntime, repo: string, branch: string): Promise<boolean> {
+	const res = await rt.git(repo, ["branch", "--list", branch]);
+	if (res.code !== 0) return true;
+	return res.stdout.trim().length > 0;
+}
+
+/**
  * Delete a branch of a repository.
  *
  * The command is `git branch -D`, because a rebase merge leaves the branch
@@ -189,12 +216,12 @@ export interface PruneOptions {
  */
 export async function pruneWorker(rt: WorkerRuntime, job: Job, options: PruneOptions): Promise<PruneResult> {
 	const decision = pruneDecision(job, options.now, options.olderThanDays);
-	if (!decision.eligible) return kept(job.id, decision.reason ?? "it is not a candidate");
+	if (!decision.eligible) return kept(job.id, decision.reason ?? "it is not a candidate", decision.skip);
 
 	const repo = job.worktreeOrigin ?? job.cwd;
 	const branch = job.worktreeBranch;
 	if (branch === null) return kept(job.id, "it has no branch");
-	if (job.worktreePath === null) return kept(job.id, "it has no worktree");
+	if (job.worktreePath === null) return kept(job.id, "it has no worktree", "no-worktree");
 
 	const into = options.into ?? (await defaultTargetBranch(rt, repo));
 	if (into === null) {
@@ -206,7 +233,13 @@ export async function pruneWorker(rt: WorkerRuntime, job: Job, options: PruneOpt
 
 	const state = await inspectWorktree(rt, job.worktreePath);
 	if (!state.exists) {
-		return kept(job.id, "its worktree is gone from the disk");
+		/* The worktree is gone. The branch of the worker may still exist, so
+		   the worker needs a decision. A worker without a branch has nothing
+		   to remove, so the report skips it. */
+		if (await branchExists(rt, repo, branch)) {
+			return kept(job.id, "its worktree is gone from the disk");
+		}
+		return kept(job.id, "its worktree is gone from the disk", "gone-worktree");
 	}
 	if (!state.clean) {
 		return kept(job.id, `it has uncommitted changes (${state.changes.length})`);
@@ -221,7 +254,12 @@ export async function pruneWorker(rt: WorkerRuntime, job: Job, options: PruneOpt
 	if (!cherry.holds) return kept(job.id, cherry.reason ?? `its commits are not in ${into}`);
 
 	if (options.dryRun) {
-		return { workerId: job.id, state: "would-remove", reason: `its work and its branch are in ${into}` };
+		return {
+			workerId: job.id,
+			state: "would-remove",
+			reason: `its work and its branch are in ${into}`,
+			skip: null,
+		};
 	}
 
 	const outcome = await rt.runAction(`cleanup:${job.id}`, () => cleanupJob(rt, job, false));
@@ -236,6 +274,7 @@ export async function pruneWorker(rt: WorkerRuntime, job: Job, options: PruneOpt
 			workerId: job.id,
 			state: "removed",
 			reason: `worktree removed; the branch ${branch} stays: ${checkedOut.error}`,
+			skip: null,
 		};
 	}
 	if (checkedOut.checkedOut) {
@@ -243,6 +282,7 @@ export async function pruneWorker(rt: WorkerRuntime, job: Job, options: PruneOpt
 			workerId: job.id,
 			state: "removed",
 			reason: `worktree removed; the branch ${branch} stays because the worktree ${checkedOut.path ?? "of another worker"} has it`,
+			skip: null,
 		};
 	}
 	const deletion = await deleteBranch(rt, repo, branch);
@@ -251,7 +291,13 @@ export async function pruneWorker(rt: WorkerRuntime, job: Job, options: PruneOpt
 			workerId: job.id,
 			state: "removed",
 			reason: `worktree removed; the branch ${branch} stays: ${deletion.reason}`,
+			skip: null,
 		};
 	}
-	return { workerId: job.id, state: "removed", reason: `worktree removed; the branch ${branch} deleted` };
+	return {
+		workerId: job.id,
+		state: "removed",
+		reason: `worktree removed; the branch ${branch} deleted`,
+		skip: null,
+	};
 }
