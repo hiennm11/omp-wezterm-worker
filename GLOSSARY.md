@@ -163,8 +163,10 @@ applies to one request.
 _Avoid_: Session, conversation, turn
 
 **Usage**:
-The tokens a worker used, summed from its transcript and the transcripts of
-its subagents. A missing value is `unknown`, never an estimate.
+The tokens a worker used, summed from its transcript, the transcripts of its
+subagents and the transcripts of its advisors. The status names the tokens of
+the advisors apart, because they are part of the total. A missing value is
+`unknown`, never an estimate.
 _Avoid_: Consumption, cost, billing
 
 **Communication check**:

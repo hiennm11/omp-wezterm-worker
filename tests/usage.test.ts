@@ -148,15 +148,53 @@ test("the transcript of a subagent counts as the usage of the worker", () => {
 	}
 });
 
-test("the advisor transcript counts as the usage of the worker", () => {
+test("the advisor transcript is its own group and is part of the total", () => {
 	const dir = sessionFolder({
 		"a.jsonl": `${turn()}\n`,
-		"__advisor.jsonl": `${turn()}\n`,
+		"a/__advisor.no-edit.jsonl": `${turn({ totalTokens: 40 })}\n${turn({ totalTokens: 60 })}\n`,
 	});
 	try {
-		const totals = readUsageTotals(dir);
-		assert.equal(totals.files, 2);
-		assert.equal(totals.calls, 2);
+		const report = usageReport(readUsageTotals(dir), "");
+		assert.equal(report.totals?.turns.total, 115);
+		assert.equal(report.totals?.advisor.total, 100);
+		assert.equal(report.totals?.calls, 3);
+		const text = formatUsage(report);
+		assert.ok(text.startsWith("215 tokens, measured (input 30,"), text);
+		assert.match(text, /side calls 0; advisor 100\)/);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("a worker without an advisor shows no advisor part", () => {
+	const text = formatUsage(usageReport(totalsOf([turn()]), ""));
+	assert.doesNotMatch(text, /advisor/);
+});
+
+test("a persisted total from before the advisor group comes back with an empty group", () => {
+	const saved = JSON.parse(JSON.stringify(totalsOf([turn()]))) as Record<string, unknown>;
+	delete saved.advisor;
+	const restored = restoreUsageTotals(saved);
+	assert.equal(restored?.advisor.total, 0);
+	assert.equal(restored?.turns.total, 115);
+	assert.equal(restoreUsageTotals({ ...saved, advisor: "x" }), null);
+});
+
+test("a resumed worker reports only the advisor turns after the resume", () => {
+	const dir = sessionFolder({
+		"a.jsonl": `${turn()}\n`,
+		"__advisor.x.jsonl": `${turn({ totalTokens: 30 })}\n`,
+	});
+	try {
+		const baseline = readUsageTotals(dir);
+		writeFileSync(
+			join(dir, "__advisor.x.jsonl"),
+			`${turn({ totalTokens: 30 })}\n${turn({ totalTokens: 20 })}\n`,
+			"utf8",
+		);
+		const report = jobUsage(job(dir, { usageBaseline: baseline }));
+		assert.equal(report.totals?.advisor.total, 20);
+		assert.equal(report.totals?.turns.total, 0);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}

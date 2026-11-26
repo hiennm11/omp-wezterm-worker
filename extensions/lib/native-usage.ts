@@ -90,6 +90,7 @@ export function nativeUsageTotals(totals: NativeTotals): UsageTotals {
 	return {
 		turns: { ...totals.turns },
 		sideCalls: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, total: 0 },
+		advisor: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, total: 0 },
 		calls: totals.calls,
 		callsWithoutUsage: totals.callsWithoutUsage,
 		cost: 0,
