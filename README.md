@@ -315,7 +315,7 @@ interrupt the turn.
 | `turns` | How many assistant turns the worker has taken. |
 | `changes` | How many tool calls of the worker changed a file. The line counts the calls of `edit`, `write` and `ast_edit`. It does not count a file that the worker writes with the `bash` tool, so a worker that changes files only with `bash` shows `0 edit call(s)`. Read the `git status` of the worker for the real change. Only an OMP worker shows the line. A worker whose transcript cannot be read shows no line. |
 | `steers` | How many steering messages this worker took. An OMP worker counts only the instructions that its transcript confirmed. |
-| `tokens` | The tokens this worker used, summed from every transcript under its session folder. A value the transcript does not hold is `unknown`, never an estimate. |
+| `tokens` | The tokens this worker used, summed from every transcript under its session folder. A value the transcript does not hold is `unknown`, never an estimate. When the worker ran with an advisor, the line ends its group with `advisor N`. That count is part of the total. It comes from the file `__advisor*.jsonl`. |
 | `stop` | Shown only while a stop waits for confirmation: why the pane is not confirmed gone. Call `wezterm_worker_cancel` again to retry. |
 
 The status tool also reports the usage of the current request. That total

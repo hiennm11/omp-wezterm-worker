@@ -61,6 +61,21 @@ workers that need no review. The user asks for the advisor on the worker that
 needs it. The field `advisor` of a preset names a group of workers that need
 a review, so the preset does not change the setting of the user.
 
+## The status names the cost of the advisor
+
+OMP writes each advisor turn in the file `__advisor.<name>.jsonl` in the
+session folder. The usage of a worker already read this file, so its tokens
+were inside the group `turns`. The user could not see what the advisor cost.
+
+The usage now has the group `advisor`. The function `readUsageTotals` puts
+the turns of a file whose name starts with `__advisor` in this group. The
+total keeps the sum of all groups. The line of the status adds `advisor N`
+after the side calls, and only when N is above zero. A run saved before this
+change has no group, so the restore reads a missing group as zero.
+
+The status shows tokens only. The transcript of an advisor holds no cost for
+a model that reports none, so the extension does not invent one.
+
 ## What this change does not prove
 
 This change does not prove that the advisor runs. Only OMP knows that. A test

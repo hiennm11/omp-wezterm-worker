@@ -5,11 +5,12 @@
  * value and never computes a missing one: a value that the transcript does not
  * hold is `unknown`.
  *
- * The usage of a worker covers three sources:
+ * The usage of a worker covers four sources:
  *
  *  - the assistant turns of the worker itself,
  *  - the assistant turns of its subagents, which live in the same session
  *    folder,
+ *  - the assistant turns of its advisors, in the files `__advisor*.jsonl`,
  *  - the side calls that OMP logs as `model_usage` entries.
  *
  * A worker that was resumed reports only what came after the resume, so a
@@ -17,7 +18,7 @@
  */
 
 import { type Dirent, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import type { Job } from "./job.ts";
 
@@ -37,6 +38,8 @@ export interface UsageTotals {
 	turns: TokenCounts;
 	/** Side calls that OMP logs as `model_usage` entries. */
 	sideCalls: TokenCounts;
+	/** Assistant turns of the advisors of the worker. They are part of the total. */
+	advisor: TokenCounts;
 	/** Model calls seen: assistant messages plus `model_usage` entries. */
 	calls: number;
 	/** Model calls without a valid `usage` object. */
@@ -74,6 +77,7 @@ export function emptyTotals(): UsageTotals {
 	return {
 		turns: emptyCounts(),
 		sideCalls: emptyCounts(),
+		advisor: emptyCounts(),
 		calls: 0,
 		callsWithoutUsage: 0,
 		cost: 0,
@@ -107,7 +111,11 @@ function addCounts(counts: TokenCounts, usage: UsageEntry): void {
  * A line that is not valid JSON is skipped: the file is written while it is
  * read, so a partial line is normal.
  */
-export function addUsageLines(totals: UsageTotals, text: string): void {
+export function addUsageLines(
+	totals: UsageTotals,
+	text: string,
+	source: "worker" | "advisor" = "worker",
+): void {
 	for (const line of text.split("\n")) {
 		if (!line.trim()) continue;
 		let entry: { type?: string; message?: { role?: string; usage?: UsageEntry }; usage?: UsageEntry };
@@ -131,7 +139,8 @@ export function addUsageLines(totals: UsageTotals, text: string): void {
 			totals.callsWithoutUsage += 1;
 			continue;
 		}
-		addCounts(isTurn ? totals.turns : totals.sideCalls, usage as UsageEntry);
+		const group = isTurn ? (source === "advisor" ? totals.advisor : totals.turns) : totals.sideCalls;
+		addCounts(group, usage as UsageEntry);
 		const cost = count(usage?.cost?.total);
 		if (cost !== null && cost > 0) totals.cost += cost;
 	}
@@ -149,14 +158,14 @@ export function addUsageLines(totals: UsageTotals, text: string): void {
  */
 export function subtractTotals(current: UsageTotals, baseline: UsageTotals): UsageTotals | null {
 	const result = emptyTotals();
-	for (const group of ["turns", "sideCalls"] as const) {
+	for (const group of ["turns", "sideCalls", "advisor"] as const) {
 		for (const key of Object.keys(current[group]) as Array<keyof TokenCounts>) {
 			const value = current[group][key] - baseline[group][key];
 			if (value < 0) return null;
 			result[group][key] = value;
 		}
 	}
-	const numbers: Array<keyof Omit<UsageTotals, "turns" | "sideCalls">> = [
+	const numbers: Array<keyof Omit<UsageTotals, "turns" | "sideCalls" | "advisor">> = [
 		"calls",
 		"callsWithoutUsage",
 		"cost",
@@ -209,7 +218,7 @@ export function combineReports(reports: UsageReport[]): UsageReport {
 	const totals = emptyTotals();
 	for (const report of reports) {
 		if (!report.totals) continue;
-		for (const group of ["turns", "sideCalls"] as const) {
+		for (const group of ["turns", "sideCalls", "advisor"] as const) {
 			for (const key of Object.keys(report.totals[group]) as Array<keyof TokenCounts>) {
 				totals[group][key] += report.totals[group][key];
 			}
@@ -242,19 +251,19 @@ export function formatUsage(report: UsageReport): string {
 		return `unknown (${report.note ?? "no usage data"})`;
 	}
 	const totals = report.totals;
-	const turns = totals.turns;
-	const side = totals.sideCalls;
-	const input = turns.input + side.input;
-	const output = turns.output + side.output;
-	const reasoning = turns.reasoning + side.reasoning;
-	const cacheRead = turns.cacheRead + side.cacheRead;
-	const cacheWrite = turns.cacheWrite + side.cacheWrite;
-	const total = turns.total + side.total;
+	const { turns, sideCalls: side, advisor } = totals;
+	const input = turns.input + side.input + advisor.input;
+	const output = turns.output + side.output + advisor.output;
+	const reasoning = turns.reasoning + side.reasoning + advisor.reasoning;
+	const cacheRead = turns.cacheRead + side.cacheRead + advisor.cacheRead;
+	const cacheWrite = turns.cacheWrite + side.cacheWrite + advisor.cacheWrite;
+	const total = turns.total + side.total + advisor.total;
 	const note = report.note ? `; ${report.note}` : "";
 	const cost = report.cost === null ? "unknown" : report.cost.toFixed(4);
+	const advisorPart = advisor.total > 0 ? `; advisor ${advisor.total}` : "";
 	return (
 		`${total} tokens, ${report.state} (input ${input}, output ${output} incl. reasoning ${reasoning}, ` +
-		`cache read ${cacheRead}, cache write ${cacheWrite}; side calls ${side.total})${note}; cost ${cost}`
+		`cache read ${cacheRead}, cache write ${cacheWrite}; side calls ${side.total}${advisorPart})${note}; cost ${cost}`
 	);
 }
 
@@ -288,7 +297,7 @@ export function readUsageTotals(sessionDir: string): UsageTotals {
 		} catch {
 			continue;
 		}
-		addUsageLines(totals, text);
+		addUsageLines(totals, text, basename(file).startsWith("__advisor") ? "advisor" : "worker");
 		totals.files += 1;
 	}
 	return totals;
@@ -333,12 +342,23 @@ export function restoreUsageTotals(value: unknown): UsageTotals | null {
 			if (count(record[key]) === null) return null;
 		}
 	}
+	// A total that was saved before the advisor group existed has no such group.
+	let advisor = emptyCounts();
+	if (entry.advisor !== undefined) {
+		if (typeof entry.advisor !== "object" || entry.advisor === null) return null;
+		const record = entry.advisor as Record<string, unknown>;
+		for (const key of Object.keys(emptyCounts()) as Array<keyof TokenCounts>) {
+			if (count(record[key]) === null) return null;
+		}
+		advisor = entry.advisor as TokenCounts;
+	}
 	for (const key of ["calls", "callsWithoutUsage", "cost", "files"] as const) {
 		if (count(entry[key]) === null) return null;
 	}
 	return {
 		turns: entry.turns as TokenCounts,
 		sideCalls: entry.sideCalls as TokenCounts,
+		advisor,
 		calls: entry.calls as number,
 		callsWithoutUsage: entry.callsWithoutUsage as number,
 		cost: entry.cost as number,
