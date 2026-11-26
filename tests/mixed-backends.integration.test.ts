@@ -214,6 +214,6 @@ test("an OMP worker and a Claude worker run in one session and are handled apart
 	} finally {
 		stopAnswering();
 		await host.cleanup();
-		removeDir(repo);
+		await removeDir(repo);
 	}
 });

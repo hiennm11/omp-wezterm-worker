@@ -144,7 +144,7 @@ async function endOfTest(hosts: TestHost[], stateDir: string): Promise<void> {
 	for (const host of hosts) {
 		await host.fire("session_shutdown", sessionContext(stateDir));
 	}
-	removeDir(stateDir);
+	await removeDir(stateDir);
 }
 
 test("the shutdown of a subagent keeps the monitors of the main session", async () => {

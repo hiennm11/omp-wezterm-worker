@@ -72,7 +72,7 @@ test("the result tool returns the worker's answer", {
 		assert.equal(detailString(result.details, "status"), "completed");
 	} finally {
 		await host.cleanup();
-		removeDir(repo);
+		await removeDir(repo);
 	}
 });
 
@@ -88,6 +88,6 @@ test("the result tool reports an unknown worker", async () => {
 		assert.match(host.text(result), /Unknown worker id/);
 	} finally {
 		await host.cleanup();
-		removeDir(repo);
+		await removeDir(repo);
 	}
 });

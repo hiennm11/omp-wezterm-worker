@@ -6,7 +6,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentDescriptor } from "../extensions/lib/host.ts";
@@ -16,6 +16,10 @@ export { answerAfterLastUser, readTranscript, type TranscriptMessage } from "./t
 import { workerProcessesRunning } from "./worker-processes.ts";
 
 export { workerProcessesRunning };
+
+import { removeDir } from "./remove-dir.ts";
+
+export { removeDir };
 
 import extension, { RUNTIME } from "../extensions/wezterm-worker.ts";
 import { sessionContext } from "./session-context.ts";
@@ -92,16 +96,6 @@ function schema(): Record<string, unknown> {
 	self.optional = () => self;
 	self.describe = () => self;
 	return self;
-}
-
-/**
- * Remove a directory.
- *
- * A worker process holds its own working directory open, so the delete can
- * fail with EBUSY. The retry waits for the process to let go.
- */
-export function removeDir(path: string): void {
-	rmSync(path, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
 }
 
 /** Close a pane. A pane that is already gone is not an error. */
@@ -233,7 +227,7 @@ export function createHost(options: {
 			// The shutdown handler closes the database handle. Windows cannot
 			// remove a file that a process holds open.
 			await host.fire("session_shutdown", sessionContext(options.cwd));
-			removeDir(stateDir);
+			await removeDir(stateDir);
 		},
 	};
 

@@ -156,6 +156,6 @@ test("the worktree survives the worker and cleanup keeps the changes", {
 		);
 	} finally {
 		await host.cleanup();
-		removeDir(repo);
+		await removeDir(repo);
 	}
 });
