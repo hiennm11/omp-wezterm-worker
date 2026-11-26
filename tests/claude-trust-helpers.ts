@@ -16,8 +16,13 @@ import { execFileSync } from "node:child_process";
 
 import { currentPanes } from "./harness.ts";
 
-/** The row of the dialog that accepts the folder. */
-const TRUST_ROW = "Yes, I trust this folder";
+/**
+ * The rows of the dialogs that accept a folder.
+ *
+ * Claude Code shows two dialogs. The first one names the working directory.
+ * The second one names the directory of `--add-dir`.
+ */
+const TRUST_ROWS = ["Yes, I trust this folder", "Yes, add it"];
 
 /** The mark that the dialog puts before the row under the cursor. */
 const CURSOR_MARK = "❯";
@@ -49,11 +54,16 @@ function pressKey(paneId: string, key: string): void {
 /**
  * The next key that moves a dialog toward the accept row, or null when the
  * text shows no trust dialog.
+ *
+ * The text can hold both dialogs. The last accept row belongs to the dialog that waits.
  */
 export function nextTrustKey(text: string): "down" | "enter" | null {
-	if (!text.includes(TRUST_ROW)) return null;
-	const marked = text.split("\n").find((row) => row.includes(CURSOR_MARK));
-	return marked?.includes(TRUST_ROW) ? "enter" : "down";
+	const lines = text.split("\n");
+	const accept = lines.findLastIndex((row) => TRUST_ROWS.some((trust) => row.includes(trust)));
+	if (accept < 0) return null;
+	const marked = lines.findLastIndex((row, index) => index <= accept && row.includes(CURSOR_MARK));
+	if (marked < 0) return null;
+	return marked === accept ? "enter" : "down";
 }
 
 /**
