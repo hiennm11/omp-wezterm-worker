@@ -182,6 +182,7 @@ Then keep working; the result arrives on its own.
 | `model` | string | Optional model selector, e.g. `omniroute/minimax/MiniMax-M3.1-Flash`. Omit for omp's default. The role aliases `smol`, `task` and `slow` select a model. These aliases apply to an OMP worker only. A Claude Code worker receives the value unchanged. |
 | `tools` | string[] | Optional tool list, e.g. `["read","grep","glob"]`. Omit for the default set. An OMP worker only. |
 | `thinking` | string | Optional thinking level of OMP: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` or `auto`. Omit for the default level of OMP. An OMP worker only. A spawn parameter wins over the config file. |
+| `advisor` | boolean | Optional. Set `true` to run the worker with the advisor runtime of OMP. The advisor reviews each turn of the worker and injects notes. An OMP worker only. The default is off. |
 | `placement` | `"tab"` \| `"split"` | `tab` opens a new tab in the workspace of the main session and is the default; `split` splits the pane of the main session. |
 | `isolated` | boolean | Run in a dedicated `git worktree` so parallel workers never edit the same checkout. |
 | `timeoutMs` | number | Deadline for this worker. `0` means **no deadline**. Defaults to the configured `timeoutMs` (30 min). |
@@ -202,6 +203,7 @@ Put named presets in `wezterm-worker.json` under `presets`:
 ```
 
 The spawn call parameter wins over the preset. The preset wins over the global configuration. The global configuration wins over the default.
+A preset accepts the field `advisor`. Set it to `true` to give every worker of the preset the advisor runtime of OMP.
 An OMP worker with a non-empty restricted tool list always gets `wezterm_worker_report`, `wezterm_worker_note_to_main` and `wezterm_worker_notes_from_main` when the list omits them. A resume applies the same rule.
 
 ### The Claude Code backend
@@ -218,6 +220,7 @@ report tool and the command bridge.
 | The model | An omitted model uses the default of Claude Code. A named model is passed through unchanged. |
 | The tool list | A spawn with `tools` and a native backend is refused before the launch. |
 | The thinking level | A spawn with `thinking` and a native backend is refused before the launch. A native worker uses the thinking level of its own CLI. |
+| The advisor | A spawn with `advisor: true` and a native backend is refused before the launch. A native worker has no advisor runtime of OMP. |
 | The deadline | A native worker takes the `timeoutMs` and the `closePaneOnFinish` of its spawn, the same way an OMP worker does. |
 | The report | The mod binds the report to the run id and to the native turn id. It saves each report before it posts to the bridge. A report of an earlier turn cannot finish newer work. |
 | The steering | A steering instruction goes through the bridge. The native session queues it, and a running tool is not interrupted. |
@@ -370,7 +373,7 @@ new session id, and attach tasks that the new session already owns. See
 ## How it works
 
 1. `herdr pane split` (or `herdr tab create`) opens the pane. `herdr agent start`
-   then runs `omp --no-title --cwd <cwd> --session-dir <job dir> [--model M] [--tools T] [--thinking L]`.
+   then runs `omp --no-title --cwd <cwd> --session-dir <job dir> [--model M] [--tools T] [--thinking L] [--advisor]`.
    Every value is a **separate argv element**. The extension never mixes the
    task into a shell command. So a quote cannot break the command, and nobody
    can put extra text into it. The task is not an argv element: Herdr refuses an
@@ -1426,6 +1429,8 @@ breaks a test.
 | `spawn-backend.test.ts` | A spawn with an unknown backend is refused. A spawn with the backend codex is refused and the reply lists the known backends. A spawn with a tool list and a native backend is refused before the launch. |
 | `thinking-argv.test.ts` | A job with a thinking level asks OMP for that level. A job without a level asks for none. A resumed job keeps the level of the source run. |
 | `thinking-spawn.test.ts` | A spawn with an unknown thinking level is refused before the launch. The Claude backend refuses every level. A spawn asks OMP for the level. The reply names the requested level. A spawn parameter wins over the config file. A spawn without a parameter takes the level of the config file. A resume keeps the level of the source run. |
+| `advisor-argv.test.ts` | A job with the advisor asks OMP for the advisor. A job without the advisor asks for nothing. A job from before the advisor field asks for nothing. A resumed job keeps the advisor of the source run. |
+| `advisor-spawn.test.ts` | A spawn with the advisor asks OMP for the advisor. A spawn without the advisor asks for nothing. The Claude backend refuses the parameter before the launch. The reply names the advisor only when it is on. A preset with the advisor turns the advisor on. A call that turns the advisor off wins over the preset. A resume keeps the advisor of the source run. |
 | `ledger-sync.test.ts` | A call without a result leaves one outstanding row, and the result settles it. A call at or before the baseline turn opens no row. A call to the report tool opens no row. A background call stays outstanding until the async result names its job. A second sync of the same transcript writes nothing. The close of a run turns an open row into unknown and creates one execution loss event. A sync never reopens a row that is unknown. |
 | `native-ledger.test.ts` | An opened native call opens one row. A settled native call settles its row. A failed native call settles its row. A native call without a call id opens no row. A native call to the report tool opens no row. A native settlement without a row creates no row. Another native observation changes no row. Observing a native call updates the state and writes the row. A database error of a native observation does not reach the bridge. |
 | `monitor-native.test.ts` | The native monitor keeps a worker that has an open execution row. The native monitor ends a worker when its execution row settles. |

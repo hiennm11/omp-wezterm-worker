@@ -148,6 +148,20 @@ test("the transcript of a subagent counts as the usage of the worker", () => {
 	}
 });
 
+test("the advisor transcript counts as the usage of the worker", () => {
+	const dir = sessionFolder({
+		"a.jsonl": `${turn()}\n`,
+		"__advisor.jsonl": `${turn()}\n`,
+	});
+	try {
+		const totals = readUsageTotals(dir);
+		assert.equal(totals.files, 2);
+		assert.equal(totals.calls, 2);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 test("a resumed worker reports only the turns after the resume", () => {
 	const dir = sessionFolder({ "a.jsonl": `${turn()}\n` });
 	try {
