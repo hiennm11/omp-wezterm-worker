@@ -47,6 +47,13 @@ export interface Job {
 	 * that the database holds from before this field existed has no value.
 	 */
 	thinking?: ThinkingLevel | null;
+	/**
+	 * True when the plugin asks OMP for the advisor runtime.
+	 *
+	 * A missing value means that the plugin asks for no advisor. A run that
+	 * the database holds from before this field existed has no value.
+	 */
+	advisor?: boolean | null;
 	status: JobStatus;
 	/** The id of the pane of the worker. Herdr names it like `w4:p1`. */
 	paneId: string | null;

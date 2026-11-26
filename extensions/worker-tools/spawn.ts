@@ -114,6 +114,13 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 						"A Claude worker runs a real Claude Code session in its pane. " +
 						"The extension never falls back to another backend.",
 				),
+			advisor: z
+				.boolean()
+				.optional()
+				.describe(
+					"Enable the advisor runtime of OMP for this worker only. The advisor reviews each turn of the worker. " +
+						"Only an OMP worker accepts it. A Claude Code worker refuses it.",
+				),
 			placement: z
 				.string()
 				.optional()
@@ -182,6 +189,15 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 					true,
 				);
 			}
+			/* The advisor runtime of OMP has no meaning for a native
+			   backend. The refusal happens before the launch. */
+			if (backend !== "omp" && spawnParams.advisor === true) {
+				return reply(
+					`The advisor parameter applies to an OMP worker only. A ${backendLabel(backend)} worker has no advisor runtime.`,
+					{ backend },
+					true,
+				);
+			}
 			/* The communication check runs before the launch. The enforce
 			   mode refuses a task that scores below the minimum score. */
 			const comms = await checkComms(
@@ -233,6 +249,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 							model: spawnParams.model,
 							tools: spawnParams.tools,
 							thinking,
+							advisor: spawnParams.advisor,
 							placement,
 							isolated: spawnParams.isolated,
 							timeoutMs: spawnParams.timeoutMs,
@@ -259,6 +276,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				`cwd: ${job.cwd}`,
 				job.model ? `model: ${job.model}` : null,
 				job.thinking ? `requested thinking level: ${job.thinking}` : null,
+				job.advisor ? "advisor: on" : null,
 				job.worktreePath ? `isolated worktree: ${job.worktreePath} (branch ${job.worktreeBranch})` : null,
 				`transcript: ${job.sessionDir}`,
 				"",

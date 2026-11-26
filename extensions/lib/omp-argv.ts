@@ -32,5 +32,8 @@ export function ompArgv(job: Job, resumeFile: string | null): string[] {
 	// A job without a level asks for no level. OMP then runs the worker at
 	// the default level of OMP.
 	if (job.thinking) args.push("--thinking", job.thinking);
+	// A job without the advisor asks for no advisor. OMP then runs the worker
+	// without the advisor runtime.
+	if (job.advisor) args.push("--advisor");
 	return args;
 }

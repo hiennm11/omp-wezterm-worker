@@ -62,6 +62,18 @@ test("invalid presets are skipped with guidance while valid presets load", () =>
 	assert.match(guidance.join(" "), /empty/);
 });
 
+test("a call that sets the advisor to false wins over the preset", () => {
+	const advised: Preset = { advisor: true };
+	assert.deepEqual(resolveSpawn({ advised }, "advised", { advisor: false }), { advisor: false });
+});
+
+test("a preset with a string advisor value is invalid", () => {
+	const guidance: string[] = [];
+	const presets = readPresets({ good: { advisor: "yes" } }, guidance);
+	assert.equal(Object.keys(presets).length, 0);
+	assert.match(guidance.join(" "), /advisor/);
+});
+
 test("withWorkerTools adds the worker tools once and preserves null, empty, and input values", () => {
 	const tools = ["read"];
 	assert.deepEqual(withWorkerTools(tools), [

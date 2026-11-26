@@ -81,6 +81,13 @@ A native backend refuses it. OMP can lower a level that the model lacks, and the
 transcript does not record the level that ran. The spawn reply names the level
 that the plugin asked for.
 
+The parameter `advisor` turns on the advisor runtime of OMP for one worker.
+The advisor reviews each turn of the worker and injects notes. OMP writes the
+advisor transcript in the session directory as `__advisor.jsonl`. A note
+arrives in the worker as an `<advisory>` element. An advisor costs extra
+tokens for every turn of the worker. A native backend refuses the parameter.
+The spawn reply names the advisor that the plugin asked for (ADR 0035).
+
 The spawn tool also accepts the optional parameter `preset`. Presets come from the `presets` key in the configuration file. A call parameter wins over its preset. The preset wins over the global configuration, which wins over the default. The OMP worker always receives `wezterm_worker_report`, `wezterm_worker_note_to_main` and `wezterm_worker_notes_from_main` when a non-empty restricted tool list omits them.
 
 `herdr pane list` reports `pane_id`, `tab_id`, `workspace_id` and `agent_status`

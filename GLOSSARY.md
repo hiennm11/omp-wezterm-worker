@@ -182,6 +182,11 @@ each worker. The extension asks OMP for that level and never asks for
 another. OMP maps a level that the model lacks.
 _Avoid_: Effort, budget, reasoning level
 
+**Advisor**:
+A reviewer model that OMP attaches to a worker. It reads each turn of the
+worker and injects notes. It does not approve an action.
+_Avoid_: Watchdog, reviewer, supervisor
+
 **Preset**:
 A named set of worker values in the configuration file. A spawn can override each preset value.
 _Avoid_: Profile, template

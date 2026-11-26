@@ -7,6 +7,8 @@ export interface Preset {
 	thinking?: ThinkingLevel;
 	isolated?: boolean;
 	backend?: WorkerBackend;
+	/** True when the preset asks OMP for the advisor runtime. */
+	advisor?: boolean;
 }
 
 export interface SpawnPresetValues {
@@ -15,9 +17,10 @@ export interface SpawnPresetValues {
 	thinking?: string | null;
 	isolated?: boolean;
 	backend?: string;
+	advisor?: boolean;
 }
 
-const PRESET_FIELDS = ["model", "tools", "thinking", "isolated", "backend"] as const;
+const PRESET_FIELDS = ["model", "tools", "thinking", "isolated", "backend", "advisor"] as const;
 
 function plainObject(value: unknown): value is Record<string, unknown> {
 	if (typeof value !== "object" || value === null) return false;
@@ -37,6 +40,8 @@ function validField(field: (typeof PRESET_FIELDS)[number], value: unknown): bool
 			return typeof value === "boolean";
 		case "backend":
 			return value === "omp" || value === "claude";
+		case "advisor":
+			return typeof value === "boolean";
 	}
 }
 

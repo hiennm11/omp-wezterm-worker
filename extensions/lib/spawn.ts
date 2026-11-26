@@ -44,6 +44,8 @@ export interface SpawnParams {
 	tools?: string[];
 	/** The thinking level that OMP runs the worker at. Null keeps the default of OMP. */
 	thinking?: ThinkingLevel | null;
+	/** True when the worker runs with the advisor runtime of OMP. */
+	advisor?: boolean;
 	placement?: Placement;
 	isolated?: boolean;
 	/** Overrides the configured timeout for this worker. 0 means no timeout. */
@@ -69,6 +71,7 @@ export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promi
 		model: params.model ?? config.model,
 		tools: params.tools ?? config.tools,
 		thinking: params.thinking ?? config.thinking,
+		advisor: params.advisor ?? false,
 		placement: params.placement || config.placement,
 		sessionDir: join(config.stateDir, "sessions", jobId),
 		sessionFile: null,
