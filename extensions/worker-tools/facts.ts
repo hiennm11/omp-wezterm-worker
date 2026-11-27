@@ -11,7 +11,13 @@
  */
 
 import { controlRefusal, refusalDetails } from "../lib/authority.ts";
-import { factKeyRefusal, factTextRefusal, formatFacts, RETRACTION_NOTICE } from "../lib/facts-model.ts";
+import {
+	factKeyRefusal,
+	factTextRefusal,
+	formatFacts,
+	NO_SESSION_IDENTITY,
+	RETRACTION_NOTICE,
+} from "../lib/facts-model.ts";
 import {
 	appendPromotedFact,
 	appendRetraction,
@@ -27,9 +33,6 @@ import { findJob, reply, type ToolDeps } from "./kit.ts";
 
 /** The actions that the tool accepts. */
 const ACTIONS = ["list", "set", "promote", "retract"];
-
-/** The refusal that a session without an identity gets. */
-const NO_SESSION = "This session has no identity. It has no store of facts.";
 
 export function registerFactsTool({ pi, rt }: ToolDeps): void {
 	const z = pi.zod;
@@ -64,7 +67,7 @@ export function registerFactsTool({ pi, rt }: ToolDeps): void {
 				return reply(`The action must be one of ${ACTIONS.join(", ")}.`, { action }, true);
 			}
 			if (!rt.sessionId) {
-				return reply(NO_SESSION, { action, refused: "session" }, true);
+				return reply(NO_SESSION_IDENTITY, { action, refused: "session" }, true);
 			}
 			if (action === "list") {
 				const facts = readPromotedFacts(rt.config.stateDir, rt.sessionId);

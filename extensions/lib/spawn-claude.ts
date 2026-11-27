@@ -12,7 +12,7 @@
 import { mkdirSync } from "node:fs";
 
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
-import { writeClaudeContract, writeClaudeTask } from "./bootstrap-prompt.ts";
+import { writeClaudeTask, writeNativeContract } from "./bootstrap-prompt.ts";
 import { handoverFile, writeHandover } from "./bridge-handover.ts";
 import { promptSubmitted, startBridge } from "./claude-bridge.ts";
 import { createClaudeRunState } from "./claude-run-state.ts";
@@ -49,6 +49,8 @@ export interface ClaudeSpawnParams {
 	timeoutMs?: number;
 	/** Close the pane when the worker finishes. */
 	closePaneOnFinish?: boolean;
+	/** The texts of the promoted facts that the worker receives. Null means none. */
+	facts?: Map<string, string> | null;
 }
 
 /**
@@ -112,7 +114,7 @@ export async function spawnClaudeWorker(rt: WorkerRuntime, params: ClaudeSpawnPa
 	let contractFile: string;
 	let taskFile: string | null = null;
 	try {
-		contractFile = writeClaudeContract(job.sessionDir);
+		contractFile = writeNativeContract(job.sessionDir, params.facts ?? null);
 		if (job.task) taskFile = writeClaudeTask(job.sessionDir, job.task);
 	} catch (e) {
 		await finalizeJob(rt, job, "failed", e instanceof Error ? e.message : String(e), null);

@@ -1,6 +1,6 @@
 # The main session promotes facts and the spawn injects them
 
-Status: accepted design. The store and the tools exist. The spawn parameter is open.
+Status: accepted design. The runtime follows this contract.
 
 ## The problem
 

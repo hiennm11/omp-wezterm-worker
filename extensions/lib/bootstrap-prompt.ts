@@ -9,6 +9,8 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { readFactsSnapshot, writeFactsSnapshot } from "./facts-snapshot.ts";
+
 /**
  * The file that holds the reporting contract of a worker.
  *
@@ -112,7 +114,7 @@ export const REPORTING_CONTRACT = [
  */
 export function writeBootstrapPrompt(sessionDir: string): string {
 	const file = bootstrapPromptFile(sessionDir);
-	writeFileSync(file, REPORTING_CONTRACT, "utf8");
+	writeFileSync(file, contractWithSnapshot(sessionDir), "utf8");
 	return file;
 }
 
@@ -124,13 +126,33 @@ export function writeBootstrapPrompt(sessionDir: string): string {
  */
 export function writeClaudeContract(sessionDir: string): string {
 	const file = claudeContractFile(sessionDir);
-	writeFileSync(file, REPORTING_CONTRACT, "utf8");
+	writeFileSync(file, contractWithSnapshot(sessionDir), "utf8");
 	return file;
 }
 
 /** The file that holds the task of a Claude Code worker. */
 export function claudeTaskFile(sessionDir: string): string {
 	return join(sessionDir, ".claude-task.md");
+}
+
+/**
+ * Write the contract of an OMP worker with the snapshot of its facts.
+ *
+ * The snapshot of the facts comes first, because the contract holds it.
+ */
+export function writeWorkerContract(sessionDir: string, facts: ReadonlyMap<string, string> | null): string {
+	writeFactsSnapshot(sessionDir, facts);
+	return writeBootstrapPrompt(sessionDir);
+}
+
+/**
+ * Write the contract of a Claude Code worker with the snapshot of its facts.
+ *
+ * The snapshot of the facts comes first, because the contract holds it.
+ */
+export function writeNativeContract(sessionDir: string, facts: ReadonlyMap<string, string> | null): string {
+	writeFactsSnapshot(sessionDir, facts);
+	return writeClaudeContract(sessionDir);
 }
 
 /**

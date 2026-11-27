@@ -63,6 +63,14 @@ export const RETRACTION_NOTICE =
 	"A worker that already started keeps its snapshot. The retraction changes no worker that runs.";
 
 /**
+ * The refusal that a session without an identity gets.
+ *
+ * A session without an identity has no store of facts, so it can neither
+ * promote a fact nor read one into a worker.
+ */
+export const NO_SESSION_IDENTITY = "This session has no identity. It has no store of facts.";
+
+/**
  * The text of a list of facts.
  *
  * The reply names the state of every fact, so the main session sees that a
