@@ -17,6 +17,7 @@ import { test } from "node:test";
 
 import { REPORTING_CONTRACT } from "../extensions/lib/bootstrap-prompt.ts";
 import { factsSnapshotFile } from "../extensions/lib/facts-snapshot.ts";
+import { appendRetraction } from "../extensions/lib/facts-store.ts";
 import {
 	CONTEXT,
 	fakeRuntime,
