@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { attachAttempt, markIssued, markUnused, reserveAttempt } from "./attempts.ts";
 import { readBackend } from "./backend.ts";
-import { writeBootstrapPrompt } from "./bootstrap-prompt.ts";
+import { writeBootstrapPrompt, writeWorkerContract } from "./bootstrap-prompt.ts";
 import type { Placement } from "./config.ts";
 import { freeEndedHolder } from "./group-holder.ts";
 import {
@@ -52,6 +52,8 @@ export interface SpawnParams {
 	timeoutMs?: number;
 	/** Close the worker pane when the worker finishes. Defaults to the config. */
 	closePaneOnFinish?: boolean;
+	/** The texts of the promoted facts that the worker receives. Null means none. */
+	facts?: Map<string, string> | null;
 }
 
 /**
@@ -121,8 +123,9 @@ export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promi
 		backend: "omp",
 	});
 	// The worker gets the reporting contract. The file stays as the evidence
-	// of the contract that the worker received.
-	writeBootstrapPrompt(job.sessionDir);
+	// of the contract that the worker received, and it holds the snapshot of
+	// the facts of the worker.
+	writeWorkerContract(job.sessionDir, params.facts ?? null);
 
 	// The launch attempt keeps the state of the window between the pane
 	// creation and the receipt. A crash in that window leaves an attempt
@@ -310,6 +313,11 @@ export async function resumeWorker(
 	// new run do not land in the baseline.
 	job.usageBaseline = readUsageTotals(job.sessionDir);
 	rt.persist();
+
+	/* The resumed worker gets the contract again. The write comes before the
+	   launch, so the argv names a file that holds the snapshot of the facts
+	   of the source run. */
+	writeBootstrapPrompt(job.sessionDir);
 
 	// The task is not repeated: the transcript already holds it. A follow-up
 	// message restarts the turn; without one the worker opens on its

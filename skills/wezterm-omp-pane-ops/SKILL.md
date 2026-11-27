@@ -644,13 +644,32 @@ A Claude Code worker proposes a fact through the bridge of its run. Its mod
 never reads a fact file. The mod asks the bridge, and the bridge writes the
 file. See ADR 0037.
 
+## The snapshot of the facts
+
+The spawn parameter `facts` gives a worker the promoted facts of the main
+session. The parameter holds a list of fact keys. The spawn reads the keys
+once and writes their texts into the file
+`.wezterm-worker-facts-snapshot.md` of the session directory of the worker.
+The bootstrap prompt of the worker holds the snapshot, so both backends give
+the worker the same facts.
+
+The spawn refuses the whole call before any pane opens when the session has
+no identity, when a key does not exist, when a key is retracted, or when the
+texts hold more than 16000 characters. The reply names the key or the size.
+The spawn never skips a key and never cuts a text.
+
+The snapshot never changes. A fact that the main session retracts later does
+not reach a worker that already started. A resume finds the snapshot file in
+the session directory of its source run, so a resume keeps it. A spawn
+without the parameter behaves as before. See ADR 0037.
+
 ## The domain vocabulary
 
 The repository holds a glossary at `GLOSSARY.md`. It names the terms of
 this domain: **worker**, **result**, **preamble**, **turn**, **steering
 message**, **resume**, **transcript**, **delivery**, **registry**,
 **worktree**, **worker channel**, **channel note**, **fact**,
-**proposed fact**, **promoted fact**. It also names the
+**proposed fact**, **promoted fact**, **fact snapshot**. It also names the
 supervision terms: **report**, **task state**, **execution condition**,
 **instruction cycle**, **execution record**, **resource group**,
 **launch attempt**, **unresolved launch**, **owner resolution**, **release**,

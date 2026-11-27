@@ -536,6 +536,13 @@ state directory. Only a promoted fact reaches another worker. The main
 session can retract it, and a retraction is a new line in the same file.
 _Avoid_: Fact, note
 
+**Fact snapshot**:
+The frozen texts of the promoted facts that a worker receives at its spawn.
+It lives in the session directory of the worker. The bootstrap prompt of the
+worker holds it. A resume keeps the snapshot of its source run. The snapshot
+never changes, so a later retraction does not reach a worker that started.
+_Avoid_: Fact, note, channel note
+
 ## Eval terms
 
 **Experiment**:

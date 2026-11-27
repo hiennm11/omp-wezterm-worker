@@ -13,6 +13,7 @@ import {
 } from "../lib/backend.ts";
 import { checkComms } from "../lib/comms-check.ts";
 import type { Placement } from "../lib/config.ts";
+import { snapshotRead } from "../lib/facts-snapshot.ts";
 import type { ToolCtx } from "../lib/host.ts";
 import { admitLaunch } from "../lib/limits.ts";
 import { monitorJob, monitorNativeJob } from "../lib/monitor.ts";
@@ -50,6 +51,7 @@ interface Params extends SpawnPresetValues {
 	timeoutMs?: number;
 	closePaneOnFinish?: boolean;
 	preset?: string;
+	facts?: string[];
 }
 
 export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
@@ -141,6 +143,13 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 				.describe(
 					"Close the worker pane when the worker finishes. Defaults to the config value (true). Set false to keep the pane open for inspection.",
 				),
+			facts: z
+				.array(z.string())
+				.optional()
+				.describe(
+					"Keys of the promoted facts that the worker receives. The spawn writes their texts into the snapshot of the worker. " +
+						"The spawn refuses the whole call when a key does not exist, when a key is retracted, or when the texts hold more than 16000 characters.",
+				),
 		}),
 		loadMode: "essential",
 		async execute(_id: string, params: Params, _signal: unknown, _onUpdate: unknown, ctx: ToolCtx) {
@@ -217,9 +226,19 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 					true,
 				);
 			}
+			/* The identity of the session comes first. The facts of the
+			   worker live in the store of the session. */
+			if (!isSubagent(ctx)) bindSession(rt, ctx.sessionManager);
+			/* The facts of the worker are read before the launch. A key that
+			   does not exist, a retracted key, or too many characters refuses
+			   the whole call, so no pane opens. */
+			const keys = spawnParams.facts ?? [];
+			const read = keys.length > 0 ? snapshotRead(rt.config.stateDir, rt.sessionId, keys) : null;
+			if (read && "error" in read) {
+				return reply(read.error, { refused: "facts", facts: keys }, true);
+			}
 			const admitted = admitLaunch(rt, ctx.sessionManager?.getSessionFile?.());
 			if ("refusal" in admitted) return refusalReply(admitted.refusal);
-			if (!isSubagent(ctx)) bindSession(rt, ctx.sessionManager);
 			const acquisition = await acquireTask(rt, admitted.jobId);
 			if (!maySupervise(acquisition)) {
 				return reply(
@@ -240,6 +259,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 							isolated: spawnParams.isolated,
 							timeoutMs: spawnParams.timeoutMs,
 							closePaneOnFinish: spawnParams.closePaneOnFinish,
+							facts: read && "texts" in read ? read.texts : null,
 						})
 					: await spawnWorker(rt, {
 							jobId: admitted.jobId,
@@ -254,6 +274,7 @@ export function registerSpawnTool({ pi, rt, deliver }: ToolDeps): void {
 							isolated: spawnParams.isolated,
 							timeoutMs: spawnParams.timeoutMs,
 							closePaneOnFinish: spawnParams.closePaneOnFinish,
+							facts: read && "texts" in read ? read.texts : null,
 						});
 
 			if (job.status === "failed") {
