@@ -291,8 +291,14 @@ test("a worker process gets the two channel tools", async () => {
 		extension(pi as never);
 		assert.ok(tools.has("wezterm_worker_note_to_main"), "the worker did not get the note tool");
 		assert.ok(tools.has("wezterm_worker_notes_from_main"), "the worker did not get the notes tool");
+		assert.ok(tools.has("wezterm_worker_propose_fact"), "the worker did not get the fact tool");
 		assert.equal(
 			tools.has("wezterm_worker_note_to_worker"),
+			false,
+			"a worker must not get the tools of the main session",
+		);
+		assert.equal(
+			tools.has("wezterm_worker_facts"),
 			false,
 			"a worker must not get the tools of the main session",
 		);

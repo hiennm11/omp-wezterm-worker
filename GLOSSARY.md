@@ -517,6 +517,25 @@ most. A note that reaches a worker of Claude Code becomes the next prompt of
 the worker, and that turn is no instruction cycle.
 _Avoid_: Board, message, agent
 
+**Fact**:
+A named piece of text that the main session controls. A fact has a key, a
+text, a writer, a time and a state. The key is unique in the store. The text
+holds 4000 characters at most. A new fact with an existing key replaces the
+older fact, and the replaced line stays in the file.
+_Avoid_: Note, board, message
+
+**Proposed fact**:
+A fact that a worker proposed. It waits in the session directory of the
+worker. A proposed fact changes nothing for another worker. Only the main
+session promotes it.
+_Avoid_: Fact, note
+
+**Promoted fact**:
+A fact that the main session accepted. It lives in the facts folder of the
+state directory. Only a promoted fact reaches another worker. The main
+session can retract it, and a retraction is a new line in the same file.
+_Avoid_: Fact, note
+
 ## Eval terms
 
 **Experiment**:

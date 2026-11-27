@@ -13,6 +13,7 @@ import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
 import { type BridgeChannel, channelOf } from "./channel-bridge.ts";
+import { type BridgeFacts, factsOf } from "./facts-bridge.ts";
 
 /** One observation that a worker sent. */
 export interface BridgeObservation {
@@ -68,6 +69,8 @@ export interface BridgeState {
 	results: Map<string, BridgeCommandResult>;
 	/** The channel that the bridge serves to the worker. */
 	channel: BridgeChannel;
+	/** The facts that the bridge serves to the worker. */
+	facts: BridgeFacts;
 	/** Close the server. */
 	close: () => Promise<void>;
 	/** The port that the server bound. */
@@ -93,6 +96,7 @@ export async function startBridge(
 	const commands: BridgeCommand[] = [];
 	const results = new Map<string, BridgeCommandResult>();
 	const channel: BridgeChannel = channelOf(sessionDir, runId);
+	const facts: BridgeFacts = factsOf(sessionDir, runId);
 	let closed = false;
 
 	const server: Server = createServer((request, response) => {
@@ -193,6 +197,29 @@ export async function startBridge(
 			send(response, 202, saved);
 			return;
 		}
+		if (request.method === "POST" && url.pathname === "/facts/propose") {
+			const body = await readBody(request);
+			if (!body || typeof body !== "object") {
+				send(response, 400, { error: "invalid json" });
+				return;
+			}
+			const payload = body as { runId?: unknown; key?: unknown; text?: unknown };
+			/* A request for another run never writes a fact. The bridge
+			   holds the facts of one run only. */
+			if (payload.runId !== runId) {
+				send(response, 404, { error: "this run has no facts" });
+				return;
+			}
+			const key = typeof payload.key === "string" ? payload.key : "";
+			const text = typeof payload.text === "string" ? payload.text : "";
+			const saved = facts.proposeFact(key, text);
+			if ("refusal" in saved) {
+				send(response, 400, { error: saved.refusal });
+				return;
+			}
+			send(response, 202, saved);
+			return;
+		}
 		send(response, 404, { error: "not found" });
 	}
 
@@ -218,6 +245,7 @@ export async function startBridge(
 		commands,
 		results,
 		channel,
+		facts,
 		port,
 		close: () =>
 			new Promise<void>((resolve) => {

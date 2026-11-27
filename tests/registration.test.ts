@@ -23,6 +23,7 @@ const EXPECTED_TOOLS = [
 	"wezterm_worker_takeover",
 	"wezterm_worker_note_to_worker",
 	"wezterm_worker_notes_from_worker",
+	"wezterm_worker_facts",
 ];
 
 test("the extension registers every tool that the agent needs", async () => {

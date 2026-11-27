@@ -88,7 +88,7 @@ arrives in the worker as an `<advisory>` element. An advisor costs extra
 tokens for every turn of the worker. A native backend refuses the parameter.
 The spawn reply names the advisor that the plugin asked for (ADR 0035).
 
-The spawn tool also accepts the optional parameter `preset`. Presets come from the `presets` key in the configuration file. A call parameter wins over its preset. The preset wins over the global configuration, which wins over the default. The OMP worker always receives `wezterm_worker_report`, `wezterm_worker_note_to_main` and `wezterm_worker_notes_from_main` when a non-empty restricted tool list omits them.
+The spawn tool also accepts the optional parameter `preset`. Presets come from the `presets` key in the configuration file. A call parameter wins over its preset. The preset wins over the global configuration, which wins over the default. The OMP worker always receives `wezterm_worker_report`, `wezterm_worker_note_to_main`, `wezterm_worker_notes_from_main` and `wezterm_worker_propose_fact` when a non-empty restricted tool list omits them.
 
 `herdr pane list` reports `pane_id`, `tab_id`, `workspace_id` and `agent_status`
 per pane. Use it to check a pane is still alive. Herdr has no window id, so the
@@ -283,12 +283,13 @@ it as the result and you deliver the preamble instead of the answer.
 
 The mechanics of this skill run as an OMP extension at
 `D:\repos\omp-wezterm-worker` (public: `github.com/hiennm11/omp-wezterm-worker`).
-It registers fifteen tools for the main session: `wezterm_spawn_worker`,
+It registers sixteen tools for the main session: `wezterm_spawn_worker`,
 `wezterm_worker_status`, `wezterm_worker_ack`, `wezterm_worker_steer`,
 `wezterm_worker_peek`, `wezterm_worker_result`, `wezterm_worker_resume`,
 `wezterm_worker_cancel`, `wezterm_worker_cleanup`, `wezterm_worker_prune`,
 `wezterm_worker_release`, `wezterm_worker_takeover`, `wezterm_worker_resolve`,
-`wezterm_worker_note_to_worker` and `wezterm_worker_notes_from_worker`.
+`wezterm_worker_note_to_worker`, `wezterm_worker_notes_from_worker` and
+`wezterm_worker_facts`.
 
 **The extension's README is the source of truth for its tools and parameters.**
 Read it. Do not recall them. What belongs here is only the operating
@@ -615,12 +616,41 @@ of a note is not an instruction cycle, so the note changes no state of the
 task. The four tools work for every backend, so the main session never needs
 to know the backend of a worker.
 
+## The store of the facts
+
+The main session controls a store of facts. A fact has a key, a text, a
+writer, a time and a state. The text holds 4000 characters at most. A new
+fact with an existing key replaces the older fact, and the replaced line
+stays in the file.
+
+The worker proposes a fact with `wezterm_worker_propose_fact`. The proposal
+waits in the file `.wezterm-worker-facts-proposed.jsonl` of the session
+directory of the worker. Only the worker writes that file. A proposed fact
+changes nothing for another worker.
+
+The main session manages the store with `wezterm_worker_facts`. The action
+`list` shows the promoted facts. The action `set` writes a fact that the main
+session names itself. The action `promote` copies a proposed fact of one
+worker. The action `retract` withdraws a promoted fact. The promoted facts
+live in the file `facts/<session id>.jsonl` of the state directory. Only the
+main session writes that file, and the extension never removes it. A session
+without an identity refuses to write.
+
+A retraction is a new line in the same file. The line of the fact stays, and
+a reader ignores a retracted key. A worker that already started keeps its
+snapshot. The reply of a retraction names this limit.
+
+A Claude Code worker proposes a fact through the bridge of its run. Its mod
+never reads a fact file. The mod asks the bridge, and the bridge writes the
+file. See ADR 0037.
+
 ## The domain vocabulary
 
 The repository holds a glossary at `GLOSSARY.md`. It names the terms of
 this domain: **worker**, **result**, **preamble**, **turn**, **steering
 message**, **resume**, **transcript**, **delivery**, **registry**,
-**worktree**, **worker channel**, **channel note**. It also names the
+**worktree**, **worker channel**, **channel note**, **fact**,
+**proposed fact**, **promoted fact**. It also names the
 supervision terms: **report**, **task state**, **execution condition**,
 **instruction cycle**, **execution record**, **resource group**,
 **launch attempt**, **unresolved launch**, **owner resolution**, **release**,

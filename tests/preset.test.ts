@@ -81,6 +81,7 @@ test("withWorkerTools adds the worker tools once and preserves null, empty, and 
 		"wezterm_worker_report",
 		"wezterm_worker_note_to_main",
 		"wezterm_worker_notes_from_main",
+		"wezterm_worker_propose_fact",
 	]);
 	assert.deepEqual(tools, ["read"]);
 	const existing = ["read", "wezterm_worker_report"];
@@ -89,6 +90,7 @@ test("withWorkerTools adds the worker tools once and preserves null, empty, and 
 		"wezterm_worker_report",
 		"wezterm_worker_note_to_main",
 		"wezterm_worker_notes_from_main",
+		"wezterm_worker_propose_fact",
 	]);
 	assert.equal(withWorkerTools(null), null);
 	const empty: string[] = [];
