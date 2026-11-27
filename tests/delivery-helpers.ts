@@ -9,7 +9,7 @@
  * reads it from there, so a fake needs no extra configuration.
  */
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { WorkerRuntime } from "../extensions/lib/runtime.ts";
@@ -38,6 +38,54 @@ export function sessionDirOfArgv(argv: readonly string[]): string | null {
 export function writeSessionTranscript(sessionDir: string): void {
 	mkdirSync(sessionDir, { recursive: true });
 	writeFileSync(join(sessionDir, TRANSCRIPT), "{}\n", "utf8");
+}
+
+/**
+ * Append one entry to the transcript of a worker.
+ *
+ * A resume shares the transcript of its source run. A fake must therefore
+ * append to that transcript, instead of writing a new file.
+ */
+export function appendSessionEntry(sessionDir: string, entry: unknown): void {
+	mkdirSync(sessionDir, { recursive: true });
+	appendFileSync(join(sessionDir, TRANSCRIPT), `${JSON.stringify(entry)}\n`, "utf8");
+}
+
+/**
+ * The entry that the memory plugin writes at the start of a session.
+ *
+ * The entry grows the transcript, but it records no user message. It must
+ * never confirm the delivery of a message.
+ */
+export function bootstrapEntry(): unknown {
+	return { type: "custom", customType: "memory-bootstrap", content: "The memory profile of the worker." };
+}
+
+/**
+ * The entry that records a user message in a transcript.
+ *
+ * The entry has the shape that the transcript of OMP uses.
+ */
+export function userMessageEntry(text: string): unknown {
+	return { type: "message", message: { role: "user", content: [{ type: "text", text }] } };
+}
+
+/**
+ * Write a transcript that holds the earlier turns of a source run.
+ *
+ * A resume shares the transcript of its source run. The transcript has the
+ * shape that OMP writes.
+ */
+export function writeSourceTranscript(sessionDir: string): void {
+	const lines = [
+		{ type: "message", message: { role: "user", content: [{ type: "text", text: "first task" }] } },
+		{
+			type: "message",
+			message: { role: "assistant", content: [{ type: "text", text: "first answer" }] },
+		},
+	];
+	mkdirSync(sessionDir, { recursive: true });
+	writeFileSync(join(sessionDir, TRANSCRIPT), `${lines.map((l) => JSON.stringify(l)).join("\n")}\n`, "utf8");
 }
 
 /**

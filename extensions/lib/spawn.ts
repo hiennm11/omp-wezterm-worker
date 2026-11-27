@@ -21,6 +21,7 @@ import {
 	setGroupWorktree,
 } from "./groups.ts";
 import { freshRunState, type Job } from "./job.ts";
+import { resumeEvidence } from "./launch-delivery.ts";
 import { finalizeJob } from "./lifecycle.ts";
 import { ompArgv } from "./omp-argv.ts";
 import { launchPane } from "./pane-launch.ts";
@@ -181,6 +182,18 @@ export async function spawnWorker(rt: WorkerRuntime, params: SpawnParams): Promi
 }
 
 /**
+ * A resume run that failed.
+ *
+ * The function records the failed run and returns it. Every refusal of a
+ * resume uses it, so the refusals keep one shape.
+ */
+function failedResume(rt: WorkerRuntime, jobId: string, job: Job, error: string): Job {
+	const failed: Job = { ...job, status: "failed", error, finishedAt: Date.now() };
+	rt.jobs.set(jobId, failed);
+	return failed;
+}
+
+/**
  * Reopen a finished worker from its transcript.
  *
  * `omp --resume <path>` continues the session file, so the worker comes back
@@ -200,16 +213,8 @@ export async function resumeWorker(
 	const { jobId } = params;
 	const sessionFile = source.sessionFile;
 	if (!sessionFile || !existsSync(sessionFile)) {
-		const failed: Job = {
-			...source,
-			...freshRunState(Date.now()),
-			id: jobId,
-			status: "failed",
-			error: `The worker has no transcript to resume: ${source.sessionFile ?? "(none)"}`,
-			finishedAt: Date.now(),
-		};
-		rt.jobs.set(jobId, failed);
-		return failed;
+		const reason = `The worker has no transcript to resume: ${source.sessionFile ?? "(none)"}`;
+		return failedResume(rt, jobId, { ...source, ...freshRunState(Date.now()), id: jobId }, reason);
 	}
 
 	// The resumed worker works in the same checkout, so the dirty state of the
@@ -229,16 +234,7 @@ export async function resumeWorker(
 	// The resume waits until that pane is gone. The check comes before the
 	// reservation, so a refusal holds no group and releases none.
 	const paneRefusal = await checkSourcePane(rt, source);
-	if (paneRefusal) {
-		const failed: Job = {
-			...job,
-			status: "failed",
-			error: paneRefusal,
-			finishedAt: Date.now(),
-		};
-		rt.jobs.set(jobId, failed);
-		return failed;
-	}
+	if (paneRefusal) return failedResume(rt, jobId, job, paneRefusal);
 
 	// The resumed run shares the transcript and the worktree of its source
 	// run. It reserves the group before it reads the baseline and before it
@@ -248,41 +244,17 @@ export async function resumeWorker(
 	// a resumed run takes the group of the first run of the task.
 	let group = groupOfRun(db, source);
 	if (!group) {
-		const failed: Job = {
-			...job,
-			status: "failed",
-			error: `Worker ${source.id} has no resource group. It cannot be resumed.`,
-			finishedAt: Date.now(),
-		};
-		rt.jobs.set(jobId, failed);
-		return failed;
+		const reason = `Worker ${source.id} has no resource group. It cannot be resumed.`;
+		return failedResume(rt, jobId, job, reason);
 	}
 	// A holder that ended keeps the group until its pane is gone. The resume
 	// frees the group when the pane of the holder is gone.
 	const holderRefusal = await freeEndedHolder(rt, group);
-	if (holderRefusal) {
-		const failed: Job = {
-			...job,
-			status: "failed",
-			error: holderRefusal,
-			finishedAt: Date.now(),
-		};
-		rt.jobs.set(jobId, failed);
-		return failed;
-	}
+	if (holderRefusal) return failedResume(rt, jobId, job, holderRefusal);
 	group = groupOfRun(db, source) ?? group;
 	const groupId = group.id;
 	const reservation = reserveExecution(db, groupId, jobId, Date.now());
-	if (!reservation.granted) {
-		const failed: Job = {
-			...job,
-			status: "failed",
-			error: reservation.reason,
-			finishedAt: Date.now(),
-		};
-		rt.jobs.set(jobId, failed);
-		return failed;
-	}
+	if (!reservation.granted) return failedResume(rt, jobId, job, reservation.reason);
 
 	// The run context names the new run and the group of the task.
 	writeRunContext(job.sessionDir, {
@@ -325,12 +297,18 @@ export async function resumeWorker(
 	const attemptId = `att-${jobId}`;
 	reserveAttempt(db, attemptId, jobId, Date.now());
 	markIssued(db, attemptId, Date.now());
+	/* A resume shares the transcript of its source run, so the size of that
+	   transcript proves nothing about the delivery. The proof of a resume is
+	   the text of the message. The proof takes its baseline before the send,
+	   because a message that the transcript already held proves nothing. */
+	const proof = params.message ? resumeEvidence(job.sessionDir, params.message) : undefined;
 	const failure = await launchPane(
 		rt,
 		job,
 		ompArgv(job, sessionFile),
 		{ OMP_WORKER_SESSION_DIR: job.sessionDir },
 		params.message,
+		proof,
 	);
 	if (failure) {
 		markUnused(db, attemptId, Date.now());

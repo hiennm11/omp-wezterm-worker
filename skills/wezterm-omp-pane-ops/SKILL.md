@@ -429,6 +429,13 @@ so the worker returns with its whole history and accepts a follow-up
 instruction. The resumed run shares the transcript and the worktree of its
 source run, so a resource group keeps a second writer out.
 
+**The proof of a resume is the text of its message.** The resumed run shares
+the transcript of its source run. The memory plugin appends an entry at the
+start of every session, so the size of that transcript proves nothing about
+the delivery. The extension waits until the transcript records the message as
+a user message. A resume without a message sends nothing, so it needs no
+proof.
+
 **The count starts at the newest user message.** A resumed transcript
 already holds a finished turn. Thus a completion check over the absolute
 counts reports the *previous* answer as the new result before the worker did

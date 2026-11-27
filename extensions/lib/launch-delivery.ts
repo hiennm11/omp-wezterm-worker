@@ -6,10 +6,15 @@
  * agent prompt does not submit that block. The worker never starts then, and
  * the launch has no evidence for its success message.
  *
- * The proof waits for the evidence. The evidence is one of two facts:
+ * The proof waits for the evidence. The evidence of a spawn is one of two
+ * facts:
  *
  * - a session file that the send created;
  * - a transcript that grew past the size that it had before the send.
+ *
+ * The evidence of a resume is the text of its message. A resume shares the
+ * transcript of its source run, so the size of that transcript proves
+ * nothing about the delivery.
  *
  * The launch sends one Enter when the evidence stays absent. The Enter
  * submits the pasted block. It is not a second instruction, so the task text
@@ -26,6 +31,7 @@ import { sendEnter } from "./pane.ts";
 import { delay } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
 import { listSessionFiles } from "./transcript.ts";
+import { freshMessages, recordedUserMessages } from "./transcript-messages.ts";
 
 /** How long the launch waits between two polls of the evidence. */
 export const DELIVERY_POLL_MS = 1000;
@@ -116,6 +122,25 @@ export function deliveryEvidence(sessionDir: string, baseline: DeliveryBaseline)
 export function sessionEvidence(sessionDir: string): DeliveryProof {
 	const baseline = deliveryBaseline(sessionDir);
 	return () => deliveryEvidence(sessionDir, baseline);
+}
+
+/**
+ * The proof that a resume delivered its message.
+ *
+ * A resume shares the transcript of its source run. The size of that
+ * transcript proves nothing about the delivery, because the memory plugin
+ * appends an entry at the start of every session. The proof of a resume is
+ * therefore the text of the message. The proof is true only when the
+ * transcript records a user message whose trimmed text equals the trimmed
+ * message, and the baseline did not hold that message.
+ *
+ * The function takes the baseline when it runs, so the caller must run it
+ * before the send of the message.
+ */
+export function resumeEvidence(sessionDir: string, message: string): DeliveryProof {
+	const wanted = message.trim();
+	const before = recordedUserMessages(sessionDir);
+	return () => freshMessages(before, recordedUserMessages(sessionDir)).includes(wanted);
 }
 
 /**

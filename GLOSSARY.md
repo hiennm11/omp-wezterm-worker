@@ -144,10 +144,11 @@ exists does not count.
 _Avoid_: Start, run, attempt
 
 **Delivery proof**:
-The evidence that a worker took its task. The evidence is a session file
-that the send created, or a transcript that grew past the size that it had
-before the send. A launch without the delivery proof fails, and it never
-reports a running worker.
+The evidence that a worker took its task. The evidence of a spawn is a
+session file that the send created, or a transcript that grew past the size
+that it had before the send. The evidence of a resume is the text of its
+message, because a resume shares the transcript of its source run. A launch
+without the delivery proof fails, and it never reports a running worker.
 _Avoid_: Launch receipt, delivery confirmation
 
 **Pasted block**:
