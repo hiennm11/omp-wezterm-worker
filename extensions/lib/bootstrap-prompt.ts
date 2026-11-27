@@ -107,6 +107,31 @@ export const REPORTING_CONTRACT = [
 ].join("\n");
 
 /**
+ * The heading of the snapshot of the facts in the contract of a worker.
+ *
+ * The heading tells the worker that the facts come from the main session.
+ */
+export const FACTS_SNAPSHOT_SECTION = [
+	"## The facts of the main session",
+	"",
+	"The main session promoted the facts below. They are true at the time of",
+	"the spawn. Do not change them, and do not report a change of them.",
+	"",
+].join("\n");
+
+/**
+ * The contract of a worker with the snapshot of its facts.
+ *
+ * A session directory without a snapshot gets the same bytes as before. A
+ * session directory with a snapshot gets the contract and the snapshot.
+ */
+function contractWithSnapshot(sessionDir: string): string {
+	const snapshot = readFactsSnapshot(sessionDir);
+	if (snapshot === null) return REPORTING_CONTRACT;
+	return `${REPORTING_CONTRACT}\n${FACTS_SNAPSHOT_SECTION}\n${snapshot}\n`;
+}
+
+/**
  * Write the reporting contract into the session directory of a worker.
  *
  * The launch passes the file to the host. The file stays on disk as the
