@@ -33,6 +33,7 @@ import {
 } from "./channel.js";
 import { pollCommands } from "./commands.js";
 import { registerEventHandlers } from "./events.js";
+import { MCP_PROPOSE_FACT, PROPOSE_FACT, registerFactTools } from "./facts.js";
 import { observe, state } from "./owner.js";
 import { registerReportTool } from "./report.js";
 
@@ -87,6 +88,8 @@ export function register(on) {
 		mcpNoteTool: MCP_NOTE_TO_MAIN,
 		notesTool: NOTES_FROM_MAIN,
 		mcpNotesTool: MCP_NOTES_FROM_MAIN,
+		factTool: PROPOSE_FACT,
+		mcpFactTool: MCP_PROPOSE_FACT,
 	});
 
 	on("session.start", async ($, e, next) => {
@@ -106,6 +109,7 @@ export function register(on) {
 		});
 		await registerReportTool($);
 		await registerNoteTools((tool) => $.tool.register(tool));
+		await registerFactTools((tool) => $.tool.register(tool));
 		/* The delivered notes live in a file, so a restart of the session
 		   never submits a note twice. */
 		state.deliveredNotes = await readDelivered($, noteContext());

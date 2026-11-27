@@ -110,6 +110,7 @@ export const WORKER_TOOLS = [
 	"wezterm_worker_report",
 	"wezterm_worker_note_to_main",
 	"wezterm_worker_notes_from_main",
+	"wezterm_worker_propose_fact",
 ];
 
 /**

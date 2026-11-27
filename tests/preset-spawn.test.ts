@@ -102,7 +102,7 @@ test("preset values start an OMP worker and call values override them", async ()
 			const toolsAt = command.indexOf("--tools");
 			assert.equal(
 				command[toolsAt + 1],
-				"read,grep,glob,wezterm_worker_report,wezterm_worker_note_to_main,wezterm_worker_notes_from_main",
+				"read,grep,glob,wezterm_worker_report,wezterm_worker_note_to_main,wezterm_worker_notes_from_main,wezterm_worker_propose_fact",
 			);
 			const modelAt = command.indexOf("--model");
 			assert.equal(command[modelAt + 1], model);

@@ -13,6 +13,7 @@ import {
 	readTag,
 } from "./background.js";
 import { carriesNote, readNotes, writeNote } from "./channel.js";
+import { proposeFact } from "./facts.js";
 import { observe, state } from "./owner.js";
 
 import {
@@ -211,6 +212,7 @@ export function registerEventHandlers(on, deps) {
 
 	registerReportHandlers(on);
 	registerNoteHandlers(on, deps);
+	registerFactHandlers(on, deps);
 }
 
 /** Register the handlers of the report tool. */
@@ -262,6 +264,27 @@ function registerNoteHandlers(on, deps) {
 				return await readNotes($, noteContext(), afterSeq, state.deliveredNotes);
 			} catch (error) {
 				return { result: `the notes were not read: ${String(error?.message ?? error)}`, isError: true };
+			}
+		});
+	}
+}
+
+/**
+ * Register the handler of the fact tool.
+ *
+ * The native host calls a tool through its MCP name. The handler for the
+ * plain name does not match it, so the handler accepts the MCP name too.
+ */
+function registerFactHandlers(on, deps) {
+	const { noteContext } = deps;
+	for (const name of [deps.factTool, deps.mcpFactTool]) {
+		on("tool.call", { tool: name }, async ($, e) => {
+			const key = typeof e.key === "string" ? e.key : "";
+			const text = typeof e.text === "string" ? e.text : "";
+			try {
+				return await proposeFact($, noteContext(), key, text);
+			} catch (error) {
+				return { result: `the fact was not proposed: ${String(error?.message ?? error)}`, isError: true };
 			}
 		});
 	}

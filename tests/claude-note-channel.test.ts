@@ -18,6 +18,7 @@ import { startMod, toolResult } from "./claude-note-helpers.ts";
 /** The names of the tools that the mod registers. */
 const NOTE_TO_MAIN = "wezterm_worker_note_to_main";
 const NOTES_FROM_MAIN = "wezterm_worker_notes_from_main";
+const PROPOSE_FACT = "wezterm_worker_propose_fact";
 
 /** The prefix that a delivered note carries. */
 const PREFIX = "Note from the main session:";
@@ -92,6 +93,7 @@ test("the mod registers the two channel tools of the worker", async () => {
 		const names = mod.tools().map((tool) => tool.name);
 		assert.ok(names.includes(NOTE_TO_MAIN), "the mod registered no note tool");
 		assert.ok(names.includes(NOTES_FROM_MAIN), "the mod registered no notes tool");
+		assert.ok(names.includes(PROPOSE_FACT), "the mod registered no fact tool");
 	} finally {
 		await fixture.close();
 	}

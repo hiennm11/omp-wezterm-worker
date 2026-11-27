@@ -101,6 +101,7 @@ confirm the picker.
 | `wezterm_worker_resolve` | Settle an unknown worker outcome. It records what you confirmed. It does not create a worker completion report. The resolutions `abandoned` and `incomplete` free an unresolved launch attempt. The resolution `recorded_result` is refused for an unresolved launch. |
 | `wezterm_worker_note_to_worker` | Write a short note to a worker. The note changes no state of the task, and it never steers the worker. The worker reads the note at the start of its next instruction cycle. A worker that does not run reads the note after a resume. |
 | `wezterm_worker_notes_from_worker` | Read the notes that a worker wrote for the main session. The read is stateless. Pass the number of the last note that you read, or 0 for the first read. |
+| `wezterm_worker_facts` | Manage the facts of the main session. The action `list` shows the promoted facts. The action `set` writes a fact that you name. The action `promote` copies a proposed fact of a worker. The action `retract` withdraws a promoted fact. |
 
 `/wezterm-workers` prints the roster in the TUI.
 
@@ -158,6 +159,34 @@ mod records the id of the note, so a restart never submits it again. A note
 that arrives while a permission request is open waits. The turn of a note is
 not an instruction cycle, so the note changes no state of the task. The main
 session uses the same four tools for every backend. See ADR 0024.
+
+## The store of the facts
+
+The main session controls a store of facts. A fact has a key, a text, a
+writer, a time and a state. The text holds 4000 characters at most. A new
+fact with an existing key replaces the older fact, and the replaced line
+stays in the file.
+
+The worker proposes a fact with `wezterm_worker_propose_fact`. The proposal
+waits in the file `.wezterm-worker-facts-proposed.jsonl` of the session
+directory of the worker. Only the worker writes that file. A proposed fact
+changes nothing for another worker.
+
+The main session manages the store with `wezterm_worker_facts`. The action
+`list` shows the promoted facts. The action `set` writes a fact that the main
+session names itself. The action `promote` copies a proposed fact of one
+worker. The action `retract` withdraws a promoted fact. The promoted facts
+live in the file `facts/<session id>.jsonl` of the state directory. Only the
+main session writes that file, and the extension never removes it. A session
+without an identity refuses to write.
+
+A retraction is a new line in the same file. The line of the fact stays, and
+a reader ignores a retracted key. A worker that already started keeps its
+snapshot. The reply of a retraction names this limit.
+
+A Claude Code worker proposes a fact through the bridge of its run. Its mod
+never reads a fact file. The mod asks the bridge, and the bridge writes the
+file. See ADR 0037.
 
 
 ## Usage
@@ -1049,6 +1078,9 @@ omp-wezterm-worker/
 │   │   ├── channel-select.ts    the selection of the notes of a channel
 │   │   ├── channel-delivery.ts  the worker notes of a delivery
 │   │   ├── channel-bridge.ts    the channel that the bridge serves to a worker
+│   │   ├── facts-model.ts       the fact that the main session promotes
+│   │   ├── facts-store.ts       the files of the facts
+│   │   ├── facts-bridge.ts      the facts that the bridge serves to a worker
 │   │   ├── report-binding.ts    the binding of a report to its instruction cycle
 │   │   ├── report-decision.ts   the decision that the reports produce
 │   │   ├── report-reminder.ts   the reminder for a cycle without a report
@@ -1142,6 +1174,7 @@ omp-wezterm-worker/
 │   │       ├── commands.js      the poll of the steering instructions
 │   │       ├── events.js        the handlers of the events of a session
 │   │       ├── channel.js       the note channel of the worker
+│   │       ├── facts.js         the fact tool of the worker
 │   │       ├── report.js        the report tool of the worker
 │   │       └── background.js    the background tasks of the worker
 │   └── worker-tools/            one module for each tool
@@ -1155,6 +1188,8 @@ omp-wezterm-worker/
 │       ├── notes-from-main.ts   the notes of the main session for a worker
 │       ├── note-to-worker.ts    the note of the main session for a worker
 │       ├── notes-from-worker.ts the notes of a worker for the main session
+│       ├── facts.ts             the facts of the main session
+│       ├── propose-fact.ts      the proposed fact of a worker
 │       └── roster.ts            the /wezterm-workers command
 ├── scripts/
 │   ├── _paths.sh                shared Windows-path helpers
@@ -1237,6 +1272,9 @@ omp-wezterm-worker/
 │   ├── worker-channel.test.ts   the channel tools of the main session and the worker
 │   ├── worker-channel-delivery.test.ts the notes in the delivery and in the status
 │   ├── worker-channel-helpers.ts the helpers of the tests of the channel
+│   ├── facts-store.test.ts     the files of the facts and the read of a key list
+│   ├── facts-tools.test.ts     the facts tools of the main session and the worker
+│   ├── claude-fact-tool.test.ts the fact tool of a Claude Code worker
 │   ├── error-drain.test.ts      the report of the errors at the end of a session
 │   ├── backend.test.ts          the backend of a run and the report binding
 │   ├── legacy-codex-run.test.ts a run of the removed backend and its refusals

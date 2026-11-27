@@ -48,11 +48,13 @@ import { registerWorkerBootstrap } from "./lib/worker-bootstrap.ts";
 import { registerAckTool } from "./worker-tools/ack.ts";
 import { registerCancelTool } from "./worker-tools/cancel.ts";
 import { registerCleanupTool } from "./worker-tools/cleanup.ts";
+import { registerFactsTool } from "./worker-tools/facts.ts";
 import { registerNoteToMainTool } from "./worker-tools/note-to-main.ts";
 import { registerNoteToWorkerTool } from "./worker-tools/note-to-worker.ts";
 import { registerNotesFromMainTool } from "./worker-tools/notes-from-main.ts";
 import { registerNotesFromWorkerTool } from "./worker-tools/notes-from-worker.ts";
 import { registerPeekTool } from "./worker-tools/peek.ts";
+import { registerProposeFactTool } from "./worker-tools/propose-fact.ts";
 import { registerPruneTool } from "./worker-tools/prune.ts";
 import { registerReleaseTool } from "./worker-tools/release.ts";
 import { registerReportTool } from "./worker-tools/report.ts";
@@ -101,6 +103,7 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 		registerReportTool({ pi, rt, deliver: () => {} });
 		registerNoteToMainTool({ pi, rt, deliver: () => {} });
 		registerNotesFromMainTool({ pi, rt, deliver: () => {} });
+		registerProposeFactTool({ pi, rt, deliver: () => {} });
 		registerWorkerBootstrap(rt, pi);
 		return;
 	}
@@ -328,5 +331,6 @@ export default function weztermWorkerExtension(pi: ExtensionAPI) {
 	registerTakeoverTool(deps);
 	registerNoteToWorkerTool(deps);
 	registerNotesFromWorkerTool(deps);
+	registerFactsTool(deps);
 	registerRosterCommand(deps);
 }
