@@ -1,6 +1,6 @@
 # A launch proves that the worker took its task
 
-Status: accepted. The owner chose this design on 2026-11-11.
+Status: accepted. The owner chose this design on 2026-11-11. The amendment of 2026-11-27 keeps the decision and changes the proof of a resume.
 
 ## Context
 
@@ -27,7 +27,8 @@ worker.
 
 ### The evidence
 
-The evidence is one of two facts. The launch checks them in this order:
+The evidence of a spawn is one of two facts. The launch checks them in this
+order:
 
 - a session file in the session directory of the worker that the send
   created
@@ -35,7 +36,8 @@ The evidence is one of two facts. The launch checks them in this order:
 
 The size before the send is the baseline. A resume shares its session
 directory with the run that it resumes, so the old transcript proves nothing
-about the delivery of the new task.
+about the delivery of the new task. The evidence of a resume is the text of
+its message. The amendment of 2026-11-27 states that rule.
 
 ### The wait
 
@@ -82,5 +84,39 @@ arrives, when the Enter key arrives, or never. The tests of the launch read
 the key presses and the prompts of the fake. They see that the launch sends
 the task exactly one time.
 
+The fake of a resume appends to the transcript of the source run. It appends
+only the entry of the memory plugin, or it records the message as a user
+message. The tests of a resume see the two results of issue 249.
+
 The limit of the wait is a parameter of the runtime. A test sets a short
 value, so the tests of the launch do not sleep for 60 seconds.
+
+## Amendment of 2026-11-27
+
+Issue 249 reported a resume of an OMP worker that never delivered its
+message.
+
+The evidence of the issue shows the defect. The `draft.txt` file of the
+resumed run holds the exact resume message, so OMP wrote the text when the
+pane closed. The text was never submitted. The transcript holds the resume
+message zero times as a user message. The `deliveryEvidence` function
+compares file sizes only, so the `memory-bootstrap` entry that the
+`memory-port` plugin writes at `session_start` counted as the proof. The
+launch reported success while the message stayed in the composer.
+
+The cause of the composer that did not submit the text is unproven. The log
+of Herdr holds no readiness state, so the log cannot show it.
+
+The amendment changes the proof of a resume. The proof of a resume is the
+text of the message. The proof is true only when the transcript records a
+user message whose trimmed text equals the trimmed resume message, and the
+baseline did not hold that message. The comparison of the messages is the
+one that `steerWorker` uses, so the comparison lives in a shared module of
+`extensions/lib/`.
+
+The proof of a spawn is unchanged. A spawn keeps the size proof, because a
+spawn creates its own session directory.
+
+The wait, the one Enter and the failure path stay as they are. The launch
+never sends the text again. A resume whose proof stays absent after the
+Enter fails, and the launch closes the pane that it opened.

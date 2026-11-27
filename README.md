@@ -428,9 +428,11 @@ new session id, and attach tasks that the new session already owns. See
    can put extra text into it. The task is not an argv element: Herdr refuses an
    argument with a line break, and a real task has line breaks. The extension
    sends the task with `herdr agent prompt` after the worker is ready.
-2. The launch then proves that the worker took the task. The proof is a
-   session file that the send created, or a transcript that grew past the size
-   that it had before the send. The launch polls the proof every 1000 ms, at
+2. The launch then proves that the worker took the task. The proof of a spawn
+   is a session file that the send created, or a transcript that grew past the
+   size that it had before the send. The proof of a resume is the text of its
+   message, because a resume shares the transcript of its source run. The
+   launch polls the proof every 1000 ms, at
    most 30 times. When the proof stays absent, the launch sends one
    `herdr pane send-keys <pane> enter`. That Enter key submits the pasted
    block that the OMP TUI renders for a long multi-line task. It is not a
@@ -843,6 +845,13 @@ takeover settles the attempts of the task that it took.
 whole history and can get a follow-up instruction. This is the only way
 to continue a worker that completed already. Steering needs a live pane.
 
+**The proof of a resume is the text of its message.** A resume shares the
+transcript of its source run. The memory plugin appends an entry at the start
+of every session, so the size of that transcript proves nothing about the
+delivery. The extension therefore waits until the transcript records the
+message as a user message. A resume without a message sends nothing, so it
+needs no proof.
+
 **The follow-up instruction of a resume is scored.** The instruction reaches a
 worker, so the resume scores it in Simplified Technical English like the
 instruction of a steer. The enforce mode refuses a low score before the
@@ -1118,6 +1127,7 @@ omp-wezterm-worker/
 │   │   ├── pane-launch.ts       opening a pane and starting a worker in it
 │   │   ├── pane-launch-wezterm.ts opening a WezTerm pane for a worker
 │   │   ├── launch-delivery.ts   the proof that a worker took its task
+│   │   ├── transcript-messages.ts the user messages that a transcript records
 │   │   ├── worktree.ts          the isolated git worktree
 │   │   ├── cleanup-action.ts    the cleanup of one worker, with every gate
 │   │   ├── prune.ts             the decision of the prune
@@ -1373,6 +1383,9 @@ omp-wezterm-worker/
 │   ├── launch-delivery.test.ts the proof that a worker took its task
 │   ├── launch-delivery-proof.test.ts the launch that proves the delivery
 │   ├── delivery-helpers.ts     the helpers of the tests of the delivery proof
+│   ├── resume-proof.test.ts    the proof of a resume
+│   ├── resume-delivery.test.ts the launch of a resume
+│   ├── resume-delivery-helpers.ts the fake of Herdr for a resume
 │   ├── worker.integration.test.ts    a real worker in a real pane
 │   ├── nested.integration.test.ts    the launch limits with a real worker
 │   ├── worktree.integration.test.ts  the worktree of a real worker
@@ -1474,6 +1487,8 @@ breaks a test.
 | `claude-contract-file.test.ts` | The contract file holds the reporting contract and the same bytes for every run. A spawn on Herdr gives the program the path of the contract file. A spawn on Herdr starts Claude bare, then sends the one-line task prompt through the agent prompt. A resume writes its own contract file. |
 | `launch-delivery.test.ts` | The default bound waits 1000 ms and polls 30 times. A session file that the send created is the evidence. A transcript that grew past the size of the baseline is the evidence. A transcript of the size of the baseline is no evidence. The action waits before the bound and sends one Enter at the bound. The action fails after the Enter and the bound. The wait sends one Enter and returns when the worker took the task. The wait fails when the worker never took the task. The wait sends no Enter when the worker took the task at once. |
 | `launch-delivery-proof.test.ts` | A task that arrives at once needs no Enter and keeps the pane. A task that arrives only after the Enter gets exactly one Enter. A task that never arrives fails the launch and closes the pane. A launch without a task sends no prompt and no Enter. |
+| `resume-proof.test.ts` | A bootstrap entry does not confirm the delivery of a resume message. A message that the transcript already held does not confirm the delivery. |
+| `resume-delivery.test.ts` | A resume whose message stays in the composer fails after the bound. A resume whose message reaches the transcript succeeds. A resume sends one Enter after the bound and never sends the message twice. |
 | `worker.integration.test.ts` | A real worker completes. The result is delivered. The pane closes. The registry survives a new process. A resumed worker answers the new message. |
 | `worktree.integration.test.ts` | The worktree survives the worker. Cleanup keeps a worktree with changes. Cleanup with force removes it, and the branch survives. |
 | `native-worktree.integration.test.ts` | A native worker gets its own worktree. A native worker finds its bridge through the handover file. |

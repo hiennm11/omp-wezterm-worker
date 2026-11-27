@@ -11,7 +11,7 @@ import type { Job } from "./job.ts";
 import { sendToPane } from "./pane.ts";
 import { delay } from "./process.ts";
 import type { WorkerRuntime } from "./runtime.ts";
-import { listSessionFiles, summarizeSession } from "./transcript.ts";
+import { freshMessages, recordedUserMessages } from "./transcript-messages.ts";
 
 /** The number of checks of the transcript after one send. */
 const CONFIRM_POLLS = 60;
@@ -34,45 +34,6 @@ export interface SteerOutcome {
 	ok: boolean;
 	error: string | null;
 	attempts: number;
-}
-
-/**
- * The user messages that the worker's transcript records, in order.
- *
- * The order matters, because only the messages that the transcript gained
- * after the send can confirm that send.
- */
-function recordedUserMessages(sessionDir: string): string[] {
-	const files = listSessionFiles(sessionDir);
-	if (files.length === 0) return [];
-	return summarizeSession(files[0]).userMessages;
-}
-
-/**
- * The messages that the transcript gained after the send.
- *
- * Each recorded text is matched against the messages of the baseline. A text
- * that the baseline already held does not confirm the send, unless the
- * transcript records that text again. The comparison uses the trimmed text,
- * so a change of spacing does not look like a new message.
- */
-function freshMessages(before: string[], after: string[]): string[] {
-	const remaining = new Map<string, number>();
-	for (const text of before) {
-		const key = text.trim();
-		remaining.set(key, (remaining.get(key) ?? 0) + 1);
-	}
-	const fresh: string[] = [];
-	for (const text of after) {
-		const key = text.trim();
-		const count = remaining.get(key) ?? 0;
-		if (count > 0) {
-			remaining.set(key, count - 1);
-		} else {
-			fresh.push(key);
-		}
-	}
-	return fresh;
 }
 
 /**

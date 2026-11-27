@@ -40,8 +40,9 @@ export async function launchPane(
 	ompArgs: string[],
 	env?: NodeJS.ProcessEnv,
 	task?: string,
+	proof?: DeliveryProof,
 ): Promise<string | null> {
-	return launchProgram(rt, job, "omp", ompArgs, env, task);
+	return launchProgram(rt, job, "omp", ompArgs, env, task, proof);
 }
 
 /**
