@@ -13,6 +13,7 @@
  */
 
 import { appendSessionEntry, bootstrapEntry, userMessageEntry } from "./delivery-helpers.ts";
+import { type HerdrFake, herdrFake } from "./herdr-fake.ts";
 
 /** The delivery that the fake models. */
 export type ResumeDelivery = "bootstrap-only" | "message";
